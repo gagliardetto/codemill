@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no" />
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <title>codemill</title>
+    <!-- Load required Bootstrap and BootstrapVue CSS -->
+    <link type="text/css" rel="stylesheet" href="static/bootstrap.min.css" crossorigin="anonymous" />
+    <link type="text/css" rel="stylesheet" href="static/bootstrap-vue.min.css" crossorigin="anonymous" />
+    <!-- Load Vue followed by BootstrapVue -->
+    <!-- VueJS development version, includes helpful console warnings -->
+    <script src="static/vue.js" crossorigin="anonymous"></script>
+    <script src="static/bootstrap-vue.min.js" crossorigin="anonymous"></script>
+    <!-- Load the following for BootstrapVueIcons support -->
+    <script src="static/bootstrap-vue-icons.min.js" crossorigin="anonymous"></script>
+    <style type="text/css">
+    .hidden {
+        display: none;
+    }
+
+    hr {
+        margin-top: 1rem;
+        margin-bottom: 1rem;
+        border: 0;
+        border-top: 1px solid rgba(0, 0, 0, 0.1);
+    }
+    </style>
+</head>
+
+<body>
+    <div id="codemill-app">
+        <!-- Content here -->
+        <b-container>
+            <b-form v-on:submit.prevent="search">
+                <label for="search-input-field">Search</label>
+                <b-input-group class="mt-3">
+                    <b-form-input type="search" id="search-input-field" v-model="currentSearch" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
+                    <b-input-group-append>
+                        <b-button variant="primary" @click="search" :disabled="isBusy">{{isBusy ? "Searching..." : "Search" }}</b-button>
+                    </b-input-group-append>
+                </b-input-group>
+                <b-form-text id="search-help-block">
+                    Search public Go packages.
+                </b-form-text>
+                    <b-card v-bind:class="{ hidden: !isBusy }">
+                        <b-skeleton animation="wave" width="85%"></b-skeleton>
+                        <b-skeleton animation="wave" width="55%"></b-skeleton>
+                        <b-skeleton animation="wave" width="70%"></b-skeleton>
+                    </b-card>
+                    <b-list-group v-bind:class="{ hidden: isBusy }">
+                        <b-list-group-item v-for="foundItem in searchResults">
+                            <b-row>
+                                <b-col align-self="start">
+                                    "{{ foundItem.path }}" as "{{ foundItem.name }}" (imported {{ foundItem.import_count }} times, {{ foundItem.stars }} stars)
+                                </b-col>
+                                <b-col align-self="end" lg="1">
+                                    <b-dropdown text="Select" variant="success" size="sm" @show="listVersions(foundItem)">
+                                        <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }">
+                                            <b-spinner type="grow" label="Spinning"></b-spinner>
+                                        </b-dropdown-item>
+                                        <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key">
+                                            {{ version }}
+                                        </b-dropdown-item>
+                                    </b-dropdown>
+                                </b-col>
+                            </b-row>
+                        </b-list-group-item>
+                    </b-list-group>
+            </b-form>
+        </b-container>
+    </div>
+    <script type="text/javascript">
+    function cc(...elems) {
+        return elems.join("-")
+    }
+
+    window.onload = () => {
+        var srcapp = new Vue({
+            el: '#codemill-app',
+            data: {
+                source: null,
+                searchResults: [],
+                currentSearch: null,
+                currentSearchOut: null,
+                isBusy: false
+            },
+            created() {
+                this.doSearch("gin");
+            },
+            updated() {
+
+            },
+            mounted() {
+
+            },
+            methods: {
+                cc: function(...elems) {
+                    return elems.join("-")
+                },
+                len: function(elem) {
+                    if (elem == null) { return 0 }
+                    return elem.length
+                },
+                marshal(obj) {
+                    return JSON.stringify(obj)
+                },
+                search() {
+                    this.currentSearchOut = this.currentSearch.trim();
+                    this.doSearch(this.currentSearchOut);
+                },
+                listVersions(searchItem) {
+                    console.log("getting list of versions...");
+                    console.log(searchItem);
+                    let url = '/api/versions?path=' + searchItem.path;
+
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(json => {
+                            searchItem.versions = json;
+                            searchItem.gotVersions = true;
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                        });
+                },
+                doSearch(searchText) {
+                    this.isBusy = true;
+                    let url = '/api/search?q=' + searchText;
+
+                    fetch(url)
+                        .then(response => response.json())
+                        .then(json => {
+                            this.isBusy = false;
+
+                            let gotResults = [];
+
+                            json.results.forEach(function(item, itemIndex) {
+                                item.versions = [];
+                                item.gotVersions = false;
+                                gotResults.push(item);
+                            });
+                            this.searchResults = gotResults;
+                        })
+                        .catch((error) => {
+                            this.isBusy = false;
+                            console.error('Error:', error);
+                        });
+                }
+            }
+        })
+    }
+    </script>
+</body>
+
+</html>
