@@ -70,7 +70,7 @@
                                     <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }" class="text-center align-items-center">
                                         <b-spinner type="grow" label="Spinning" align-h="center"></b-spinner>
                                     </b-dropdown-item>
-                                    <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key">
+                                    <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key" @click="selectedVersion(foundItem.path,version)">
                                         {{ version }}
                                     </b-dropdown-item>
                                 </b-dropdown>
@@ -162,6 +162,9 @@
                                 this.makeToast("danger", "Error", body.error);
                             });
                         });
+                },
+                selectedVersion(path, version){
+                  console.log("selected:", path, version);
                 },
                 doSearch(searchText) {
                     this.isBusy = true;
