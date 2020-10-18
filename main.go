@@ -6,6 +6,7 @@ import (
 
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/get"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/modfetch"
+	"github.com/gagliardetto/codemill/cmd/go/not-internal/search"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/web"
 	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
@@ -43,6 +44,12 @@ func main() {
 		// Use default Golang proxy (???)
 		proxy := "https://proxy.golang.org/"
 
+		isStd := search.IsStandardImportPath(path)
+		if isStd {
+			c.AbortWithStatusJSON(400, M{"error": "path is standard library"})
+			return
+		}
+
 		// Find out the root of the package:
 		root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
 		if err != nil {
@@ -75,8 +82,10 @@ func main() {
 			}
 			versions = []string{latest.Version}
 		}
-		c.IndentedJSON(200, versions)
+		c.IndentedJSON(200, M{"results": versions})
 	})
 
 	r.Run() // listen and serve on 0.0.0.0:8080
 }
+
+type M map[string]interface{}

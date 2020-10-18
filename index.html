@@ -45,33 +45,53 @@
                 <b-form-text id="search-help-block">
                     Search public Go packages.
                 </b-form-text>
-                    <b-card v-bind:class="{ hidden: !isBusy }">
-                        <b-skeleton animation="wave" width="85%"></b-skeleton>
-                        <b-skeleton animation="wave" width="55%"></b-skeleton>
-                        <b-skeleton animation="wave" width="70%"></b-skeleton>
-                    </b-card>
-                    <b-list-group v-bind:class="{ hidden: isBusy }">
-                        <b-list-group-item v-for="foundItem in searchResults">
-                            <b-row>
-                                <b-col align-self="start">
-                                    "{{ foundItem.path }}" as "{{ foundItem.name }}" (imported {{ foundItem.import_count }} times, {{ foundItem.stars }} stars)
-                                </b-col>
-                                <b-col align-self="end" lg="1">
-                                    <b-dropdown text="Select" variant="success" size="sm" @show="listVersions(foundItem)">
-                                        <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }">
-                                            <b-spinner type="grow" label="Spinning"></b-spinner>
-                                        </b-dropdown-item>
-                                        <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key">
-                                            {{ version }}
-                                        </b-dropdown-item>
-                                    </b-dropdown>
-                                </b-col>
-                            </b-row>
-                        </b-list-group-item>
-                    </b-list-group>
+                <b-list-group v-bind:class="{ hidden: !isBusy }">
+                    <b-list-group-item>
+                        <b-skeleton animation="wave" width="85%" type="input"></b-skeleton>
+                    </b-list-group-item>
+                    <b-list-group-item>
+                        <b-skeleton animation="wave" width="55%" type="input"></b-skeleton>
+                    </b-list-group-item>
+                    <b-list-group-item>
+                        <b-skeleton animation="wave" width="70%" type="input"></b-skeleton>
+                    </b-list-group-item>
+                </b-list-group>
+                <b-list-group v-bind:class="{ hidden: isBusy }">
+                    <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis">
+                        <b-row class="mr-1">
+                            <b-col align-self="start">
+                                <span class="text-monospace float-left d-inline-block text-truncate"><b>{{foundItem.path}}</b> as "{{foundItem.name}}"</span>
+                                <span class="float-right">
+                                    <span title="Imported N times">{{foundItem.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span> | <span title="Starred N times">{{foundItem.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
+                                </span>
+                            </b-col>
+                            <b-col align-self="end" lg="1">
+                                <b-dropdown text="Select" variant="success" size="sm" @show="listVersions(foundItem)">
+                                    <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }" class="text-center align-items-center">
+                                        <b-spinner type="grow" label="Spinning" align-h="center"></b-spinner>
+                                    </b-dropdown-item>
+                                    <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key">
+                                        {{ version }}
+                                    </b-dropdown-item>
+                                </b-dropdown>
+                            </b-col>
+                        </b-row>
+                    </b-list-group-item>
+                </b-list-group>
             </b-form>
         </b-container>
     </div>
+    <template>
+        <div>
+            <b-button @click="makeToast()" class="mb-2">Default</b-button>
+            <b-button variant="primary" @click="makeToast('primary')" class="mb-2">Primary</b-button>
+            <b-button variant="secondary" @click="makeToast('secondary')" class="mb-2">Secondary</b-button>
+            <b-button variant="danger" @click="makeToast('danger')" class="mb-2">Danger</b-button>
+            <b-button variant="warning" @click="makeToast('warning')" class="mb-2">Warning</b-button>
+            <b-button variant="success" @click="makeToast('success')" class="mb-2">Success</b-button>
+            <b-button variant="info" @click="makeToast('info')" class="mb-2">Info</b-button>
+        </div>
+    </template>
     <script type="text/javascript">
     function cc(...elems) {
         return elems.join("-")
@@ -107,6 +127,14 @@
                 marshal(obj) {
                     return JSON.stringify(obj)
                 },
+                makeToast(variant = null, title, body) {
+                    this.$bvToast.toast(
+                        body, {
+                            title: title,
+                            variant: variant,
+                            solid: true
+                        })
+                },
                 search() {
                     this.currentSearchOut = this.currentSearch.trim();
                     this.doSearch(this.currentSearchOut);
@@ -117,13 +145,22 @@
                     let url = '/api/versions?path=' + searchItem.path;
 
                     fetch(url)
-                        .then(response => response.json())
+                        .then(response => {
+                            if (response.ok) {
+                                return response.json()
+                            } else {
+                                throw response;
+                            }
+                        })
                         .then(json => {
-                            searchItem.versions = json;
+                            searchItem.versions = json.results;
                             searchItem.gotVersions = true;
                         })
                         .catch((error) => {
                             console.error('Error:', error);
+                            error.json().then((body) => {
+                                this.makeToast("danger", "Error", body.error);
+                            });
                         });
                 },
                 doSearch(searchText) {
@@ -131,7 +168,13 @@
                     let url = '/api/search?q=' + searchText;
 
                     fetch(url)
-                        .then(response => response.json())
+                        .then(response => {
+                            if (response.ok) {
+                                return response.json()
+                            } else {
+                                throw response;
+                            }
+                        })
                         .then(json => {
                             this.isBusy = false;
 
@@ -147,6 +190,9 @@
                         .catch((error) => {
                             this.isBusy = false;
                             console.error('Error:', error);
+                            error.json().then((body) => {
+                                this.makeToast("danger", "Error", body.error);
+                            });
                         });
                 }
             }
