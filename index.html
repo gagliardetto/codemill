@@ -43,13 +43,13 @@
                         <b-input-group class="mt-3">
                             <b-form-input type="search" id="search-input-field" v-model="currentSearch" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
                             <b-input-group-append>
-                                <b-button variant="primary" @click="search" :disabled="isBusy">{{isBusy ? "Searching..." : "Search" }}</b-button>
+                                <b-button variant="primary" @click="search" :disabled="isBusy.search">{{isBusy.search ? "Searching..." : "Search" }}</b-button>
                             </b-input-group-append>
                         </b-input-group>
                         <b-form-text id="search-help-block">
                             Search public Go packages.
                         </b-form-text>
-                        <b-list-group v-bind:class="{ hidden: !isBusy }">
+                        <b-list-group v-bind:class="{ hidden: !isBusy.search }">
                             <b-list-group-item>
                                 <b-skeleton animation="wave" width="85%" type="input"></b-skeleton>
                             </b-list-group-item>
@@ -60,7 +60,7 @@
                                 <b-skeleton animation="wave" width="70%" type="input"></b-skeleton>
                             </b-list-group-item>
                         </b-list-group>
-                        <b-list-group v-bind:class="{ hidden: isBusy }">
+                        <b-list-group v-bind:class="{ hidden: isBusy.search }">
                             <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis">
                                 <b-row class="mr-1">
                                     <b-col align-self="start">
@@ -114,7 +114,9 @@
                 searchResults: [],
                 currentSearch: null,
                 currentSearchOut: null,
-                isBusy: false
+                isBusy: {
+                  search: false
+                }
             },
             created() {
                 this.doSearch("gin");
@@ -176,7 +178,7 @@
                     console.log("selected:", path, version);
                 },
                 doSearch(searchText) {
-                    this.isBusy = true;
+                    this.isBusy.search = true;
                     let url = '/api/search?q=' + searchText;
 
                     fetch(url)
@@ -188,7 +190,7 @@
                             }
                         })
                         .then(json => {
-                            this.isBusy = false;
+                            this.isBusy.search = false;
 
                             let gotResults = [];
 
@@ -200,7 +202,7 @@
                             this.searchResults = gotResults;
                         })
                         .catch((error) => {
-                            this.isBusy = false;
+                            this.isBusy.search = false;
                             console.error('Error:', error);
                             error.json().then((body) => {
                                 this.makeToast("danger", "Error", body.error);
