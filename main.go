@@ -3,15 +3,23 @@ package main
 import (
 	"net/http"
 	"net/url"
+	"os"
 	"sort"
 
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/get"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/modfetch"
+	"github.com/gagliardetto/codemill/cmd/go/not-internal/modload"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/search"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/web"
 	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/mod/module"
+)
+
+const (
+	// Use default Golang proxy (???)
+	proxy = "https://proxy.golang.org/"
 )
 
 func main() {
@@ -42,8 +50,6 @@ func main() {
 	r.GET("/api/versions", func(c *gin.Context) {
 
 		path := c.Query("path")
-		// Use default Golang proxy (???)
-		proxy := "https://proxy.golang.org/"
 
 		isStd := search.IsStandardImportPath(path)
 		if isStd {
@@ -86,11 +92,48 @@ func main() {
 			if err != nil {
 				panic(err)
 			}
+			Q(latest)
 			versions = []string{latest.Version}
 		}
 		c.IndentedJSON(200, M{"results": versions})
 	})
 
+	r.POST("/api/download", func(c *gin.Context) {
+
+		path := c.Query("path")
+		version := c.Query("v")
+
+		isStd := search.IsStandardImportPath(path)
+		if isStd {
+			c.AbortWithStatusJSON(400, M{"error": Sf("Package %q is from the standard library", path)})
+			return
+		}
+
+		// Find out the root of the package:
+		root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
+		if err != nil {
+			panic(err)
+		}
+		Q(root)
+		path = root.Root
+
+		// Lookup the repo:
+		repo, err := modfetch.Lookup(proxy, path)
+		if err != nil {
+			panic(err)
+		}
+		_ = repo
+
+		mod := module.Version{
+			Path:    path,
+			Version: version,
+		}
+
+		Q(modload.Import(path))
+		modfetch.PkgMod = os.ExpandEnv("$GOPATH/pkg/mod")
+
+		Q(modfetch.Download(mod))
+	})
 	r.Run() // listen and serve on 0.0.0.0:8080
 }
 
