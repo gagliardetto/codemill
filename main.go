@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 	"net/url"
+	"sort"
 
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/get"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/modfetch"
@@ -46,7 +47,7 @@ func main() {
 
 		isStd := search.IsStandardImportPath(path)
 		if isStd {
-			c.AbortWithStatusJSON(400, M{"error": "path is standard library"})
+			c.AbortWithStatusJSON(400, M{"error": Sf("Package %q is from the standard library", path)})
 			return
 		}
 
@@ -73,7 +74,12 @@ func main() {
 		if err != nil {
 			panic(err)
 		}
+
+		// Reverse versions' order to show the (presumably) most recent at the top of the list:
+		sort.Sort(sort.Reverse(sort.StringSlice(versions)))
+
 		Ln(versions)
+
 		// If no versions found, then get latest commit:
 		if len(versions) == 0 {
 			latest, err := repo.Latest()
