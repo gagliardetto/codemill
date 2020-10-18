@@ -34,64 +34,73 @@
     <div id="codemill-app">
         <!-- Content here -->
         <b-container>
-            <b-form v-on:submit.prevent="search">
-                <label for="search-input-field">Search</label>
-                <b-input-group class="mt-3">
-                    <b-form-input type="search" id="search-input-field" v-model="currentSearch" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
-                    <b-input-group-append>
-                        <b-button variant="primary" @click="search" :disabled="isBusy">{{isBusy ? "Searching..." : "Search" }}</b-button>
-                    </b-input-group-append>
-                </b-input-group>
-                <b-form-text id="search-help-block">
-                    Search public Go packages.
-                </b-form-text>
-                <b-list-group v-bind:class="{ hidden: !isBusy }">
-                    <b-list-group-item>
-                        <b-skeleton animation="wave" width="85%" type="input"></b-skeleton>
-                    </b-list-group-item>
-                    <b-list-group-item>
-                        <b-skeleton animation="wave" width="55%" type="input"></b-skeleton>
-                    </b-list-group-item>
-                    <b-list-group-item>
-                        <b-skeleton animation="wave" width="70%" type="input"></b-skeleton>
-                    </b-list-group-item>
-                </b-list-group>
-                <b-list-group v-bind:class="{ hidden: isBusy }">
-                    <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis">
-                        <b-row class="mr-1">
-                            <b-col align-self="start">
-                                <span class="text-monospace float-left d-inline-block text-truncate"><b>{{foundItem.path}}</b> as "{{foundItem.name}}"</span>
-                                <span class="float-right">
-                                    <span title="Imported N times">{{foundItem.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span> | <span title="Starred N times">{{foundItem.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
-                                </span>
-                            </b-col>
-                            <b-col align-self="end" lg="1">
-                                <b-dropdown text="Select" variant="success" size="sm" @show="listVersions(foundItem)">
-                                    <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }" class="text-center align-items-center">
-                                        <b-spinner type="grow" label="Spinning" align-h="center"></b-spinner>
-                                    </b-dropdown-item>
-                                    <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key" @click="selectedVersion(foundItem.path,version)">
-                                        {{ version }}
-                                    </b-dropdown-item>
-                                </b-dropdown>
-                            </b-col>
-                        </b-row>
-                    </b-list-group-item>
-                </b-list-group>
-            </b-form>
+            <!-- Modal for importing a package to the workspace -->
+            <template>
+                <b-button v-b-modal.modal-list-remote-packages>Import a package to workspace</b-button>
+                <b-modal id="modal-list-remote-packages" scrollable title="Import a package" size="xl">
+                    <b-form v-on:submit.prevent="search">
+                        <label for="search-input-field">Search</label>
+                        <b-input-group class="mt-3">
+                            <b-form-input type="search" id="search-input-field" v-model="currentSearch" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
+                            <b-input-group-append>
+                                <b-button variant="primary" @click="search" :disabled="isBusy">{{isBusy ? "Searching..." : "Search" }}</b-button>
+                            </b-input-group-append>
+                        </b-input-group>
+                        <b-form-text id="search-help-block">
+                            Search public Go packages.
+                        </b-form-text>
+                        <b-list-group v-bind:class="{ hidden: !isBusy }">
+                            <b-list-group-item>
+                                <b-skeleton animation="wave" width="85%" type="input"></b-skeleton>
+                            </b-list-group-item>
+                            <b-list-group-item>
+                                <b-skeleton animation="wave" width="55%" type="input"></b-skeleton>
+                            </b-list-group-item>
+                            <b-list-group-item>
+                                <b-skeleton animation="wave" width="70%" type="input"></b-skeleton>
+                            </b-list-group-item>
+                        </b-list-group>
+                        <b-list-group v-bind:class="{ hidden: isBusy }">
+                            <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis">
+                                <b-row class="mr-1">
+                                    <b-col align-self="start">
+                                        <span class="text-monospace float-left d-inline-block text-truncate"><b>{{foundItem.path}}</b> as "{{foundItem.name}}"</span>
+                                        <span class="float-right">
+                                            <span title="Imported N times">{{foundItem.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span> | <span title="Starred N times">{{foundItem.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
+                                        </span>
+                                    </b-col>
+                                    <b-col align-self="end" lg="1">
+                                        <b-dropdown text="Select" variant="success" size="sm" @show="listVersions(foundItem)">
+                                            <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }" class="text-center align-items-center">
+                                                <b-spinner type="grow" label="Spinning" align-h="center"></b-spinner>
+                                            </b-dropdown-item>
+                                            <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key" @click="selectedVersion(foundItem.path,version)">
+                                                {{ version }}
+                                            </b-dropdown-item>
+                                        </b-dropdown>
+                                    </b-col>
+                                </b-row>
+                            </b-list-group-item>
+                        </b-list-group>
+                    </b-form>
+                </b-modal>
+            </template>
+
+            <!-- Modal for listing packages available locally in the workspace -->
+            <template>
+                <b-button v-b-modal.modal-list-local-packages>List local packages</b-button>
+                <b-modal id="modal-list-local-packages" scrollable title="Local packages" size="xl">
+                </b-modal>
+            </template>
+
+            <!-- Modal for selecting code from a package -->
+            <template>
+                <b-button v-b-modal.modal-show-package>Show code inside package</b-button>
+                <b-modal id="modal-show-package" scrollable title="Select code" size="xl">
+                </b-modal>
+            </template>
         </b-container>
     </div>
-    <template>
-        <div>
-            <b-button @click="makeToast()" class="mb-2">Default</b-button>
-            <b-button variant="primary" @click="makeToast('primary')" class="mb-2">Primary</b-button>
-            <b-button variant="secondary" @click="makeToast('secondary')" class="mb-2">Secondary</b-button>
-            <b-button variant="danger" @click="makeToast('danger')" class="mb-2">Danger</b-button>
-            <b-button variant="warning" @click="makeToast('warning')" class="mb-2">Warning</b-button>
-            <b-button variant="success" @click="makeToast('success')" class="mb-2">Success</b-button>
-            <b-button variant="info" @click="makeToast('info')" class="mb-2">Info</b-button>
-        </div>
-    </template>
     <script type="text/javascript">
     function cc(...elems) {
         return elems.join("-")
@@ -163,8 +172,8 @@
                             });
                         });
                 },
-                selectedVersion(path, version){
-                  console.log("selected:", path, version);
+                selectedVersion(path, version) {
+                    console.log("selected:", path, version);
                 },
                 doSearch(searchText) {
                     this.isBusy = true;
