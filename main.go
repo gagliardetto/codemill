@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/url"
 	"os"
@@ -8,13 +9,14 @@ import (
 
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/get"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/modfetch"
-	"github.com/gagliardetto/codemill/cmd/go/not-internal/modload"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/search"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/web"
 	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
 	"github.com/gin-gonic/gin"
+	"golang.org/x/mod/modfile"
 	"golang.org/x/mod/module"
+	"golang.org/x/tools/go/packages"
 )
 
 const (
@@ -123,16 +125,58 @@ func main() {
 			panic(err)
 		}
 		_ = repo
+		modfileBytes, err := repo.GoMod(version)
+		if err != nil {
+			panic(err)
+		}
+
+		mf, err := modfile.Parse("go.mod", modfileBytes, nil)
+		if err != nil {
+			panic(err)
+		}
+
+		var args []string
+		for _, v := range mf.Require {
+			args = append(args, v.Mod.Path)
+			Q(modfetch.Download(v.Mod))
+		}
+
+		Q(mf)
 
 		mod := module.Version{
 			Path:    path,
 			Version: version,
 		}
 
-		Q(modload.Import(path))
 		modfetch.PkgMod = os.ExpandEnv("$GOPATH/pkg/mod")
 
-		Q(modfetch.Download(mod))
+		gotPath, err := modfetch.Download(mod)
+		if err != nil {
+			panic(err)
+		}
+		Q(gotPath, err)
+
+		{
+			config := &packages.Config{
+				Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
+					packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
+					packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedTypesSizes | packages.NeedModule,
+				//Dir:  path,
+			}
+			pkgs, err := packages.Load(config, path)
+			if err != nil {
+				panic(err)
+			}
+			Ln("parsed")
+			packages.PrintErrors(pkgs)
+
+			for _, pkg := range pkgs {
+				Q(pkg.Module)
+			}
+			for _, pkg := range pkgs {
+				fmt.Println(pkg.ID, pkg.GoFiles)
+			}
+		}
 	})
 	r.Run() // listen and serve on 0.0.0.0:8080
 }
