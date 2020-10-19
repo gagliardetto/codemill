@@ -137,6 +137,16 @@ func main() {
 				packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
 				packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedTypesSizes | packages.NeedModule,
 		}
+
+		// TODO: make dynamic dir:
+		config.Dir = "/home/laptop/go/src/github.com/gagliardetto/exp"
+		// TODO:
+		// - If you set `config.Dir` to a dir that contains a `go.mod` file,
+		// and a version of `path` package is specified in that `go.mod` file,
+		// then that specific version will be parsed.
+		// - You can have a temporary folder with only a `go.mod` file
+		// that contains a reuire for the package+version you want, and
+		// go will add the missing deps, and load that version you specified.
 		pkgs, err := packages.Load(config, path)
 		if err != nil {
 			panic(err)
