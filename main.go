@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"go/types"
 	"net/http"
 	"net/url"
 	"os"
@@ -24,6 +25,8 @@ const (
 	// Use default Golang proxy (???)
 	proxy = "https://proxy.golang.org/"
 )
+
+type M map[string]interface{}
 
 func main() {
 	r := gin.Default()
@@ -116,7 +119,7 @@ func main() {
 		c.IndentedJSON(200, M{"results": versions})
 	})
 
-	r.POST("/api/code", func(c *gin.Context) {
+	r.GET("/api/source", func(c *gin.Context) {
 		// Retrieve and parse the specified package.
 
 		path := c.Query("path")
@@ -129,36 +132,70 @@ func main() {
 			Infof("Package %q is part of standard library", path)
 		}
 
-		{
-			config := &packages.Config{
-				Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
-					packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
-					packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedTypesSizes | packages.NeedModule,
-			}
-			pkgs, err := packages.Load(config, path)
-			if err != nil {
-				panic(err)
-			}
-			Infof("Loaded package %q", path)
-			if packages.PrintErrors(pkgs) > 0 {
-				c.AbortWithStatusJSON(400, M{"error": Sf("Errors occurred while loading %q; see server logs.", path)})
-				return
-			}
-
-			for _, pkg := range pkgs {
-				Q(pkg.Module)
-			}
-			for _, pkg := range pkgs {
-				fmt.Println(pkg.ID, pkg.GoFiles)
-			}
+		config := &packages.Config{
+			Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
+				packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
+				packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedTypesSizes | packages.NeedModule,
 		}
+		pkgs, err := packages.Load(config, path)
+		if err != nil {
+			panic(err)
+		}
+		Infof("Loaded package %q", path)
+		if packages.PrintErrors(pkgs) > 0 {
+			c.AbortWithStatusJSON(400, M{"error": Sf("Errors occurred while loading %q; see server logs.", path)})
+			return
+		}
+
+		for _, pkg := range pkgs {
+			Q(pkg.Module)
+		}
+		for _, pkg := range pkgs {
+			fmt.Println(pkg.ID, pkg.GoFiles)
+		}
+
+		pkg := pkgs[0]
+
+		c.IndentedJSON(200, M{"results": pkg})
 
 	})
 
 	r.Run() // listen and serve on 0.0.0.0:8080
 }
 
-type M map[string]interface{}
+// Interfaces returns a map of interfaces which are declared in the package.
+func Interfaces(pkg *types.Package) map[string]*types.Interface {
+	ifs := map[string]*types.Interface{}
+
+	for _, name := range pkg.Scope().Names() {
+		o := pkg.Scope().Lookup(name)
+		if o != nil {
+			i, ok := o.Type().Underlying().(*types.Interface)
+			if ok {
+				ifs[name] = i
+			}
+		}
+	}
+
+	return ifs
+}
+
+// Structs returns a map of structs which are declared in the package.
+func Structs(pkg *types.Package) map[string]*types.Struct {
+	structs := map[string]*types.Struct{}
+
+	for _, name := range pkg.Scope().Names() {
+		o := pkg.Scope().Lookup(name)
+		if o != nil {
+			s, ok := o.Type().Underlying().(*types.Struct)
+			if ok {
+				structs[name] = s
+			}
+		}
+	}
+
+	return structs
+}
 
 func x() {
 	r := gin.Default()
