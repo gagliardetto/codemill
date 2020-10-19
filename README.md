@@ -35,4 +35,4 @@ find . -name '*.go' -exec sed -i -e 's/"internal\//"github.com\/gagliardetto\/co
 export GOPRIVATE=github.com/gagliardetto/gomill/\* 
 go env -w GOPRIVATE=github.com/<OrgNameHere>/*
 
-GO111MODULE=on GOOS=linux GOARCH=amd64 go run main.go
+GOPACKAGESDEBUG=true GO111MODULE=on GOOS=linux GOARCH=amd64 go run main.go
