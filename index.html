@@ -43,10 +43,10 @@
     <div id="codemill-app">
         <!-- Content here -->
         <b-container>
-            <!-- Modal for importing a package to the workspace -->
+            <!-- Modal for searching packages -->
             <template>
-                <b-button v-b-modal.modal-list-remote-packages>Import a package to workspace</b-button>
-                <b-modal id="modal-list-remote-packages" scrollable title="Import a package" size="xl">
+                <b-button v-b-modal.modal-list-remote-packages>Search packages</b-button>
+                <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl">
                     <b-form v-on:submit.prevent="search">
                         <label for="search-input-field">Search</label>
                         <b-input-group class="mt-3">
