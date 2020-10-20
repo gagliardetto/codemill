@@ -3,11 +3,15 @@ package main
 import (
 	"fmt"
 	"go/types"
+	"io/ioutil"
+	"log"
 	"net/http"
 	"net/url"
 	"os"
+	"path/filepath"
 	"runtime"
 	"sort"
+	"strings"
 
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/get"
 	"github.com/gagliardetto/codemill/cmd/go/not-internal/modfetch"
@@ -81,20 +85,6 @@ func main() {
 		Ln(repo.ModulePath())
 		Q(repo.Stat(""))
 
-		{ // Get only the latest version:
-			// TODO: return all versions (i.e. remove this) when I'll find a way to `packages.Load` a specific package version.
-			var versions []string
-			latest, err := repo.Latest()
-			if err != nil {
-				c.AbortWithStatusJSON(400, M{"error": Sf("Error getting latest version for %q: %s", path, err)})
-				return
-			}
-			Q(latest)
-			versions = []string{latest.Version}
-			c.IndentedJSON(200, M{"results": versions})
-			return
-		}
-
 		prefix := ""
 		// Get list of versions:
 		versions, err := repo.Versions(prefix)
@@ -124,7 +114,41 @@ func main() {
 
 		path := c.Query("path")
 		version := c.Query("v")
-		_ = version
+
+		if path == "" {
+			Abort400(c, "`path` parameter not specified")
+			return
+		}
+		if version == "" {
+			Abort400(c, "`v` (version) parameter not specified")
+			return
+		}
+		// Find out the root of the package:
+		root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
+		if err != nil {
+			panic(err)
+		}
+		Q(root)
+		// Lookup the repo:
+		repo, err := modfetch.Lookup(proxy, root.Root)
+		if err != nil {
+			panic(err)
+		}
+
+		rev, err := repo.Stat(version)
+		if err != nil {
+			Q(err)
+			if strings.Contains(err.Error(), "invalid version: unknown revision") {
+				// TODO: cleanup
+				e := err.(*module.ModuleError)
+				wE := e.Err.(*web.HTTPError)
+				Abort404(c, wE.Detail)
+			} else {
+				panic(err)
+			}
+		}
+		Q(rev)
+
 		Infof("Loading package %q", path)
 
 		isStd := search.IsStandardImportPath(path)
@@ -137,10 +161,40 @@ func main() {
 				packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
 				packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedTypesSizes | packages.NeedModule,
 		}
+		{
+			// Create a temporary folder:
+			tmpDir, err := ioutil.TempDir("", "codemill")
+			if err != nil {
+				log.Fatal(err)
+			}
+			//defer os.RemoveAll(tmpDir)
+			tmpDir = MustAbs(tmpDir)
+			Q(tmpDir)
 
-		// TODO: make dynamic dir:
-		config.Dir = "/home/laptop/go/src/github.com/gagliardetto/exp"
-		// TODO:
+			// Create a `go.mod` file requiring the specified version of the package:
+			mf := &modfile.File{}
+			mf.AddModuleStmt("example.com/hello/world")
+			mf.AddNewRequire(root.Root, version, true)
+			mf.Cleanup()
+
+			mfBytes, err := mf.Format()
+			if err != nil {
+				panic(err)
+			}
+			// Write `go.mod` file:
+			err = ioutil.WriteFile(filepath.Join(tmpDir, "go.mod"), mfBytes, 0666)
+			if err != nil {
+				panic(err)
+			}
+			Ln(string(mfBytes))
+
+			// Set the package loader Dir to the `tmpDir`; that will force
+			// the package loader to use the `go.mod` file and thus
+			// load the wanted version of the package:
+			config.Dir = tmpDir
+			// NOTE: Why /api/source?path=github.com/revel/revel/testing&v=v0.9.1 gets the github.com/revel/revel@v1.0.0/testing ???
+		}
+
 		// - If you set `config.Dir` to a dir that contains a `go.mod` file,
 		// and a version of `path` package is specified in that `go.mod` file,
 		// then that specific version will be parsed.
@@ -153,7 +207,7 @@ func main() {
 		}
 		Infof("Loaded package %q", path)
 		if packages.PrintErrors(pkgs) > 0 {
-			c.AbortWithStatusJSON(400, M{"error": Sf("Errors occurred while loading %q; see server logs.", path)})
+			Abort400(c, Sf("Errors occurred while loading %q; see server logs.", path))
 			return
 		}
 
@@ -218,7 +272,7 @@ func x() {
 
 		isStd := search.IsStandardImportPath(path)
 		if isStd {
-			c.AbortWithStatusJSON(400, M{"error": Sf("Package %q is from the standard library", path)})
+			Abort400(c, Sf("Package %q is from the standard library", path))
 			return
 		}
 
@@ -289,4 +343,13 @@ func x() {
 		}
 	})
 
+}
+func Abort400(c *gin.Context, errorString string) {
+	abort(c, 400, errorString)
+}
+func Abort404(c *gin.Context, errorString string) {
+	abort(c, 404, errorString)
+}
+func abort(c *gin.Context, statusCode int, errorString string) {
+	c.AbortWithStatusJSON(statusCode, M{"error": errorString})
 }
