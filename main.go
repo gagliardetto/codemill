@@ -13,6 +13,8 @@ import (
 	"sort"
 	"strings"
 
+	"github.com/gagliardetto/codebox/scanner"
+	"github.com/gagliardetto/feparser"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/get"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/modfetch"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
@@ -123,37 +125,47 @@ func main() {
 			Abort400(c, "`v` (version) parameter not specified")
 			return
 		}
-		// Find out the root of the package:
-		root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
-		if err != nil {
-			panic(err)
-		}
-		Q(root)
-		// Lookup the repo:
-		repo, err := modfetch.Lookup(proxy, root.Root)
-		if err != nil {
-			panic(err)
-		}
 
-		rev, err := repo.Stat(version)
-		if err != nil {
-			Q(err)
-			if strings.Contains(err.Error(), "invalid version: unknown revision") {
-				// TODO: cleanup
-				e := err.(*module.ModuleError)
-				wE := e.Err.(*web.HTTPError)
-				Abort404(c, wE.Detail)
-			} else {
-				panic(err)
-			}
-		}
-		Q(rev)
-
-		Infof("Loading package %q", path)
+		Infof("Loading package %q", path+"@"+version)
 
 		isStd := search.IsStandardImportPath(path)
 		if isStd {
 			Infof("Package %q is part of standard library", path)
+		}
+
+		var rootPath string
+		if isStd {
+			rootPath = path
+		} else {
+			// Find out the root of the package:
+			root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
+			if err != nil {
+				panic(err)
+			}
+			Q(root)
+			rootPath = root.Root
+		}
+
+		if !isStd {
+			// Lookup the repo:
+			repo, err := modfetch.Lookup(proxy, rootPath)
+			if err != nil {
+				panic(err)
+			}
+
+			rev, err := repo.Stat(version)
+			if err != nil {
+				Q(err)
+				if strings.Contains(err.Error(), "invalid version: unknown revision") {
+					// TODO: cleanup
+					e := err.(*module.ModuleError)
+					wE := e.Err.(*web.HTTPError)
+					Abort404(c, wE.Detail)
+				} else {
+					panic(err)
+				}
+			}
+			Q(rev)
 		}
 
 		config := &packages.Config{
@@ -174,7 +186,10 @@ func main() {
 			// Create a `go.mod` file requiring the specified version of the package:
 			mf := &modfile.File{}
 			mf.AddModuleStmt("example.com/hello/world")
-			mf.AddNewRequire(root.Root, version, true)
+
+			if !isStd {
+				mf.AddNewRequire(rootPath, version, true)
+			}
 			mf.Cleanup()
 
 			mfBytes, err := mf.Format()
@@ -195,36 +210,66 @@ func main() {
 			// NOTE: Why /api/source?path=github.com/revel/revel/testing&v=v0.9.1 gets the github.com/revel/revel@v1.0.0/testing ???
 		}
 
-		// - If you set `config.Dir` to a dir that contains a `go.mod` file,
-		// and a version of `path` package is specified in that `go.mod` file,
-		// then that specific version will be parsed.
-		// - You can have a temporary folder with only a `go.mod` file
-		// that contains a reuire for the package+version you want, and
-		// go will add the missing deps, and load that version you specified.
-		pkgs, err := packages.Load(config, path)
-		if err != nil {
-			panic(err)
-		}
-		Infof("Loaded package %q", path)
-		if packages.PrintErrors(pkgs) > 0 {
-			Abort400(c, Sf("Errors occurred while loading %q; see server logs.", path))
-			return
-		}
+		{
+			// Initialize scanner:
+			sc, err := scanner.NewSimple(path)
+			if err != nil {
+				panic(err)
+			}
 
-		for _, pkg := range pkgs {
-			Q(pkg.Module)
-		}
-		for _, pkg := range pkgs {
-			fmt.Println(pkg.ID, pkg.GoFiles)
-		}
+			scannerFunc := func(path string) (*packages.Package, error) {
+				// - If you set `config.Dir` to a dir that contains a `go.mod` file,
+				// and a version of `path` package is specified in that `go.mod` file,
+				// then that specific version will be parsed.
+				// - You can have a temporary folder with only a `go.mod` file
+				// that contains a reuire for the package+version you want, and
+				// go will add the missing deps, and load that version you specified.
+				pkgs, err := packages.Load(config, path)
+				if err != nil {
+					panic(err)
+				}
+				Infof("Loaded package %q", path)
 
-		pkg := pkgs[0]
+				var errs []error
+				packages.Visit(pkgs, nil, func(pkg *packages.Package) {
+					for _, err := range pkg.Errors {
+						errs = append(errs, err)
+					}
+				})
+				err = CombineErrors(errs...)
+				if len(errs) > 0 {
+					return nil, fmt.Errorf("error while packages.Load: %s", err)
+				}
 
-		c.IndentedJSON(200, M{"results": pkg})
+				for _, pkg := range pkgs {
+					Q(pkg.Module)
+				}
+				for _, pkg := range pkgs {
+					fmt.Println(pkg.ID, pkg.GoFiles)
+				}
+				return pkgs[0], nil
+			}
+
+			pks, err := sc.ScanWithCustomScanner(scanner.ScannerFunc(scannerFunc))
+			if err != nil {
+				Abort400(c, Sf("Errors occurred while loading %q; see server logs.", path))
+				panic(err)
+			}
+			pk := pks[0]
+
+			// compose the feModule:
+			Infof("Composing feModule %q", scanner.RemoveGoSrcClonePath(pk.Path))
+			feModule, err := feparser.Load(pk)
+			if err != nil {
+				panic(err)
+			}
+
+			c.IndentedJSON(200, feModule)
+		}
 
 	})
 
-	r.Run() // listen and serve on 0.0.0.0:8080
+	r.Run("0.0.0.0:8070") // listen and serve on 0.0.0.0:8080
 }
 
 // Interfaces returns a map of interfaces which are declared in the package.
