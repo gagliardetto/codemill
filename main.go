@@ -257,14 +257,18 @@ func main() {
 			}
 			pk := pks[0]
 
-			// compose the feModule:
-			Infof("Composing feModule %q", scanner.RemoveGoSrcClonePath(pk.Path))
-			feModule, err := feparser.Load(pk)
+			// compose the fePackage:
+			Infof("Composing fePackage %q", scanner.RemoveGoSrcClonePath(pk.Path))
+			fePackage, err := feparser.Load(pk)
 			if err != nil {
 				panic(err)
 			}
 
-			c.IndentedJSON(200, feModule)
+			if fePackage.Module != nil {
+				fePackage.Module.Root = rootPath
+			}
+
+			c.IndentedJSON(200, fePackage)
 		}
 
 	})
