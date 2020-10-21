@@ -27,6 +27,7 @@
         border: 0;
         border-top: 1px solid rgba(0, 0, 0, 0.1);
     }
+
     .modal-dialog {
         max-width: 100%;
         margin: 0;
@@ -49,12 +50,14 @@
                 <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl">
                     <b-form v-on:submit.prevent="search">
                         <label for="search-input-field">Search</label>
-                        <b-input-group class="mt-3">
-                            <b-form-input type="search" id="search-input-field" v-model="currentSearch" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
-                            <b-input-group-append>
-                                <b-button variant="primary" @click="search" :disabled="isBusy.search">{{isBusy.search ? "Searching..." : "Search" }}</b-button>
-                            </b-input-group-append>
-                        </b-input-group>
+                        <b-overlay :show="isBusy.search" rounded="lg" opacity="0.6" @hidden="isBusy.search">
+                            <b-input-group class="mt-3">
+                                <b-form-input type="search" id="search-input-field" v-model="currentSearch" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
+                                <b-input-group-append>
+                                    <b-button variant="primary" @click="search" :disabled="isBusy.search">{{isBusy.search ? "Searching..." : "Search" }}</b-button>
+                                </b-input-group-append>
+                            </b-input-group>
+                        </b-overlay>
                         <b-form-text id="search-help-block">
                             Search public Go packages.
                         </b-form-text>
@@ -73,7 +76,7 @@
                             <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis">
                                 <b-row class="mr-1">
                                     <b-col align-self="start">
-                                        <span class="text-monospace float-left d-inline-block text-truncate"><b>{{foundItem.path}}</b> as "{{foundItem.name}}"</span>
+                                        <span class="text-monospace float-left d-inline-block text-truncate"><b-icon icon="box-seam" variant="primary"></b-icon> <b>{{foundItem.path}}</b> as "{{foundItem.name}}"</span>
                                         <span class="float-right">
                                             <span title="Imported N times">{{foundItem.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span> | <span title="Starred N times">{{foundItem.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
                                         </span>
@@ -83,23 +86,24 @@
                                             <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }" class="text-center align-items-center">
                                                 <b-spinner type="grow" label="Spinning" align-h="center"></b-spinner>
                                             </b-dropdown-item>
-                                            <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key" @click="selectedVersion(foundItem.path,version)">
+                                            <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key" @click="loadCode(foundItem.path,version)">
                                                 {{ version }}
                                             </b-dropdown-item>
                                         </b-dropdown>
                                     </b-col>
                                 </b-row>
                                 <b-row class="mr-1">
-                                  <b-col align-self="start">
-                                      <small><b-icon icon="file-text" variant="primary"></b-icon> {{!foundItem.synopsis ? "-/-" : foundItem.synopsis}}</small>
-                                  </b-col>
+                                    <b-col align-self="start">
+                                        <small v-bind:class="{ 'text-muted': !foundItem.synopsis }">
+                                            <b-icon icon="file-text" variant="{ !foundItem.synopsis ? 'secondary':'primary' }"></b-icon> {{!foundItem.synopsis ? "✗" : foundItem.synopsis}}
+                                        </small>
+                                    </b-col>
                                 </b-row>
                             </b-list-group-item>
                         </b-list-group>
                     </b-form>
                 </b-modal>
             </template>
-
             <!-- Modal for selecting code from a package -->
             <template>
                 <b-button v-b-modal.modal-show-package>Show code inside package</b-button>
@@ -122,7 +126,8 @@
                 currentSearch: null,
                 currentSearchOut: null,
                 isBusy: {
-                  search: false
+                    search: false,
+                    loadCode: false
                 }
             },
             created() {
@@ -144,6 +149,9 @@
                 },
                 marshal(obj) {
                     return JSON.stringify(obj)
+                },
+                revf(path, version) {
+                    return path + "@" + version
                 },
                 makeToast(variant = null, title, body) {
                     this.$bvToast.toast(
@@ -181,8 +189,30 @@
                             });
                         });
                 },
-                selectedVersion(path, version) {
+                loadCode(path, version) {
                     console.log("selected:", path, version);
+
+                    console.log("Loading code...");
+                    console.log(searchItem);
+                    let url = '/api/source?path=' + path + "&v=" + version;
+
+                    fetch(url)
+                        .then(response => {
+                            if (response.ok) {
+                                return response.json()
+                            } else {
+                                throw response;
+                            }
+                        })
+                        .then(json => {
+                          // TODO
+                        })
+                        .catch((error) => {
+                            console.error('Error:', error);
+                            error.json().then((body) => {
+                                this.makeToast("danger", "Error", body.error);
+                            });
+                        });
                 },
                 doSearch(searchText) {
                     this.isBusy.search = true;

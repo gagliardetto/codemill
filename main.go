@@ -122,6 +122,8 @@ func main() {
 			return
 		}
 		if version == "" {
+			// TODO: if version not specified, use latest?
+			// TODO: if package is std, specifying a version is not needed.
 			Abort400(c, "`v` (version) parameter not specified")
 			return
 		}
