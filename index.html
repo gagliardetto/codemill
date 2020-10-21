@@ -50,7 +50,7 @@
                 <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl">
                     <b-form v-on:submit.prevent="search">
                         <label for="search-input-field">Search</label>
-                        <b-overlay :show="isBusy.search" rounded="lg" opacity="0.6" @hidden="isBusy.search">
+                        <b-overlay :show="isBusy.search" rounded="lg" opacity="0.6">
                             <b-input-group class="mt-3">
                                 <b-form-input type="search" id="search-input-field" v-model="currentSearch" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
                                 <b-input-group-append>
@@ -73,10 +73,21 @@
                             </b-list-group-item>
                         </b-list-group>
                         <b-list-group v-bind:class="{ hidden: isBusy.search }">
-                            <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis">
+                            <b-overlay :show="isBusy.loadCode" rounded="lg" no-wrap fixed opacity="0.6">
+                                <template #overlay>
+                                    <div class="text-center">
+                                        <b-icon icon="cloud-download" font-scale="2" animation="fade" variant="primary"></b-icon>
+                                        <p>Loading <b>{{messageContent.loadCode}}</b> ...</p>
+                                        <p>(This may take a while...)</p>
+                                    </div>
+                                </template>
+                            </b-overlay>
+                            <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis" v-bind:key="foundItem.path">
                                 <b-row class="mr-1">
                                     <b-col align-self="start">
-                                        <span class="text-monospace float-left d-inline-block text-truncate"><b-icon icon="box-seam" variant="primary"></b-icon> <b>{{foundItem.path}}</b> as "{{foundItem.name}}"</span>
+                                        <span class="text-monospace float-left d-inline-block text-truncate">
+                                            <b-icon icon="box-seam" variant="primary"></b-icon> <b>{{foundItem.path}}</b> as "{{foundItem.name}}"
+                                        </span>
                                         <span class="float-right">
                                             <span title="Imported N times">{{foundItem.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span> | <span title="Starred N times">{{foundItem.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
                                         </span>
@@ -95,19 +106,13 @@
                                 <b-row class="mr-1">
                                     <b-col align-self="start">
                                         <small v-bind:class="{ 'text-muted': !foundItem.synopsis }">
-                                            <b-icon icon="file-text" variant="{ !foundItem.synopsis ? 'secondary':'primary' }"></b-icon> {{!foundItem.synopsis ? "✗" : foundItem.synopsis}}
+                                            <b-icon icon="file-text" :variant="foundItem.synopsis ? 'dark':'secondary'"></b-icon> {{!foundItem.synopsis ? "✗" : foundItem.synopsis}}
                                         </small>
                                     </b-col>
                                 </b-row>
                             </b-list-group-item>
                         </b-list-group>
                     </b-form>
-                </b-modal>
-            </template>
-            <!-- Modal for selecting code from a package -->
-            <template>
-                <b-button v-b-modal.modal-show-package>Show code inside package</b-button>
-                <b-modal id="modal-show-package" scrollable title="Select code" size="xl">
                 </b-modal>
             </template>
         </b-container>
@@ -128,6 +133,9 @@
                 isBusy: {
                     search: false,
                     loadCode: false
+                },
+                messageContent: {
+                    loadCode: ""
                 }
             },
             created() {
@@ -190,10 +198,10 @@
                         });
                 },
                 loadCode(path, version) {
-                    console.log("selected:", path, version);
+                    console.log("Loading code...selected:", this.revf(path, version));
+                    this.isBusy.loadCode = true;
+                    this.messageContent.loadCode = this.revf(path, version);
 
-                    console.log("Loading code...");
-                    console.log(searchItem);
                     let url = '/api/source?path=' + path + "&v=" + version;
 
                     fetch(url)
@@ -205,9 +213,11 @@
                             }
                         })
                         .then(json => {
-                          // TODO
+                            this.isBusy.loadCode = false;
+                            // TODO
                         })
                         .catch((error) => {
+                            this.isBusy.loadCode = false;
                             console.error('Error:', error);
                             error.json().then((body) => {
                                 this.makeToast("danger", "Error", body.error);
