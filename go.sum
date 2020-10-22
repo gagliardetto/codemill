@@ -26,6 +26,10 @@ github.com/gagliardetto/codebox v0.0.0-20201020195141-0d78a6d1337e h1:UdiQFohEUq
 github.com/gagliardetto/codebox v0.0.0-20201020195141-0d78a6d1337e/go.mod h1:u0dxritH0YSCR1CrpmBOMJ5F1SbQMLpnXwddkTLH1pY=
 github.com/gagliardetto/codebox v0.0.0-20201020205706-efd468d49a6b h1:Z5t9lVEEy/4RaBl3yjLkRkm18dBOnCAIlCPdu+pcKmU=
 github.com/gagliardetto/codebox v0.0.0-20201020205706-efd468d49a6b/go.mod h1:7NWtH7vr8V+73PlC3LTenVIN9f4LfiBHLYTHYcqVemI=
+github.com/gagliardetto/codebox v0.0.0-20201022212556-10faf9c803dd h1:AiGM9qKCsLJWY5ircN8fjQJFhNVwV0/TN0lToX42cHQ=
+github.com/gagliardetto/codebox v0.0.0-20201022212556-10faf9c803dd/go.mod h1:s9knS6Cqdr3OYPjL50WGwXSwol+770HkI8EsqyBGO4w=
+github.com/gagliardetto/codebox v0.0.0-20201022213111-690d3db4d20e h1:+nVvy6bXFxWPFI0iGfr0wILVCeicYhU+vR0pmkS77n4=
+github.com/gagliardetto/codebox v0.0.0-20201022213111-690d3db4d20e/go.mod h1:J6/BIV79VXqqZtaGE8IzC+6voP7vF9dYkCHuX2WwY+4=
 github.com/gagliardetto/feparser v0.0.0-20201020161618-7f23b4f2bcf7 h1:tkq7foVQocEC9taWKU4RkJot5v4QqtS8E+t+SP4nvIg=
 github.com/gagliardetto/feparser v0.0.0-20201020161618-7f23b4f2bcf7/go.mod h1:1ula649k+N2bbJRIjun5HbcJy8GDEHAyai9HW9+Z36E=
 github.com/gagliardetto/feparser v0.0.0-20201020193055-8442f492b885/go.mod h1:VDhM9uRIl2V7LoTxTupJlOed2FidnlOelafBOVSlOqk=
@@ -37,6 +41,8 @@ github.com/gagliardetto/feparser v0.0.0-20201020214005-a2840246d288 h1:bkR3OO8+h
 github.com/gagliardetto/feparser v0.0.0-20201020214005-a2840246d288/go.mod h1:593gjyhDTtdDp+QkUS4kuku7vswrRBMQzwCGKiKCZig=
 github.com/gagliardetto/feparser v0.0.0-20201020215039-5d98daeb7760 h1:nfTzVn7hVGX3gU5cvSpRZeQOUiBF447TRvzoQFE4Z8Q=
 github.com/gagliardetto/feparser v0.0.0-20201020215039-5d98daeb7760/go.mod h1:593gjyhDTtdDp+QkUS4kuku7vswrRBMQzwCGKiKCZig=
+github.com/gagliardetto/feparser v0.0.0-20201022212838-99bfec669153 h1:6qNMub7fMVB2W0Q+qJcvUgwr5l/8KkqTEq2BYSijR2g=
+github.com/gagliardetto/feparser v0.0.0-20201022212838-99bfec669153/go.mod h1:qkJ3IwL5kZj2VbqUiKlA/kb1p5eRt1p7cM3UEXMw67I=
 github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814 h1:4YMGFsBLNFgdj78/H4ItwQb5f5+RAZcnwf/IfWjXryc=
 github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814/go.mod h1:q1shG4u1Y4/sCCDTmRCkaDqNwD1wCDdmhvAcou8ZmPA=
 github.com/gagliardetto/request v0.8.0 h1:WiKvZFJNbYZR1awzRdH5ABaO/SoKzK+Hfn/rVJUo3EM=
