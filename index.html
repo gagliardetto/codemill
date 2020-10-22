@@ -273,6 +273,12 @@
                             this.currentPackage.source = json;
                             this.isBusy.loadCode = false;
                             this.$bvModal.show('modal-show-code');
+
+                            if (json.Module) {
+                              // TODO: if the version is different from what was requested,
+                              // then mark it some way.
+                              this.currentPackage.version = json.Module.Version;
+                            }
                             // TODO
                         })
                         .catch((error) => {
