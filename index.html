@@ -36,6 +36,18 @@
         left: 0;
         right: 0;
         display: flex;
+        border-radius: 0px;
+    }
+
+    .modal-content {
+        max-width: 100%;
+        margin: 0;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        display: flex;
+        border-radius: 0px;
     }
     </style>
 </head>
@@ -47,16 +59,18 @@
             <!-- Modal for searching packages -->
             <template>
                 <b-button v-b-modal.modal-list-remote-packages>Search packages</b-button>
-                <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl">
+                <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl" no-close-on-backdrop>
                     <b-form v-on:submit.prevent="search">
                         <label for="search-input-field">Search</label>
                         <b-overlay :show="isBusy.search" rounded="lg" opacity="0.6">
-                            <b-input-group class="mt-3">
-                                <b-form-input type="search" id="search-input-field" v-model="currentSearch" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
-                                <b-input-group-append>
-                                    <b-button variant="primary" @click="search" :disabled="isBusy.search">{{isBusy.search ? "Searching..." : "Search" }}</b-button>
-                                </b-input-group-append>
-                            </b-input-group>
+                            <div>
+                                <b-input-group class="mt-3">
+                                    <b-form-input type="search" id="search-input-field" @change="updateSearchValue" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
+                                    <b-input-group-append>
+                                        <b-button variant="primary" @click="search" :disabled="isBusy.search">{{isBusy.search ? "Searching..." : "Search" }}</b-button>
+                                    </b-input-group-append>
+                                </b-input-group>
+                            </div>
                         </b-overlay>
                         <b-form-text id="search-help-block">
                             Search public Go packages.
@@ -77,11 +91,14 @@
                                 <template #overlay>
                                     <div class="text-center">
                                         <b-icon icon="cloud-download" font-scale="2" animation="fade" variant="primary"></b-icon>
-                                        <p>Loading <b>{{messageContent.loadCode}}</b> ...</p>
+                                        <p>Loading <b>{{currentPackage.path}}@{{currentPackage.version}}</b> ...</p>
                                         <p>(This may take a while...)</p>
                                     </div>
                                 </template>
                             </b-overlay>
+                            <span class="float-left d-inline-block" v-if="len(searchResults) == 0" variant="danger">
+                                No results were found.
+                            </span>
                             <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis" v-bind:key="foundItem.path">
                                 <b-row class="mr-1">
                                     <b-col align-self="start">
@@ -113,9 +130,43 @@
                             </b-list-group-item>
                         </b-list-group>
                     </b-form>
+                    <template #modal-footer>
+                        <div class="w-100">
+                            <b-button variant="secondary" class="float-right" @click="$bvModal.hide('modal-list-remote-packages')">
+                                Close
+                            </b-button>
+                        </div>
+                    </template>
                 </b-modal>
             </template>
         </b-container>
+        <b-container>
+            <template>
+                <b-modal id="modal-show-code" scrollable title="Code" size="xl" lazy no-close-on-backdrop>
+                    <template #modal-title>
+                        Source of <b>{{currentPackage.path}}@{{currentPackage.version}}</b>
+                    </template>
+                    <b-list-group>
+                        <b-list-group-item v-for="funcItem in currentPackage.source.Funcs" v-bind:key="funcItem.Signature">
+                            <b-row class="mr-1">
+                                <b-col align-self="start">
+                                    <span class="text-monospace float-left text-truncate">
+                                        <small>{{funcItem.Signature}}</small>
+                                    </span>
+                                </b-col>
+                            </b-row>
+                        </b-list-group-item>
+                    </b-list-group>
+                    <template #modal-footer>
+                        <div class="w-100">
+                            <b-button variant="secondary" class="float-right" @click="$bvModal.hide('modal-show-code')">
+                                Close
+                            </b-button>
+                        </div>
+                    </template>
+                </b-modal>
+            </template>
+            <b-container>
     </div>
     <script type="text/javascript">
     function cc(...elems) {
@@ -126,20 +177,22 @@
         var srcapp = new Vue({
             el: '#codemill-app',
             data: {
-                source: null,
+                currentPackage: {
+                    source: {},
+                    path: "",
+                    version: ""
+                },
                 searchResults: [],
-                currentSearch: null,
-                currentSearchOut: null,
+                currentSearch: "",
+                currentSearchOut: "",
                 isBusy: {
                     search: false,
                     loadCode: false
-                },
-                messageContent: {
-                    loadCode: ""
                 }
             },
             created() {
-                this.doSearch("gin");
+                // TODO: remove.
+                this.doSearch("k8s");
             },
             updated() {
 
@@ -173,6 +226,9 @@
                     this.currentSearchOut = this.currentSearch.trim();
                     this.doSearch(this.currentSearchOut);
                 },
+                updateSearchValue(val) {
+                    this.currentSearch = val;
+                },
                 listVersions(searchItem) {
                     console.log("getting list of versions...");
                     console.log(searchItem);
@@ -200,7 +256,8 @@
                 loadCode(path, version) {
                     console.log("Loading code...selected:", this.revf(path, version));
                     this.isBusy.loadCode = true;
-                    this.messageContent.loadCode = this.revf(path, version);
+                    this.currentPackage.path = path;
+                    this.currentPackage.version = version;
 
                     let url = '/api/source?path=' + path + "&v=" + version;
 
@@ -213,7 +270,9 @@
                             }
                         })
                         .then(json => {
+                            this.currentPackage.source = json;
                             this.isBusy.loadCode = false;
+                            this.$bvModal.show('modal-show-code');
                             // TODO
                         })
                         .catch((error) => {
@@ -241,12 +300,16 @@
 
                             let gotResults = [];
 
-                            json.results.forEach(function(item, itemIndex) {
-                                item.versions = [];
-                                item.gotVersions = false;
-                                gotResults.push(item);
-                            });
-                            this.searchResults = gotResults;
+                            if (json.results == null) {
+                                this.searchResults = [];
+                            } else {
+                                json.results.forEach(function(item, itemIndex) {
+                                    item.versions = [];
+                                    item.gotVersions = false;
+                                    gotResults.push(item);
+                                });
+                                this.searchResults = gotResults;
+                            }
                         })
                         .catch((error) => {
                             this.isBusy.search = false;
