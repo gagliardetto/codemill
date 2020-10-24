@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"go/types"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"net/url"
 	"os"
@@ -48,11 +47,15 @@ func main() {
 		Ln(searchURL)
 		resp, err := req.Get(searchURL)
 		if err != nil {
-			panic(err)
+			Q(err)
+			Abort400(c, err.Error())
+			return
 		}
 		j, err := resp.Json()
 		if err != nil {
-			panic(err)
+			Q(err)
+			Abort400(c, err.Error())
+			return
 		}
 		defer resp.Body.Close() // Don't forget close the response body
 
@@ -73,7 +76,9 @@ func main() {
 		// Find out the root of the package:
 		root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
 		if err != nil {
-			panic(err)
+			Q(err)
+			Abort400(c, err.Error())
+			return
 		}
 		Q(root)
 		path = root.Root
@@ -81,7 +86,9 @@ func main() {
 		// Lookup the repo:
 		repo, err := modfetch.Lookup(proxy, path)
 		if err != nil {
-			panic(err)
+			Q(err)
+			Abort400(c, err.Error())
+			return
 		}
 
 		Ln(repo.ModulePath())
@@ -91,7 +98,9 @@ func main() {
 		// Get list of versions:
 		versions, err := repo.Versions(prefix)
 		if err != nil {
-			panic(err)
+			Q(err)
+			Abort400(c, err.Error())
+			return
 		}
 
 		// Reverse versions' order to show the (presumably) most recent at the top of the list:
@@ -103,7 +112,9 @@ func main() {
 		if len(versions) == 0 {
 			latest, err := repo.Latest()
 			if err != nil {
-				panic(err)
+				Q(err)
+				Abort400(c, err.Error())
+				return
 			}
 			Q(latest)
 			versions = []string{latest.Version}
@@ -142,7 +153,9 @@ func main() {
 			// Find out the root of the package:
 			root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
 			if err != nil {
-				panic(err)
+				Q(err)
+				Abort400(c, err.Error())
+				return
 			}
 			Q(root)
 			rootPath = root.Root
@@ -152,7 +165,9 @@ func main() {
 			// Lookup the repo:
 			repo, err := modfetch.Lookup(proxy, rootPath)
 			if err != nil {
-				panic(err)
+				Q(err)
+				Abort400(c, err.Error())
+				return
 			}
 
 			rev, err := repo.Stat(version)
@@ -160,11 +175,24 @@ func main() {
 				Q(err)
 				if strings.Contains(err.Error(), "invalid version: unknown revision") {
 					// TODO: cleanup
-					e := err.(*module.ModuleError)
-					wE := e.Err.(*web.HTTPError)
-					Abort404(c, wE.Detail)
+					e, ok := err.(*module.ModuleError)
+					if ok {
+						wE, ok := e.Err.(*web.HTTPError)
+						if ok {
+							Abort404(c, wE.Detail)
+							return
+						}
+						iVE, ok := e.Err.(*module.InvalidVersionError)
+						if ok {
+							Abort404(c, iVE.Error())
+							return
+						}
+					}
+					Abort400(c, err.Error())
+					return
 				} else {
-					panic(err)
+					Abort400(c, err.Error())
+					return
 				}
 			}
 			Q(rev)
@@ -179,7 +207,9 @@ func main() {
 			// Create a temporary folder:
 			tmpDir, err := ioutil.TempDir("", "codemill")
 			if err != nil {
-				log.Fatal(err)
+				Q(err)
+				Abort400(c, err.Error())
+				return
 			}
 			//defer os.RemoveAll(tmpDir)
 			tmpDir = MustAbs(tmpDir)
@@ -196,12 +226,16 @@ func main() {
 
 			mfBytes, err := mf.Format()
 			if err != nil {
-				panic(err)
+				Q(err)
+				Abort400(c, err.Error())
+				return
 			}
 			// Write `go.mod` file:
 			err = ioutil.WriteFile(filepath.Join(tmpDir, "go.mod"), mfBytes, 0666)
 			if err != nil {
-				panic(err)
+				Q(err)
+				Abort400(c, err.Error())
+				return
 			}
 			Ln(string(mfBytes))
 
@@ -216,7 +250,9 @@ func main() {
 			// Initialize scanner:
 			sc, err := scanner.NewSimple(path)
 			if err != nil {
-				panic(err)
+				Q(err)
+				Abort400(c, err.Error())
+				return
 			}
 
 			scannerFunc := func(path string) (*packages.Package, error) {
@@ -228,7 +264,7 @@ func main() {
 				// go will add the missing deps, and load that version you specified.
 				pkgs, err := packages.Load(config, path)
 				if err != nil {
-					panic(err)
+					return nil, fmt.Errorf("error while packages.Load: %s", err)
 				}
 				Infof("Loaded package %q", path)
 
@@ -254,8 +290,9 @@ func main() {
 
 			pks, err := sc.ScanWithCustomScanner(scanner.ScannerFunc(scannerFunc))
 			if err != nil {
-				Abort400(c, Sf("Errors occurred while loading %q; see server logs.", path))
-				panic(err)
+				Q(err)
+				Abort400(c, Sf("Errors occurred while loading %q: %s.", path, err))
+				return
 			}
 			pk := pks[0]
 
@@ -263,7 +300,9 @@ func main() {
 			Infof("Composing fePackage %q", scanner.RemoveGoSrcClonePath(pk.Path))
 			fePackage, err := feparser.Load(pk)
 			if err != nil {
-				panic(err)
+				Q(err)
+				Abort400(c, err.Error())
+				return
 			}
 
 			if fePackage.Module != nil {
