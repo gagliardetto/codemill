@@ -305,9 +305,7 @@ func main() {
 				return
 			}
 
-			if fePackage.Module != nil {
-				fePackage.Module.Root = rootPath
-			}
+			fePackage.IsStandard = isStd
 
 			c.IndentedJSON(200, fePackage)
 		}
