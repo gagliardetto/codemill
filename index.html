@@ -238,11 +238,10 @@
                                                 <small>type <b variant="primary">{{item.TypeName}}</b> struct {</small>
                                                 <small>
                                                     <div v-for="(field, fieldIndex) in item.Fields">
-                                                        <b-row v-if="len(field.Docs) > 0 || len(field.Comments) > 0" class="mt-2 pl-4">
+                                                        <b-row v-if="len(field.Docs) > 0" class="mt-2 pl-4">
                                                             <b-col>
                                                                 <span class="documentation">
                                                                     <div v-for="doc in field.Docs" title="This is a doc">// {{ doc }}</div>
-                                                                    <div v-for="comment in field.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
                                                                 </span>
                                                             </b-col>
                                                         </b-row>
@@ -254,7 +253,7 @@
                                                             </b-col>
                                                             <b-col>
                                                                 <span :title="field.KindString">
-                                                                    {{field.TypeString}}
+                                                                    {{field.TypeString}} <span v-for="comment in field.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
                                                                 </span>
                                                             </b-col>
                                                         </b-row>
@@ -303,7 +302,7 @@
             },
             created() {
                 // TODO: remove.
-                this.doSearch("k8s");
+                this.doSearch("revel");
             },
             updated() {
 
