@@ -59,6 +59,21 @@
     .list-group-item {
         padding: 0.50rem 0.80rem;
     }
+
+    .documentation {
+        -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+        font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+        font-size: 15px;
+        line-height: 1.42;
+        /*white-space: pre;*/
+        word-break: normal;
+        box-sizing: border-box;
+        color: #006600;
+    }
+
+    .text-comment {
+        color: #007bff !important;
+    }
     </style>
 </head>
 
@@ -164,6 +179,10 @@
                                 <b-list-group-item v-for="item in currentPackage.source.Funcs" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
+                                            <span class="documentation">
+                                                <div v-for="doc in item.Docs">// {{ doc }}</div>
+                                                <div v-for="comment in item.Comments" class="text-comment">// {{ comment }}</div>
+                                            </span>
                                             <span class="text-monospace float-left text-truncate">
                                                 <small>{{item.Signature}}</small>
                                             </span>
@@ -177,6 +196,10 @@
                                 <b-list-group-item v-for="item in currentPackage.source.TypeMethods" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
+                                            <span class="documentation">
+                                                <div v-for="doc in item.Docs" title="This is a doc">// {{ doc }}</div>
+                                                <div v-for="comment in item.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
+                                            </span>
                                             <span class="text-monospace float-left text-truncate">
                                                 <small>{{item.Func.Signature}}</small>
                                             </span>
@@ -190,6 +213,10 @@
                                 <b-list-group-item v-for="item in currentPackage.source.InterfaceMethods" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
+                                            <span class="documentation">
+                                                <div v-for="doc in item.Docs" title="This is a doc">// {{ doc }}</div>
+                                                <div v-for="comment in item.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
+                                            </span>
                                             <span class="text-monospace float-left text-truncate">
                                                 <small>{{item.Func.Signature}}</small>
                                             </span>
@@ -198,13 +225,42 @@
                                 </b-list-group-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab title="Structs" lazy>
+                        <b-tab title="Structs" lazy active="true">
                             <b-list-group>
                                 <b-list-group-item v-for="item in currentPackage.source.Structs" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
+                                            <span class="documentation">
+                                                <div v-for="doc in item.Docs" title="This is a doc">// {{ doc }}</div>
+                                                <div v-for="comment in item.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
+                                            </span>
                                             <span class="text-monospace float-left text-truncate">
-                                                <small>{{item.TypeName}}</small>
+                                                <small>type <b variant="primary">{{item.TypeName}}</b> struct {</small>
+                                                <small>
+                                                    <div v-for="(field, fieldIndex) in item.Fields">
+                                                        <b-row v-if="len(field.Docs) > 0 || len(field.Comments) > 0" class="mt-2 pl-4">
+                                                            <b-col>
+                                                                <span class="documentation">
+                                                                    <div v-for="doc in field.Docs" title="This is a doc">// {{ doc }}</div>
+                                                                    <div v-for="comment in field.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
+                                                                </span>
+                                                            </b-col>
+                                                        </b-row>
+                                                        <b-row class="pl-4">
+                                                            <b-col>
+                                                                <span>
+                                                                    {{field.VarName}}
+                                                                </span>
+                                                            </b-col>
+                                                            <b-col>
+                                                                <span :title="field.KindString">
+                                                                    {{field.TypeString}}
+                                                                </span>
+                                                            </b-col>
+                                                        </b-row>
+                                                    </div>
+                                                </small>
+                                                <small>}</small>
                                             </span>
                                         </b-col>
                                     </b-row>
@@ -214,7 +270,7 @@
                     </b-tabs>
                     <template #modal-footer>
                         <div class="w-100">
-                            <b-button variant="secondary" class="float-right" @click="$bvModal.hide('modal-show-code')">
+                            <b-button variant="secondary" class="float-right" size="sm" @click="$bvModal.hide('modal-show-code')">
                                 Close
                             </b-button>
                         </div>
