@@ -48,6 +48,16 @@
         right: 0;
         display: flex;
         border-radius: 0px;
+        padding: 0px;
+    }
+
+    .tab-pane {
+        padding-left: 0px;
+        padding-right: 0px;
+    }
+
+    .list-group-item {
+        padding: 0.50rem 0.80rem;
     }
     </style>
 </head>
@@ -146,17 +156,62 @@
                     <template #modal-title>
                         Source of <b>{{currentPackage.path}}@{{currentPackage.version}}</b>
                     </template>
-                    <b-list-group>
-                        <b-list-group-item v-for="funcItem in currentPackage.source.Funcs" v-bind:key="funcItem.Signature">
-                            <b-row class="mr-1">
-                                <b-col align-self="start">
-                                    <span class="text-monospace float-left text-truncate">
-                                        <small>{{funcItem.Signature}}</small>
-                                    </span>
-                                </b-col>
-                            </b-row>
-                        </b-list-group-item>
-                    </b-list-group>
+                    <b-tabs align="left" card>
+                        <!-- This tabs content will not be mounted until the tab is shown -->
+                        <!-- and will be un-mounted when hidden -->
+                        <b-tab title="Funcs" lazy>
+                            <b-list-group>
+                                <b-list-group-item v-for="item in currentPackage.source.Funcs" v-bind:key="item.ID">
+                                    <b-row class="mr-1">
+                                        <b-col align-self="start">
+                                            <span class="text-monospace float-left text-truncate">
+                                                <small>{{item.Signature}}</small>
+                                            </span>
+                                        </b-col>
+                                    </b-row>
+                                </b-list-group-item>
+                            </b-list-group>
+                        </b-tab>
+                        <b-tab title="Methods" lazy>
+                            <b-list-group>
+                                <b-list-group-item v-for="item in currentPackage.source.TypeMethods" v-bind:key="item.ID">
+                                    <b-row class="mr-1">
+                                        <b-col align-self="start">
+                                            <span class="text-monospace float-left text-truncate">
+                                                <small>{{item.Func.Signature}}</small>
+                                            </span>
+                                        </b-col>
+                                    </b-row>
+                                </b-list-group-item>
+                            </b-list-group>
+                        </b-tab>
+                        <b-tab title="Interfaces" lazy>
+                            <b-list-group>
+                                <b-list-group-item v-for="item in currentPackage.source.InterfaceMethods" v-bind:key="item.ID">
+                                    <b-row class="mr-1">
+                                        <b-col align-self="start">
+                                            <span class="text-monospace float-left text-truncate">
+                                                <small>{{item.Func.Signature}}</small>
+                                            </span>
+                                        </b-col>
+                                    </b-row>
+                                </b-list-group-item>
+                            </b-list-group>
+                        </b-tab>
+                        <b-tab title="Structs" lazy>
+                            <b-list-group>
+                                <b-list-group-item v-for="item in currentPackage.source.Structs" v-bind:key="item.ID">
+                                    <b-row class="mr-1">
+                                        <b-col align-self="start">
+                                            <span class="text-monospace float-left text-truncate">
+                                                <small>{{item.TypeName}}</small>
+                                            </span>
+                                        </b-col>
+                                    </b-row>
+                                </b-list-group-item>
+                            </b-list-group>
+                        </b-tab>
+                    </b-tabs>
                     <template #modal-footer>
                         <div class="w-100">
                             <b-button variant="secondary" class="float-right" @click="$bvModal.hide('modal-show-code')">
@@ -166,7 +221,7 @@
                     </template>
                 </b-modal>
             </template>
-            <b-container>
+        </b-container>
     </div>
     <script type="text/javascript">
     function cc(...elems) {
@@ -275,9 +330,9 @@
                             this.$bvModal.show('modal-show-code');
 
                             if (json.Module) {
-                              // TODO: if the version is different from what was requested,
-                              // then mark it some way.
-                              this.currentPackage.version = json.Module.Version;
+                                // TODO: if the version is different from what was requested,
+                                // then mark it some way.
+                                this.currentPackage.version = json.Module.Version;
                             }
                         })
                         .catch((error) => {
