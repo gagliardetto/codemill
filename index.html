@@ -63,7 +63,7 @@
     .documentation {
         -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
         font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
-        font-size: 15px;
+        font-size: 0.9em;
         line-height: 1.42;
         /*white-space: pre;*/
         word-break: normal;
@@ -73,6 +73,11 @@
 
     .text-comment {
         color: #007bff !important;
+    }
+
+    .selected-struct-field {
+        background-color: #28a745 !important;
+        border-radius: 0.3em;
     }
     </style>
 </head>
@@ -235,31 +240,33 @@
                                                 <div v-for="comment in item.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
                                             </span>
                                             <span class="text-monospace float-left text-truncate">
-                                                <small>type <b variant="primary">{{item.TypeName}}</b> struct {</small>
-                                                <small>
-                                                    <div v-for="(field, fieldIndex) in item.Fields">
-                                                        <b-row v-if="len(field.Docs) > 0" class="mt-2 pl-4">
-                                                            <b-col>
-                                                                <span class="documentation">
-                                                                    <div v-for="doc in field.Docs" title="This is a doc">// {{ doc }}</div>
-                                                                </span>
-                                                            </b-col>
-                                                        </b-row>
-                                                        <b-row class="pl-4">
-                                                            <b-col>
-                                                                <span>
-                                                                    {{field.VarName}}
-                                                                </span>
-                                                            </b-col>
-                                                            <b-col>
-                                                                <span :title="field.KindString">
-                                                                    {{field.TypeString}} <span v-for="comment in field.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
-                                                                </span>
-                                                            </b-col>
-                                                        </b-row>
-                                                    </div>
-                                                </small>
-                                                <small>}</small>
+                                                <span>type <b variant="primary">{{item.TypeName}}</b> struct {</span>
+                                                <div v-for="(field, fieldIndex) in item.Fields">
+                                                    <b-row v-if="len(field.Docs) > 0" class="mt-2 pl-4">
+                                                        <b-col>
+                                                            <span class="documentation">
+                                                                <div v-for="doc in field.Docs" title="This is a doc">// {{ doc }}</div>
+                                                            </span>
+                                                        </b-col>
+                                                    </b-row>
+                                                    <b-row class="pl-4" v-bind:class="{ 'selected-struct-field': field.Enabled }">
+                                                        <b-col>
+                                                            <span>
+                                                                {{field.VarName}}
+                                                            </span>
+                                                        </b-col>
+                                                        <b-col>
+                                                            <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled">
+                                                            </b-form-checkbox>
+                                                        </b-col>
+                                                        <b-col>
+                                                            <span :title="field.KindString">
+                                                                {{field.TypeString}} <span v-for="comment in field.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
+                                                            </span>
+                                                        </b-col>
+                                                    </b-row>
+                                                </div>
+                                                <span>}</span>
                                             </span>
                                         </b-col>
                                     </b-row>
