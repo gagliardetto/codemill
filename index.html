@@ -194,7 +194,7 @@
                     <b-tabs align="left" card>
                         <!-- This tabs content will not be mounted until the tab is shown -->
                         <!-- and will be un-mounted when hidden -->
-                        <b-tab title="Funcs" lazy>
+                        <b-tab :title="'Funcs (' + len(currentPackage.source.Funcs) + ')'" lazy>
                             <b-list-group>
                                 <b-list-group-item v-for="item in currentPackage.source.Funcs" v-bind:key="item.ID">
                                     <b-row class="mr-1">
@@ -210,7 +210,7 @@
                                 </b-list-group-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab title="Methods" lazy>
+                        <b-tab :title="'Methods (' + len(currentPackage.source.TypeMethods) + ')'" lazy>
                             <b-list-group>
                                 <b-list-group-item v-for="item in currentPackage.source.TypeMethods" v-bind:key="item.ID">
                                     <b-row class="mr-1">
@@ -226,7 +226,7 @@
                                 </b-list-group-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab title="Interfaces" lazy>
+                        <b-tab :title="'Interfaces (' + len(currentPackage.source.InterfaceMethods) + ')'" lazy>
                             <b-list-group>
                                 <b-list-group-item v-for="item in currentPackage.source.InterfaceMethods" v-bind:key="item.ID">
                                     <b-row class="mr-1">
@@ -242,7 +242,7 @@
                                 </b-list-group-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab title="Structs" lazy active>
+                        <b-tab :title="'Structs (' + len(currentPackage.source.Structs) + ')'" lazy active>
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <b-list-group-item v-for="item in currentPackage.source.Structs" v-bind:key="item.ID">
                                     <b-row class="ml-1">
