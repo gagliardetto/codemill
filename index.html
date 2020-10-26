@@ -191,12 +191,23 @@
                     <template #modal-title>
                         Source of <b>{{currentPackage.path}}@{{currentPackage.version}}</b>
                     </template>
+                    <b-form v-on:submit.prevent="">
+                        <label for="element-filter-input-field">Filter</label>
+                        <div>
+                            <b-input-group class="mt-3">
+                                <b-form-input type="search" id="element-filter-input-field" @input="updateElementFilterValue" class="mr-sm-6" aria-describedby="element-filter-help-block"></b-form-input>
+                            </b-input-group>
+                        </div>
+                        <b-form-text id="element-filter-help-block">
+                            Filter elements.
+                        </b-form-text>
+                    </b-form>
                     <b-tabs align="left" card>
                         <!-- This tabs content will not be mounted until the tab is shown -->
                         <!-- and will be un-mounted when hidden -->
-                        <b-tab :title="'Funcs (' + len(currentPackage.source.Funcs) + ')'" lazy>
+                        <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" lazy>
                             <b-list-group>
-                                <b-list-group-item v-for="item in currentPackage.source.Funcs" v-bind:key="item.ID">
+                                <b-list-group-item v-for="item in filteredFuncs" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
                                             <span>
@@ -210,9 +221,9 @@
                                 </b-list-group-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Methods (' + len(currentPackage.source.TypeMethods) + ')'" lazy>
+                        <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'" lazy>
                             <b-list-group>
-                                <b-list-group-item v-for="item in currentPackage.source.TypeMethods" v-bind:key="item.ID">
+                                <b-list-group-item v-for="item in filteredTypeMethods" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
                                             <span>
@@ -226,9 +237,9 @@
                                 </b-list-group-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Interfaces (' + len(currentPackage.source.InterfaceMethods) + ')'" lazy>
+                        <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'" lazy>
                             <b-list-group>
-                                <b-list-group-item v-for="item in currentPackage.source.InterfaceMethods" v-bind:key="item.ID">
+                                <b-list-group-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
                                             <span>
@@ -242,9 +253,9 @@
                                 </b-list-group-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Structs (' + len(currentPackage.source.Structs) + ')'" lazy active>
+                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" lazy active>
                             <b-list-group class="text-monospace float-left text-truncate">
-                                <b-list-group-item v-for="item in currentPackage.source.Structs" v-bind:key="item.ID">
+                                <b-list-group-item v-for="item in filteredStructs" v-bind:key="item.ID">
                                     <b-row class="ml-1">
                                         <span>
                                             <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
@@ -320,7 +331,8 @@
             isBusy: {
                 search: false,
                 loadCode: false
-            }
+            },
+            currentElementFilter: "",
         },
         created() {
             // TODO: remove.
@@ -331,6 +343,40 @@
         },
         mounted() {
 
+        },
+        computed: {
+            filteredFuncs() {
+                if (!this.currentPackage.source.Funcs) {
+                    return
+                }
+                return this.currentPackage.source.Funcs.filter(item => {
+                    return this.elementFilterMatches(item.Signature) || this.docsOrCommentsMatch(item)
+                });
+            },
+            filteredTypeMethods() {
+                if (!this.currentPackage.source.TypeMethods) {
+                    return
+                }
+                return this.currentPackage.source.TypeMethods.filter(item => {
+                    return this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item)
+                });
+            },
+            filteredInterfaceMethods() {
+                if (!this.currentPackage.source.InterfaceMethods) {
+                    return
+                }
+                return this.currentPackage.source.InterfaceMethods.filter(item => {
+                    return this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item)
+                });
+            },
+            filteredStructs() {
+                if (!this.currentPackage.source.Structs) {
+                    return
+                }
+                return this.currentPackage.source.Structs.filter(item => {
+                    return this.elementFilterMatches(item.TypeName) || item.Fields.some(this.structFieldMatches) || this.docsOrCommentsMatch(item) || item.Fields.some(this.docsOrCommentsMatch)
+                });
+            },
         },
         methods: {
             cc: function(...elems) {
@@ -360,6 +406,21 @@
             },
             updateSearchValue(val) {
                 this.currentSearch = val;
+            },
+            updateElementFilterValue(val) {
+                this.currentElementFilter = val;
+            },
+            elementFilterMatches(ident) {
+                if (!this.currentElementFilter) {
+                    return true
+                }
+                return ident.toLowerCase().includes(this.currentElementFilter.toLowerCase());
+            },
+            structFieldMatches(field) {
+                return this.elementFilterMatches(field.VarName) || this.elementFilterMatches(field.TypeString)
+            },
+            docsOrCommentsMatch(item) {
+                return (item.Docs && item.Docs.some(this.elementFilterMatches)) || (item.Comments && item.Comments.some(this.elementFilterMatches))
             },
             listVersions(searchItem) {
                 console.log("getting list of versions...");
