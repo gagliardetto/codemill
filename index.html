@@ -79,6 +79,9 @@
         background-color: #28a745 !important;
         border-radius: 0.3em;
     }
+    .custom-control-label {
+      cursor: pointer;
+    }
     </style>
 </head>
 
@@ -256,7 +259,7 @@
                                                             </span>
                                                         </b-col>
                                                         <b-col>
-                                                            <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled">
+                                                            <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch>
                                                             </b-form-checkbox>
                                                         </b-col>
                                                         <b-col>
