@@ -10,6 +10,8 @@
     <!-- Load required Bootstrap and BootstrapVue CSS -->
     <link type="text/css" rel="stylesheet" href="static/bootstrap.min.css" crossorigin="anonymous" />
     <link type="text/css" rel="stylesheet" href="static/bootstrap-vue.min.css" crossorigin="anonymous" />
+    <!-- Load polyfills to support older browsers -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es2015%2CIntersectionObserver"></script>
     <!-- Load Vue followed by BootstrapVue -->
     <!-- VueJS development version, includes helpful console warnings -->
     <script src="static/vue.js" crossorigin="anonymous"></script>
@@ -144,35 +146,7 @@
                             <span class="float-left d-inline-block" v-if="len(searchResults) == 0" variant="danger">
                                 No results were found.
                             </span>
-                            <b-list-group-item v-for="(foundItem, foundItemKey) in searchResults" :title="foundItem.synopsis" v-bind:key="foundItem.path + foundItemKey">
-                                <b-row class="mr-1">
-                                    <b-col align-self="start">
-                                        <span class="text-monospace float-left d-inline-block text-truncate">
-                                            <b-icon icon="box-seam" variant="primary"></b-icon> <b>{{foundItem.path}}</b> as "{{foundItem.name}}"
-                                        </span>
-                                        <span class="float-right">
-                                            <span title="Imported N times">{{foundItem.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span> | <span title="Starred N times">{{foundItem.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
-                                        </span>
-                                    </b-col>
-                                    <b-col align-self="end" lg="1">
-                                        <b-dropdown text="Select" variant="success" size="sm" @show="listVersions(foundItem)">
-                                            <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }" class="text-center align-items-center">
-                                                <b-spinner type="grow" label="Spinning" align-h="center"></b-spinner>
-                                            </b-dropdown-item>
-                                            <b-dropdown-item v-for="version in foundItem.versions" :key="revf(foundItem.path,version)" @click="loadCode(foundItem.path,version)">
-                                                {{ version }}
-                                            </b-dropdown-item>
-                                        </b-dropdown>
-                                    </b-col>
-                                </b-row>
-                                <b-row class="mr-1">
-                                    <b-col align-self="start">
-                                        <small v-bind:class="{ 'text-muted': !foundItem.synopsis }">
-                                            <b-icon icon="file-text" :variant="foundItem.synopsis ? 'dark':'secondary'"></b-icon> {{!foundItem.synopsis ? "✗" : foundItem.synopsis}}
-                                        </small>
-                                    </b-col>
-                                </b-row>
-                            </b-list-group-item>
+                            <cm-search-result v-for="(item, index) in searchResults" v-bind:key="item.path + index" v-bind:item="item" v-bind:index="index"></cm-search-result>
                         </b-list-group>
                     </b-form>
                     <template #modal-footer>
@@ -207,97 +181,22 @@
                         <!-- and will be un-mounted when hidden -->
                         <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" lazy>
                             <b-list-group>
-                                <b-list-group-item v-for="item in filteredFuncs" v-bind:key="item.ID">
-                                    <b-row class="mr-1">
-                                        <b-col align-self="start">
-                                            <span>
-                                                <div v-for="doc in item.Docs" class="documentation">// {{ doc }}</div>
-                                            </span>
-                                            <span class="text-monospace float-left text-truncate">
-                                                <small>{{item.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
-                                            </span>
-                                        </b-col>
-                                    </b-row>
-                                </b-list-group-item>
+                                <cm-func-item v-for="item in filteredFuncs" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
                             </b-list-group>
                         </b-tab>
                         <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'" lazy>
                             <b-list-group>
-                                <b-list-group-item v-for="item in filteredTypeMethods" v-bind:key="item.ID">
-                                    <b-row class="mr-1">
-                                        <b-col align-self="start">
-                                            <span>
-                                                <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
-                                            </span>
-                                            <span class="text-monospace float-left text-truncate">
-                                                <small>{{item.Func.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
-                                            </span>
-                                        </b-col>
-                                    </b-row>
-                                </b-list-group-item>
+                                <cm-tm-item v-for="item in filteredTypeMethods" v-bind:key="item.ID" v-bind:item="item"></cm-tm-item>
                             </b-list-group>
                         </b-tab>
                         <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'" lazy>
                             <b-list-group>
-                                <b-list-group-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID">
-                                    <b-row class="mr-1">
-                                        <b-col align-self="start">
-                                            <span>
-                                                <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
-                                            </span>
-                                            <span class="text-monospace float-left text-truncate">
-                                                <small>{{item.Func.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
-                                            </span>
-                                        </b-col>
-                                    </b-row>
-                                </b-list-group-item>
+                                <cm-it-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID" v-bind:item="item"></cm-it-item>
                             </b-list-group>
                         </b-tab>
                         <b-tab :title="'Structs (' + len(filteredStructs) + ')'" lazy active>
                             <b-list-group class="text-monospace float-left text-truncate">
-                                <b-list-group-item v-for="item in filteredStructs" v-bind:key="item.ID">
-                                    <b-row class="ml-1">
-                                        <span>
-                                            <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
-                                            <div v-for="comment in item.Comments" class="documentation text-comment" title="This is a comment">// {{ comment }}</div>
-                                        </span>
-                                    </b-row>
-                                    <b-row class="ml-1">
-                                        <span>type <b>{{item.TypeName}}</b> struct {</span>
-                                    </b-row>
-                                    <table class="table-responsive table-sm table-hover">
-                                        <tbody>
-                                            <template v-for="(field, fieldIndex) in item.Fields">
-                                                <tr v-for="doc in field.Docs" title="This is a doc">
-                                                    <td colspan="3" class="comment-cell">
-                                                        <span class="documentation pl-4">// {{ doc }}</span>
-                                                    </td>
-                                                </tr>
-                                                <tr v-bind:class="{ 'selected-struct-field': field.Enabled }">
-                                                    <td class="pt-0">
-                                                        <span class="pl-4">
-                                                            {{field.VarName}}
-                                                        </span>
-                                                    </td>
-                                                    <td class="pt-0">
-                                                        <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch></b-form-checkbox>
-                                                    </td>
-                                                    <td class="pt-0" :title="field.KindString">
-                                                        <span>
-                                                            {{field.TypeString}}
-                                                        </span>
-                                                    </td>
-                                                    <td class="pt-0">
-                                                        <span v-for="comment in field.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
-                                                    </td>
-                                                </tr>
-                                            </template>
-                                        </tbody>
-                                    </table>
-                                    <b-row class="ml-1">
-                                        <span>}</span>
-                                    </b-row>
-                                </b-list-group-item>
+                                <cm-struct-item v-for="item in filteredStructs" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
                             </b-list-group>
                         </b-tab>
                     </b-tabs>
@@ -315,6 +214,16 @@
     <script>
     function cc(...elems) {
         return elems.join("-")
+    }
+    function len(elem) {
+        if (elem == null) { return 0 }
+        return elem.length
+    }
+    function marshal(obj) {
+        return JSON.stringify(obj)
+    }
+    function revf(path, version) {
+        return path + "@" + version
     }
 
     window.app = new Vue({
@@ -379,19 +288,10 @@
             },
         },
         methods: {
-            cc: function(...elems) {
-                return elems.join("-")
-            },
-            len: function(elem) {
-                if (elem == null) { return 0 }
-                return elem.length
-            },
-            marshal(obj) {
-                return JSON.stringify(obj)
-            },
-            revf(path, version) {
-                return path + "@" + version
-            },
+            cc: cc,
+            len: len,
+            marshal: marshal,
+            revf: revf,
             makeToast(variant = null, title, body) {
                 this.$bvToast.toast(
                     body, {
@@ -518,7 +418,162 @@
                     });
             }
         }
-    })
+    });
+
+    Vue.component('cm-search-result', {
+          props: ['item','index'],
+          template: "#cm-search-result-template",
+          methods: {
+                  loadCode: function(path, version) {
+                      this.$root.loadCode(path, version);
+                  },
+                  listVersions: function(searchItem) {
+                      this.$root.listVersions(searchItem);
+                  },
+                  cc: cc,
+                  len: len,
+                  marshal: marshal,
+                  revf: revf
+                }
+      });
+
+      Vue.component('cm-func-item', {
+          props: ['item'],
+          template: "#cm-func-item-template"
+      });
+      Vue.component('cm-tm-item', {
+          props: ['item'],
+          template: "#cm-tm-item-template"
+      });
+      Vue.component('cm-it-item', {
+          props: ['item'],
+          template: "#cm-it-item-template"
+      });
+      Vue.component('cm-struct-item', {
+          methods: {
+              cc: cc,
+          },
+          props: ['item'],
+          template: "#cm-struct-item-template"
+      });
+    </script>
+    <script type="text/x-template" id="cm-search-result-template">
+        <b-list-group-item :title="item.synopsis" v-bind:key="item.path + index">
+          <b-row class="mr-1">
+              <b-col align-self="start">
+                  <span class="text-monospace float-left d-inline-block text-truncate">
+                      <b-icon icon="box-seam" variant="primary"></b-icon> <b>{{item.path}}</b> as "{{item.name}}"
+                  </span>
+                  <span class="float-right">
+                      <span title="Imported N times">{{item.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span> | <span title="Starred N times">{{item.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
+                  </span>
+              </b-col>
+              <b-col align-self="end" lg="1">
+                  <b-dropdown text="Select" variant="success" size="sm" @show="listVersions(item)">
+                      <b-dropdown-item href="#" v-bind:class="{ hidden: item.gotVersions }" class="text-center align-items-center">
+                          <b-spinner type="grow" label="Spinning" align-h="center"></b-spinner>
+                      </b-dropdown-item>
+                      <b-dropdown-item v-for="version in item.versions" :key="revf(item.path,version)" @click="loadCode(item.path,version)">
+                          {{ version }}
+                      </b-dropdown-item>
+                  </b-dropdown>
+              </b-col>
+          </b-row>
+          <b-row class="mr-1">
+              <b-col align-self="start">
+                  <small v-bind:class="{ 'text-muted': !item.synopsis }">
+                      <b-icon icon="file-text" :variant="item.synopsis ? 'dark':'secondary'"></b-icon> {{!item.synopsis ? "✗" : item.synopsis}}
+                  </small>
+              </b-col>
+          </b-row>
+      </b-list-group-item>
+    </script>
+    <script type="text/x-template" id="cm-func-item-template">
+        <b-list-group-item v-bind:key="item.ID">
+          <b-row class="mr-1">
+              <b-col align-self="start">
+                  <span>
+                      <div v-for="doc in item.Docs" class="documentation">// {{ doc }}</div>
+                  </span>
+                  <span class="text-monospace float-left text-truncate">
+                      <small>{{item.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
+                  </span>
+              </b-col>
+          </b-row>
+      </b-list-group-item>
+    </script>
+    <script type="text/x-template" id="cm-tm-item-template">
+        <b-list-group-item v-bind:key="item.ID">
+          <b-row class="mr-1">
+              <b-col align-self="start">
+                  <span>
+                      <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
+                  </span>
+                  <span class="text-monospace float-left text-truncate">
+                      <small>{{item.Func.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
+                  </span>
+              </b-col>
+          </b-row>
+      </b-list-group-item>
+    </script>
+    <script type="text/x-template" id="cm-it-item-template">
+        <b-list-group-item v-bind:key="item.ID">
+          <b-row class="mr-1">
+              <b-col align-self="start">
+                  <span>
+                      <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
+                  </span>
+                  <span class="text-monospace float-left text-truncate">
+                      <small>{{item.Func.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
+                  </span>
+              </b-col>
+          </b-row>
+      </b-list-group-item>
+    </script>
+    <script type="text/x-template" id="cm-struct-item-template">
+        <b-list-group-item v-bind:key="item.ID">
+              <b-row class="ml-1">
+                  <span>
+                      <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
+                      <div v-for="comment in item.Comments" class="documentation text-comment" title="This is a comment">// {{ comment }}</div>
+                  </span>
+              </b-row>
+              <b-row class="ml-1">
+                  <span>type <b>{{item.TypeName}}</b> struct {</span>
+              </b-row>
+              <table class="table-responsive table-sm table-hover">
+                  <tbody>
+                      <template v-for="(field, fieldIndex) in item.Fields">
+                          <tr v-for="doc in field.Docs" title="This is a doc">
+                              <td colspan="3" class="comment-cell">
+                                  <span class="documentation pl-4">// {{ doc }}</span>
+                              </td>
+                          </tr>
+                          <tr v-bind:class="{ 'selected-struct-field': field.Enabled }">
+                              <td class="pt-0">
+                                  <span class="pl-4">
+                                      {{field.VarName}}
+                                  </span>
+                              </td>
+                              <td class="pt-0">
+                                  <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch></b-form-checkbox>
+                              </td>
+                              <td class="pt-0" :title="field.KindString">
+                                  <span>
+                                      {{field.TypeString}}
+                                  </span>
+                              </td>
+                              <td class="pt-0">
+                                  <span v-for="comment in field.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
+                              </td>
+                          </tr>
+                      </template>
+                  </tbody>
+              </table>
+              <b-row class="ml-1">
+                  <span>}</span>
+              </b-row>
+          </b-list-group-item>
     </script>
 </body>
 
