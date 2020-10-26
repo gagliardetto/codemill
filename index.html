@@ -96,6 +96,11 @@
         padding: 0em !important;
         line-height: 1em;
     }
+
+    .checkbox-cell {
+        white-space: nowrap !important;
+        float: none !important;
+    }
     </style>
 </head>
 
@@ -179,7 +184,7 @@
                     <b-tabs align="left" card>
                         <!-- This tabs content will not be mounted until the tab is shown -->
                         <!-- and will be un-mounted when hidden -->
-                        <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" lazy>
+                        <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" lazy active>
                             <b-list-group>
                                 <cm-func-item v-for="item in filteredFuncs" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
                             </b-list-group>
@@ -194,7 +199,7 @@
                                 <cm-it-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID" v-bind:item="item"></cm-it-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" lazy active>
+                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" lazy>
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <cm-struct-item v-for="item in filteredStructs" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
                             </b-list-group>
@@ -215,13 +220,16 @@
     function cc(...elems) {
         return elems.join("-")
     }
+
     function len(elem) {
         if (elem == null) { return 0 }
         return elem.length
     }
+
     function marshal(obj) {
         return JSON.stringify(obj)
     }
+
     function revf(path, version) {
         return path + "@" + version
     }
@@ -419,43 +427,24 @@
             }
         }
     });
-
+    </script>
+    <script type="text/javascript">
     Vue.component('cm-search-result', {
-          props: ['item','index'],
-          template: "#cm-search-result-template",
-          methods: {
-                  loadCode: function(path, version) {
-                      this.$root.loadCode(path, version);
-                  },
-                  listVersions: function(searchItem) {
-                      this.$root.listVersions(searchItem);
-                  },
-                  cc: cc,
-                  len: len,
-                  marshal: marshal,
-                  revf: revf
-                }
-      });
-
-      Vue.component('cm-func-item', {
-          props: ['item'],
-          template: "#cm-func-item-template"
-      });
-      Vue.component('cm-tm-item', {
-          props: ['item'],
-          template: "#cm-tm-item-template"
-      });
-      Vue.component('cm-it-item', {
-          props: ['item'],
-          template: "#cm-it-item-template"
-      });
-      Vue.component('cm-struct-item', {
-          methods: {
-              cc: cc,
-          },
-          props: ['item'],
-          template: "#cm-struct-item-template"
-      });
+        props: ['item', 'index'],
+        template: "#cm-search-result-template",
+        methods: {
+            loadCode: function(path, version) {
+                this.$root.loadCode(path, version);
+            },
+            listVersions: function(searchItem) {
+                this.$root.listVersions(searchItem);
+            },
+            cc: cc,
+            len: len,
+            marshal: marshal,
+            revf: revf
+        }
+    });
     </script>
     <script type="text/x-template" id="cm-search-result-template">
         <b-list-group-item :title="item.synopsis" v-bind:key="item.path + index">
@@ -488,19 +477,82 @@
           </b-row>
       </b-list-group-item>
     </script>
+    <script type="text/javascript">
+    Vue.component('cm-func-item', {
+        props: ['item'],
+        methods: {
+            cc: cc,
+            len: len,
+        },
+        template: "#cm-func-item-template"
+    });
+    </script>
     <script type="text/x-template" id="cm-func-item-template">
         <b-list-group-item v-bind:key="item.ID">
           <b-row class="mr-1">
               <b-col align-self="start">
-                  <span>
-                      <div v-for="doc in item.Docs" class="documentation">// {{ doc }}</div>
-                  </span>
-                  <span class="text-monospace float-left text-truncate">
-                      <small>{{item.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
-                  </span>
+                  <b-row class="ml-1">
+                      <span>
+                          <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
+                      </span>
+                  </b-row>
+                  <b-row class="ml-1">
+                    <span class="text-monospace float-left text-truncate">
+                        <small>{{item.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
+                    </span>
+                  </b-row>
+              <table class="table-responsive table-sm">
+                  <tbody>
+                      <tr>
+                          <td class="pl-0 pr-0">func <b>{{ item.Name }}</b>{{item.Parameters == null ? "( )" : "" }}</td>
+                          <td class="pl-0 pr-0"
+                            v-for="(param, index) in item.Parameters"
+                            v-bind:param="param"
+                            v-bind:index="index"
+                            v-bind:key="item.ID + 'param' + index"
+                            >
+                            <span :title="param.KindString" data-toggle="tooltip" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < len(item.Parameters) - 1 ? ",&nbsp;" : "" }}{{index==len(item.Parameters) - 1 ?")":""}}</span>
+                          </td>
+                            
+                            <td class="pl-0 pr-0"
+                            v-for="(param, index) in item.Results"
+                            v-bind:param="param"
+                            v-bind:index="index"
+                            v-bind:key="item.ID + 'result' + index"
+                            >
+                            <span :title="param.KindString" data-toggle="tooltip" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < len(item.Results) - 1 ? ",&nbsp;" : "" }}{{index==len(item.Results) - 1 ?")":""}}</span>
+                          </td>
+                      </tr>
+                      <tr>
+                        <td class="pl-0 pr-0">&nbsp;</td>
+                        <td v-for="(param, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
+                          <b-form-checkbox class="d-flex justify-content-center" switch></b-form-checkbox>
+                        </td>
+                      </tr>
+                  </tbody>
+                  </table>
               </b-col>
           </b-row>
       </b-list-group-item>
+    </script>
+    <script type="text/javascript">
+    Vue.component('cm-param', {
+        methods: {
+            cc: cc,
+            len: len,
+        },
+        props: ['param', 'index', 'total'],
+        template: "#cm-elem-param-template"
+    });
+    </script>
+    <script type="text/x-template" id="cm-elem-param-template">
+        <td :title="param.KindString" data-toggle="tooltip" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</td>
+    </script>
+    <script type="text/javascript">
+    Vue.component('cm-tm-item', {
+        props: ['item'],
+        template: "#cm-tm-item-template"
+    });
     </script>
     <script type="text/x-template" id="cm-tm-item-template">
         <b-list-group-item v-bind:key="item.ID">
@@ -516,6 +568,12 @@
           </b-row>
       </b-list-group-item>
     </script>
+    <script type="text/javascript">
+    Vue.component('cm-it-item', {
+        props: ['item'],
+        template: "#cm-it-item-template"
+    });
+    </script>
     <script type="text/x-template" id="cm-it-item-template">
         <b-list-group-item v-bind:key="item.ID">
           <b-row class="mr-1">
@@ -529,6 +587,15 @@
               </b-col>
           </b-row>
       </b-list-group-item>
+    </script>
+    <script type="text/javascript">
+    Vue.component('cm-struct-item', {
+        methods: {
+            cc: cc,
+        },
+        props: ['item'],
+        template: "#cm-struct-item-template"
+    });
     </script>
     <script type="text/x-template" id="cm-struct-item-template">
         <b-list-group-item v-bind:key="item.ID">
