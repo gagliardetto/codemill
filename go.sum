@@ -32,6 +32,8 @@ github.com/gagliardetto/codebox v0.0.0-20201022213111-690d3db4d20e h1:+nVvy6bXFx
 github.com/gagliardetto/codebox v0.0.0-20201022213111-690d3db4d20e/go.mod h1:J6/BIV79VXqqZtaGE8IzC+6voP7vF9dYkCHuX2WwY+4=
 github.com/gagliardetto/codebox v0.0.0-20201024154105-b723e18975a4 h1:e5MFvR1tWT7URdalBLksK+Jl1FnMUFgR634nW5pCFkk=
 github.com/gagliardetto/codebox v0.0.0-20201024154105-b723e18975a4/go.mod h1:VOrzdgNZplaIJ7hq4+kgYpKMFucIU4SS8qxaamdcw4c=
+github.com/gagliardetto/codebox v0.0.0-20201026220535-8ade8504cb25 h1:rCK9xzDHNKhGNveAnAhQXP3Gd20HVXblvnjosy3BfCI=
+github.com/gagliardetto/codebox v0.0.0-20201026220535-8ade8504cb25/go.mod h1:y0TNUgppXhdcCltNjGGr7/LoyN6c79/9F8ACyAjH2LI=
 github.com/gagliardetto/feparser v0.0.0-20201020161618-7f23b4f2bcf7 h1:tkq7foVQocEC9taWKU4RkJot5v4QqtS8E+t+SP4nvIg=
 github.com/gagliardetto/feparser v0.0.0-20201020161618-7f23b4f2bcf7/go.mod h1:1ula649k+N2bbJRIjun5HbcJy8GDEHAyai9HW9+Z36E=
 github.com/gagliardetto/feparser v0.0.0-20201020193055-8442f492b885/go.mod h1:VDhM9uRIl2V7LoTxTupJlOed2FidnlOelafBOVSlOqk=
@@ -57,6 +59,8 @@ github.com/gagliardetto/feparser v0.0.0-20201024164038-03d1dd2afcae h1:8djpb5HyB
 github.com/gagliardetto/feparser v0.0.0-20201024164038-03d1dd2afcae/go.mod h1:8StY4mqtlpZTmyS1RmtfSJNrt+tQZjV0OtB5OxnuvEg=
 github.com/gagliardetto/feparser v0.0.0-20201026202419-bc779e2d0114 h1:nB8nQzHELwjQGmstupnDpwNySGEGERs5gm0ka1yTIms=
 github.com/gagliardetto/feparser v0.0.0-20201026202419-bc779e2d0114/go.mod h1:8StY4mqtlpZTmyS1RmtfSJNrt+tQZjV0OtB5OxnuvEg=
+github.com/gagliardetto/feparser v0.0.0-20201026222313-b01a4f395166 h1:8ozV0+3ipvEqGem4ljr1sSAScOMyApofHRzhJSIV2qo=
+github.com/gagliardetto/feparser v0.0.0-20201026222313-b01a4f395166/go.mod h1:5+ISe5o0iMzWCMBaCS7a/fvAmUw97lbOigfRecM4QhE=
 github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814 h1:4YMGFsBLNFgdj78/H4ItwQb5f5+RAZcnwf/IfWjXryc=
 github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814/go.mod h1:q1shG4u1Y4/sCCDTmRCkaDqNwD1wCDdmhvAcou8ZmPA=
 github.com/gagliardetto/request v0.8.0 h1:WiKvZFJNbYZR1awzRdH5ABaO/SoKzK+Hfn/rVJUo3EM=
