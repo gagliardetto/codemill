@@ -507,23 +507,27 @@
                           <td class="pl-0 pr-0">func <b>{{ item.Name }}</b>{{item.Parameters == null ? "( )" : "" }}</td>
                           <td class="pl-0 pr-0"
                             v-for="(param, index) in item.Parameters"
-                            v-bind:param="param"
-                            v-bind:index="index"
-                            v-bind:key="item.ID + 'param' + index"
                             >
-                            <span :title="param.KindString" data-toggle="tooltip" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < len(item.Parameters) - 1 ? ",&nbsp;" : "" }}{{index==len(item.Parameters) - 1 ?")":""}}</span>
+                            <cm-type
+                              v-bind:param="param"
+                              v-bind:index="index"
+                              v-bind:key="item.ID + 'param' + index"
+                              v-bind:total="len(item.Parameters)"
+                              ></cm-type>
                           </td>
                             
-                            <td class="pl-0 pr-0"
+                          <td class="pl-0 pr-0"
                             v-for="(param, index) in item.Results"
-                            v-bind:param="param"
-                            v-bind:index="index"
-                            v-bind:key="item.ID + 'result' + index"
                             >
-                            <span :title="param.KindString" data-toggle="tooltip" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < len(item.Results) - 1 ? ",&nbsp;" : "" }}{{index==len(item.Results) - 1 ?")":""}}</span>
+                            <cm-type
+                              v-bind:param="param"
+                              v-bind:index="index"
+                              v-bind:key="item.ID + 'result' + index"
+                              v-bind:total="len(item.Results)"
+                              ></cm-type>
                           </td>
                       </tr>
-                      <tr>
+                      <tr v-bind:class="{ hidden: len(item.Parameters)==0 && len(item.Results)==0 }">
                         <td class="pl-0 pr-0">&nbsp;</td>
                         <td v-for="(param, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
                           <b-form-checkbox class="d-flex justify-content-center" switch></b-form-checkbox>
@@ -536,17 +540,17 @@
       </b-list-group-item>
     </script>
     <script type="text/javascript">
-    Vue.component('cm-param', {
+    Vue.component('cm-type', {
         methods: {
             cc: cc,
             len: len,
         },
         props: ['param', 'index', 'total'],
-        template: "#cm-elem-param-template"
+        template: "#cm-type-template"
     });
     </script>
-    <script type="text/x-template" id="cm-elem-param-template">
-        <td :title="param.KindString" data-toggle="tooltip" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</td>
+    <script type="text/x-template" id="cm-type-template">
+        <span :title="param.KindString" data-toggle="tooltip" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</span>
     </script>
     <script type="text/javascript">
     Vue.component('cm-tm-item', {
