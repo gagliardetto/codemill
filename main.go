@@ -11,6 +11,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"sync"
 
 	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/feparser"
@@ -198,6 +199,12 @@ func main() {
 			Q(rev)
 		}
 
+		cached := GetCachedSource(path, version)
+		if cached != nil {
+			c.IndentedJSON(200, cached)
+			return
+		}
+
 		config := &packages.Config{
 			Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
 				packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
@@ -307,6 +314,7 @@ func main() {
 
 			fePackage.IsStandard = isStd
 
+			SetCachedSource(path, version, fePackage)
 			c.IndentedJSON(200, fePackage)
 		}
 
@@ -430,7 +438,6 @@ func x() {
 			}
 		}
 	})
-
 }
 func Abort400(c *gin.Context, errorString string) {
 	abort(c, 400, errorString)
@@ -440,4 +447,41 @@ func Abort404(c *gin.Context, errorString string) {
 }
 func abort(c *gin.Context, statusCode int, errorString string) {
 	c.AbortWithStatusJSON(statusCode, M{"error": errorString})
+}
+
+var (
+	sourceCache   = make(map[string]*feparser.FEPackage)
+	sourceCacheMu = &sync.RWMutex{}
+)
+
+func GetCachedSource(path string, version string) *feparser.FEPackage {
+	sourceCacheMu.RLock()
+	defer sourceCacheMu.RUnlock()
+	got, ok := sourceCache[path+"@"+version]
+	if !ok {
+		return nil
+	}
+	return got
+}
+
+func SetCachedSource(path string, version string, pkg *feparser.FEPackage) {
+	sourceCacheMu.Lock()
+	defer sourceCacheMu.Unlock()
+	sourceCache[path+"@"+version] = pkg
+}
+
+type XPackage struct {
+	Classes map[string]*XClass
+}
+
+type XClass struct {
+	Methods map[string]*XMethod
+}
+
+type XMethod struct {
+	Selectors []Selector
+}
+
+type Selector interface {
+	IsSelf() bool
 }
