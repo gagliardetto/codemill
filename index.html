@@ -129,7 +129,7 @@
                             <span class="float-left d-inline-block" v-if="len(searchResults) == 0" variant="danger">
                                 No results were found.
                             </span>
-                            <b-list-group-item v-for="foundItem in searchResults" :title="foundItem.synopsis" v-bind:key="foundItem.path">
+                            <b-list-group-item v-for="(foundItem, foundItemKey) in searchResults" :title="foundItem.synopsis" v-bind:key="foundItem.path + foundItemKey">
                                 <b-row class="mr-1">
                                     <b-col align-self="start">
                                         <span class="text-monospace float-left d-inline-block text-truncate">
@@ -144,7 +144,7 @@
                                             <b-dropdown-item href="#" v-bind:class="{ hidden: foundItem.gotVersions }" class="text-center align-items-center">
                                                 <b-spinner type="grow" label="Spinning" align-h="center"></b-spinner>
                                             </b-dropdown-item>
-                                            <b-dropdown-item v-for="(version, key) in foundItem.versions" :key="key" @click="loadCode(foundItem.path,version)">
+                                            <b-dropdown-item v-for="version in foundItem.versions" :key="revf(foundItem.path,version)" @click="loadCode(foundItem.path,version)">
                                                 {{ version }}
                                             </b-dropdown-item>
                                         </b-dropdown>
@@ -230,7 +230,7 @@
                                 </b-list-group-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab title="Structs" lazy active="true">
+                        <b-tab title="Structs" lazy active>
                             <b-list-group>
                                 <b-list-group-item v-for="item in currentPackage.source.Structs" v-bind:key="item.ID">
                                     <b-row class="mr-1">
@@ -285,165 +285,163 @@
             </template>
         </b-container>
     </div>
-    <script type="text/javascript">
+    <script>
     function cc(...elems) {
         return elems.join("-")
     }
 
-    window.onload = () => {
-        var srcapp = new Vue({
-            el: '#codemill-app',
-            data: {
-                currentPackage: {
-                    source: {},
-                    path: "",
-                    version: ""
-                },
-                searchResults: [],
-                currentSearch: "",
-                currentSearchOut: "",
-                isBusy: {
-                    search: false,
-                    loadCode: false
-                }
+    window.app = new Vue({
+        el: '#codemill-app',
+        data: {
+            currentPackage: {
+                source: {},
+                path: "",
+                version: ""
             },
-            created() {
-                // TODO: remove.
-                this.doSearch("revel");
-            },
-            updated() {
-
-            },
-            mounted() {
-
-            },
-            methods: {
-                cc: function(...elems) {
-                    return elems.join("-")
-                },
-                len: function(elem) {
-                    if (elem == null) { return 0 }
-                    return elem.length
-                },
-                marshal(obj) {
-                    return JSON.stringify(obj)
-                },
-                revf(path, version) {
-                    return path + "@" + version
-                },
-                makeToast(variant = null, title, body) {
-                    this.$bvToast.toast(
-                        body, {
-                            title: title,
-                            variant: variant,
-                            solid: true
-                        })
-                },
-                search() {
-                    this.currentSearchOut = this.currentSearch.trim();
-                    this.doSearch(this.currentSearchOut);
-                },
-                updateSearchValue(val) {
-                    this.currentSearch = val;
-                },
-                listVersions(searchItem) {
-                    console.log("getting list of versions...");
-                    console.log(searchItem);
-                    let url = '/api/versions?path=' + searchItem.path;
-
-                    fetch(url)
-                        .then(response => {
-                            if (response.ok) {
-                                return response.json()
-                            } else {
-                                throw response;
-                            }
-                        })
-                        .then(json => {
-                            searchItem.versions = json.results;
-                            searchItem.gotVersions = true;
-                        })
-                        .catch((error) => {
-                            console.error('Error:', error);
-                            error.json().then((body) => {
-                                this.makeToast("danger", "Error", body.error);
-                            });
-                        });
-                },
-                loadCode(path, version) {
-                    console.log("Loading code...selected:", this.revf(path, version));
-                    this.isBusy.loadCode = true;
-                    this.currentPackage.path = path;
-                    this.currentPackage.version = version;
-
-                    let url = '/api/source?path=' + path + "&v=" + version;
-
-                    fetch(url)
-                        .then(response => {
-                            if (response.ok) {
-                                return response.json()
-                            } else {
-                                throw response;
-                            }
-                        })
-                        .then(json => {
-                            this.currentPackage.source = json;
-                            this.isBusy.loadCode = false;
-                            this.$bvModal.show('modal-show-code');
-
-                            if (json.Module) {
-                                // TODO: if the version is different from what was requested,
-                                // then mark it some way.
-                                this.currentPackage.version = json.Module.Version;
-                            }
-                        })
-                        .catch((error) => {
-                            this.isBusy.loadCode = false;
-                            console.error('Error:', error);
-                            error.json().then((body) => {
-                                this.makeToast("danger", "Error", body.error);
-                            });
-                        });
-                },
-                doSearch(searchText) {
-                    this.isBusy.search = true;
-                    let url = '/api/search?q=' + searchText;
-
-                    fetch(url)
-                        .then(response => {
-                            if (response.ok) {
-                                return response.json()
-                            } else {
-                                throw response;
-                            }
-                        })
-                        .then(json => {
-                            this.isBusy.search = false;
-
-                            let gotResults = [];
-
-                            if (json.results == null) {
-                                this.searchResults = [];
-                            } else {
-                                json.results.forEach(function(item, itemIndex) {
-                                    item.versions = [];
-                                    item.gotVersions = false;
-                                    gotResults.push(item);
-                                });
-                                this.searchResults = gotResults;
-                            }
-                        })
-                        .catch((error) => {
-                            this.isBusy.search = false;
-                            console.error('Error:', error);
-                            error.json().then((body) => {
-                                this.makeToast("danger", "Error", body.error);
-                            });
-                        });
-                }
+            searchResults: [],
+            currentSearch: "",
+            currentSearchOut: "",
+            isBusy: {
+                search: false,
+                loadCode: false
             }
-        })
-    }
+        },
+        created() {
+            // TODO: remove.
+            this.doSearch("revel");
+        },
+        updated() {
+
+        },
+        mounted() {
+
+        },
+        methods: {
+            cc: function(...elems) {
+                return elems.join("-")
+            },
+            len: function(elem) {
+                if (elem == null) { return 0 }
+                return elem.length
+            },
+            marshal(obj) {
+                return JSON.stringify(obj)
+            },
+            revf(path, version) {
+                return path + "@" + version
+            },
+            makeToast(variant = null, title, body) {
+                this.$bvToast.toast(
+                    body, {
+                        title: title,
+                        variant: variant,
+                        solid: true
+                    })
+            },
+            search() {
+                this.currentSearchOut = this.currentSearch.trim();
+                this.doSearch(this.currentSearchOut);
+            },
+            updateSearchValue(val) {
+                this.currentSearch = val;
+            },
+            listVersions(searchItem) {
+                console.log("getting list of versions...");
+                console.log(searchItem);
+                let url = '/api/versions?path=' + searchItem.path;
+
+                fetch(url)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        searchItem.versions = json.results;
+                        searchItem.gotVersions = true;
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
+            },
+            loadCode(path, version) {
+                console.log("Loading code...selected:", this.revf(path, version));
+                this.isBusy.loadCode = true;
+                this.currentPackage.path = path;
+                this.currentPackage.version = version;
+
+                let url = '/api/source?path=' + path + "&v=" + version;
+
+                fetch(url)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.currentPackage.source = json;
+                        this.isBusy.loadCode = false;
+                        this.$bvModal.show('modal-show-code');
+
+                        if (json.Module) {
+                            // TODO: if the version is different from what was requested,
+                            // then mark it some way.
+                            this.currentPackage.version = json.Module.Version;
+                        }
+                    })
+                    .catch((error) => {
+                        this.isBusy.loadCode = false;
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
+            },
+            doSearch(searchText) {
+                this.isBusy.search = true;
+                let url = '/api/search?q=' + searchText;
+
+                fetch(url)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.isBusy.search = false;
+
+                        let gotResults = [];
+
+                        if (json.results == null) {
+                            this.searchResults = [];
+                        } else {
+                            json.results.forEach(function(item, itemIndex) {
+                                item.versions = [];
+                                item.gotVersions = false;
+                                gotResults.push(item);
+                            });
+                            this.searchResults = gotResults;
+                        }
+                    })
+                    .catch((error) => {
+                        this.isBusy.search = false;
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
+            }
+        }
+    })
     </script>
 </body>
 
