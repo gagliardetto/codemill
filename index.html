@@ -79,8 +79,20 @@
         background-color: #28a745 !important;
         border-radius: 0.3em;
     }
+
     .custom-control-label {
-      cursor: pointer;
+        cursor: pointer;
+    }
+
+    .b-table-sticky-header,
+    .table-responsive,
+    [class*=table-responsive-] {
+        margin-bottom: 0rem;
+    }
+
+    .comment-cell {
+        padding: 0em !important;
+        line-height: 1em;
     }
     </style>
 </head>
@@ -187,12 +199,11 @@
                                 <b-list-group-item v-for="item in currentPackage.source.Funcs" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
-                                            <span class="documentation">
-                                                <div v-for="doc in item.Docs">// {{ doc }}</div>
-                                                <div v-for="comment in item.Comments" class="text-comment">// {{ comment }}</div>
+                                            <span>
+                                                <div v-for="doc in item.Docs" class="documentation">// {{ doc }}</div>
                                             </span>
                                             <span class="text-monospace float-left text-truncate">
-                                                <small>{{item.Signature}}</small>
+                                                <small>{{item.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
                                             </span>
                                         </b-col>
                                     </b-row>
@@ -204,12 +215,11 @@
                                 <b-list-group-item v-for="item in currentPackage.source.TypeMethods" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
-                                            <span class="documentation">
-                                                <div v-for="doc in item.Docs" title="This is a doc">// {{ doc }}</div>
-                                                <div v-for="comment in item.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
+                                            <span>
+                                                <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
                                             </span>
                                             <span class="text-monospace float-left text-truncate">
-                                                <small>{{item.Func.Signature}}</small>
+                                                <small>{{item.Func.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
                                             </span>
                                         </b-col>
                                     </b-row>
@@ -221,12 +231,11 @@
                                 <b-list-group-item v-for="item in currentPackage.source.InterfaceMethods" v-bind:key="item.ID">
                                     <b-row class="mr-1">
                                         <b-col align-self="start">
-                                            <span class="documentation">
-                                                <div v-for="doc in item.Docs" title="This is a doc">// {{ doc }}</div>
-                                                <div v-for="comment in item.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
+                                            <span>
+                                                <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
                                             </span>
                                             <span class="text-monospace float-left text-truncate">
-                                                <small>{{item.Func.Signature}}</small>
+                                                <small>{{item.Func.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
                                             </span>
                                         </b-col>
                                     </b-row>
@@ -234,44 +243,48 @@
                             </b-list-group>
                         </b-tab>
                         <b-tab title="Structs" lazy active>
-                            <b-list-group>
+                            <b-list-group class="text-monospace float-left text-truncate">
                                 <b-list-group-item v-for="item in currentPackage.source.Structs" v-bind:key="item.ID">
-                                    <b-row class="mr-1">
-                                        <b-col align-self="start">
-                                            <span class="documentation">
-                                                <div v-for="doc in item.Docs" title="This is a doc">// {{ doc }}</div>
-                                                <div v-for="comment in item.Comments" class="text-comment" title="This is a comment">// {{ comment }}</div>
-                                            </span>
-                                            <span class="text-monospace float-left text-truncate">
-                                                <span>type <b variant="primary">{{item.TypeName}}</b> struct {</span>
-                                                <div v-for="(field, fieldIndex) in item.Fields">
-                                                    <b-row v-if="len(field.Docs) > 0" class="mt-2 pl-4">
-                                                        <b-col>
-                                                            <span class="documentation">
-                                                                <div v-for="doc in field.Docs" title="This is a doc">// {{ doc }}</div>
-                                                            </span>
-                                                        </b-col>
-                                                    </b-row>
-                                                    <b-row class="pl-4" v-bind:class="{ 'selected-struct-field': field.Enabled }">
-                                                        <b-col>
-                                                            <span>
-                                                                {{field.VarName}}
-                                                            </span>
-                                                        </b-col>
-                                                        <b-col>
-                                                            <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch>
-                                                            </b-form-checkbox>
-                                                        </b-col>
-                                                        <b-col>
-                                                            <span :title="field.KindString">
-                                                                {{field.TypeString}} <span v-for="comment in field.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
-                                                            </span>
-                                                        </b-col>
-                                                    </b-row>
-                                                </div>
-                                                <span>}</span>
-                                            </span>
-                                        </b-col>
+                                    <b-row class="ml-1">
+                                        <span>
+                                            <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
+                                            <div v-for="comment in item.Comments" class="documentation text-comment" title="This is a comment">// {{ comment }}</div>
+                                        </span>
+                                    </b-row>
+                                    <b-row class="ml-1">
+                                        <span>type <b>{{item.TypeName}}</b> struct {</span>
+                                    </b-row>
+                                    <table class="table-responsive table-sm table-hover">
+                                        <tbody>
+                                            <template v-for="(field, fieldIndex) in item.Fields">
+                                                <tr v-for="doc in field.Docs" title="This is a doc">
+                                                    <td colspan="3" class="comment-cell">
+                                                        <span class="documentation pl-4">// {{ doc }}</span>
+                                                    </td>
+                                                </tr>
+                                                <tr v-bind:class="{ 'selected-struct-field': field.Enabled }">
+                                                    <td class="pt-0">
+                                                        <span class="pl-4">
+                                                            {{field.VarName}}
+                                                        </span>
+                                                    </td>
+                                                    <td class="pt-0">
+                                                        <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch></b-form-checkbox>
+                                                    </td>
+                                                    <td class="pt-0" :title="field.KindString">
+                                                        <span>
+                                                            {{field.TypeString}}
+                                                        </span>
+                                                    </td>
+                                                    <td class="pt-0">
+                                                        <span v-for="comment in field.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
+                                                    </td>
+                                                </tr>
+                                            </template>
+                                        </tbody>
+                                    </table>
+                                    <b-row class="ml-1">
+                                        <span>}</span>
                                     </b-row>
                                 </b-list-group-item>
                             </b-list-group>
