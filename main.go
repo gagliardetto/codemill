@@ -27,18 +27,111 @@ import (
 	"golang.org/x/tools/go/packages"
 )
 
+type M map[string]interface{}
+
 const (
 	// Use default Golang proxy (???)
 	proxy = "https://proxy.golang.org/"
 )
 
-type M map[string]interface{}
+var (
+	spec = &XSpec{
+		Name:    "HelloWorldModule",
+		Classes: make(map[string]*XClass),
+	}
+	specMu = &sync.RWMutex{}
+)
+
+type ClassProto struct {
+	Extends []string
+}
+
+var (
+	// class kinds:
+	classes = map[string]*ClassProto{
+		"UntrustedFlowSource": {
+			Extends: []string{"UntrustedFlowSource::Range"},
+		},
+	}
+)
+
+type XSpec struct {
+	Name    string // Name of the module
+	Classes map[string]*XClass
+}
+
+type XClass struct {
+	Name      string
+	IsPrivate bool
+	Extends   []string
+	Methods   map[string]*XMethod
+}
+
+type XMethod struct {
+	Name      string
+	Selectors []Selector
+}
+
+type Selector interface {
+	IsSelf() bool
+}
 
 func main() {
 	r := gin.Default()
 	r.StaticFile("", "./index.html")
 	r.Static("/static", "./static")
 	httpClient := new(http.Client)
+
+	r.GET("/api/spec", func(c *gin.Context) {
+		specMu.RLock()
+		defer specMu.RUnlock()
+		c.IndentedJSON(200, spec)
+	})
+	r.POST("/api/spec/classes", func(c *gin.Context) {
+		var addClassPayload struct {
+			Name      string
+			IsPrivate bool
+			Kind      string
+		}
+		err := c.BindJSON(&addClassPayload)
+		if err != nil {
+			Q(err)
+			Abort400(c, err.Error())
+			return
+		}
+		specMu.Lock()
+		defer specMu.Unlock()
+
+		addClassPayload.Name = ToCamel(addClassPayload.Name)
+		if len(addClassPayload.Name) == 0 {
+			Abort400(c, "Class name not valid")
+			return
+		}
+
+		_, ok := spec.Classes[addClassPayload.Name]
+		if ok {
+			Abort400(c, "Class with the provided name already exists")
+			return
+		}
+
+		proto, ok := classes[addClassPayload.Kind]
+		if !ok {
+			Abort400(c, "Kind not found")
+			return
+		}
+
+		created := &XClass{
+			Name:      addClassPayload.Name,
+			IsPrivate: addClassPayload.IsPrivate,
+			Extends:   make([]string, len(proto.Extends)),
+			Methods:   make(map[string]*XMethod),
+		}
+
+		copy(created.Extends, proto.Extends)
+
+		spec.Classes[addClassPayload.Name] = created
+		c.IndentedJSON(200, spec)
+	})
 
 	r.GET("/api/search", func(c *gin.Context) {
 		req := request.NewRequest(httpClient)
@@ -468,20 +561,4 @@ func SetCachedSource(path string, version string, pkg *feparser.FEPackage) {
 	sourceCacheMu.Lock()
 	defer sourceCacheMu.Unlock()
 	sourceCache[path+"@"+version] = pkg
-}
-
-type XPackage struct {
-	Classes map[string]*XClass
-}
-
-type XClass struct {
-	Methods map[string]*XMethod
-}
-
-type XMethod struct {
-	Selectors []Selector
-}
-
-type Selector interface {
-	IsSelf() bool
 }

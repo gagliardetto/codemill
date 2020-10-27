@@ -110,20 +110,29 @@
         white-space: nowrap !important;
         float: none !important;
     }
+
     .skeleton-na {
-      background-color: rgba(0,0,0,0.06);
-      cursor: auto;
+        background-color: rgba(0, 0, 0, 0.06);
+        cursor: auto;
     }
     </style>
 </head>
 
 <body>
     <div id="codemill-app">
+        <b-container>
+            <div>module {{xspec.Name}} {</div>
+            <cm-xclass v-for="(item, key) in xspec.Classes" v-bind:key="key" v-bind:xclass="item" class="ml-2"></cm-xclass>
+            <div>}</div>
+            <!-- Modal for searching packages -->
+            <template>
+                <b-button v-b-modal.modal-list-remote-packages>Search packages</b-button>
+            </template>
+        </b-container>
         <!-- Content here -->
         <b-container>
             <!-- Modal for searching packages -->
             <template>
-                <b-button v-b-modal.modal-list-remote-packages>Search packages</b-button>
                 <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl" no-close-on-backdrop>
                     <b-form v-on:submit.prevent="search">
                         <label for="search-input-field">Search</label>
@@ -250,15 +259,16 @@
     window.app = new Vue({
         el: '#codemill-app',
         data: {
+            xspec: {},
             currentPackage: {
                 source: {},
                 path: "",
                 version: ""
             },
             searchData: {
-              results: [],
-              current: "",
-              currentOut: ""
+                results: [],
+                current: "",
+                currentOut: ""
             },
             isBusy: {
                 search: false,
@@ -267,6 +277,7 @@
             currentElementFilter: "",
         },
         created() {
+            this.spec_Load();
             // TODO: remove.
             this.doSearch("revel");
         },
@@ -346,7 +357,7 @@
                 return (item.Docs && item.Docs.some(this.elementFilterMatches)) || (item.Comments && item.Comments.some(this.elementFilterMatches))
             },
             listVersions(searchItem) {
-                console.log("getting list of versions...");
+                console.log("Loading list of versions...");
                 console.log(searchItem);
                 let url = '/api/versions?path=' + searchItem.path;
 
@@ -440,9 +451,83 @@
                             this.makeToast("danger", "Error", body.error);
                         });
                     });
+            },
+            spec_Load() {
+                console.log("Loading spec...");
+                let url = '/api/spec';
+
+                fetch(url)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.$data.xspec = json;
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
+            },
+            spec_AddClass(name, isPrivate, kind) {
+                console.log("Adding class to spec ...", name);
+                let url = '/api/spec/classes';
+
+                let payload = {
+                    "Name": name,
+                    "IsPrivate": Boolean(isPrivate),
+                    "Kind": kind
+                }
+                console.log(payload);
+
+                fetch(url, {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.$data.xspec = json;
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
             }
         }
     });
+    </script>
+    <script type="text/javascript">
+    Vue.component('cm-xclass', {
+        methods: {
+            cc: cc,
+            len: len,
+        },
+        props: ['xclass'],
+        template: "#cm-xclass-template"
+    });
+    </script>
+    <script type="text/x-template" id="cm-xclass-template">
+        <div>
+          <div>{{xclass.IsPrivate?"private":""}} class {{xclass.Name}} extends {{xclass.Extends.join(", ")}} {</div>
+            //TODO: methods go here
+          <div>}</div>
+        </div>
     </script>
     <script type="text/javascript">
     Vue.component('cm-search-result', {
@@ -500,12 +585,12 @@
         methods: {
             cc: cc,
             len: len,
-            onChangeBlock(event, index, item){
-              // TODO:
-              // - Send the update to the API
-              // - Save the response in this.$root.$data.XSpec
-              // - The UI is bind to this.$root.$data.XSpec (scoped by package)
-              console.log(event, index, item.ID, this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+            onChangeBlock(event, index, item) {
+                // TODO:
+                // - Send the update to the API
+                // - Save the response in this.$root.$data.xspec
+                // - The UI is bind to this.$root.$data.xspec (scoped by package)
+                console.log(event, index, item.ID, this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
             }
         },
         template: "#cm-func-item-template"
