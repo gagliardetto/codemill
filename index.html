@@ -491,20 +491,15 @@
         <b-list-group-item v-bind:key="item.ID">
           <b-row class="mr-1">
               <b-col align-self="start">
-                  <b-row class="ml-1">
+                  <b-row class="ml-0">
                       <span>
                           <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
                       </span>
                   </b-row>
-                  <b-row class="ml-1">
-                    <span class="text-monospace float-left text-truncate">
-                        <small>{{item.Signature}}</small> <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
-                    </span>
-                  </b-row>
               <table class="table-responsive table-sm">
                   <tbody>
                       <tr>
-                          <td class="pl-0 pr-0">func <b>{{ item.Name }}</b>{{item.Parameters == null ? "( )" : "" }}</td>
+                          <td class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{item.Parameters == null ? "( )" : "" }}</td>
                           <td class="pl-0 pr-0"
                             v-for="(param, index) in item.Parameters"
                             >
@@ -525,6 +520,9 @@
                               v-bind:key="item.ID + 'result' + index"
                               v-bind:total="len(item.Results)"
                               ></cm-type>
+                          </td>
+                          <td>
+                            <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
                           </td>
                       </tr>
                       <tr v-bind:class="{ hidden: len(item.Parameters)==0 && len(item.Results)==0 }">
