@@ -178,6 +178,7 @@
                 <b-modal id="modal-show-code" scrollable title="Code" size="xl" lazy no-close-on-backdrop>
                     <template #modal-title>
                         Source of <b>{{currentPackage.path}}@{{currentPackage.version}}</b>
+                        <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
                     </template>
                     <b-form v-on:submit.prevent="">
                         <label for="element-filter-input-field">Filter</label>
