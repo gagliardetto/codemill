@@ -157,10 +157,10 @@
                                     </div>
                                 </template>
                             </b-overlay>
-                            <span class="float-left d-inline-block" v-if="len(searchResults) == 0" variant="danger">
+                            <span class="float-left d-inline-block" v-if="len(searchData.results) == 0" variant="danger">
                                 No results were found.
                             </span>
-                            <cm-search-result v-for="(item, index) in searchResults" v-bind:key="item.path + index" v-bind:item="item" v-bind:index="index"></cm-search-result>
+                            <cm-search-result v-for="(item, index) in searchData.results" v-bind:key="item.path + index" v-bind:item="item" v-bind:index="index"></cm-search-result>
                         </b-list-group>
                     </b-form>
                     <template #modal-footer>
@@ -251,9 +251,11 @@
                 path: "",
                 version: ""
             },
-            searchResults: [],
-            currentSearch: "",
-            currentSearchOut: "",
+            searchData: {
+              results: [],
+              current: "",
+              currentOut: ""
+            },
             isBusy: {
                 search: false,
                 loadCode: false
@@ -272,34 +274,34 @@
         },
         computed: {
             filteredFuncs() {
-                if (!this.currentPackage.source.Funcs) {
+                if (!this.$data.currentPackage.source.Funcs) {
                     return
                 }
-                return this.currentPackage.source.Funcs.filter(item => {
+                return this.$data.currentPackage.source.Funcs.filter(item => {
                     return this.elementFilterMatches(item.Signature) || this.docsOrCommentsMatch(item)
                 });
             },
             filteredTypeMethods() {
-                if (!this.currentPackage.source.TypeMethods) {
+                if (!this.$data.currentPackage.source.TypeMethods) {
                     return
                 }
-                return this.currentPackage.source.TypeMethods.filter(item => {
+                return this.$data.currentPackage.source.TypeMethods.filter(item => {
                     return this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item)
                 });
             },
             filteredInterfaceMethods() {
-                if (!this.currentPackage.source.InterfaceMethods) {
+                if (!this.$data.currentPackage.source.InterfaceMethods) {
                     return
                 }
-                return this.currentPackage.source.InterfaceMethods.filter(item => {
+                return this.$data.currentPackage.source.InterfaceMethods.filter(item => {
                     return this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item)
                 });
             },
             filteredStructs() {
-                if (!this.currentPackage.source.Structs) {
+                if (!this.$data.currentPackage.source.Structs) {
                     return
                 }
-                return this.currentPackage.source.Structs.filter(item => {
+                return this.$data.currentPackage.source.Structs.filter(item => {
                     return this.elementFilterMatches(item.TypeName) || item.Fields.some(this.structFieldMatches) || this.docsOrCommentsMatch(item) || item.Fields.some(this.docsOrCommentsMatch)
                 });
             },
@@ -318,11 +320,11 @@
                     })
             },
             search() {
-                this.currentSearchOut = this.currentSearch.trim();
-                this.doSearch(this.currentSearchOut);
+                this.searchData.currentOut = this.searchData.current.trim();
+                this.doSearch(this.searchData.currentOut);
             },
             updateSearchValue(val) {
-                this.currentSearch = val;
+                this.searchData.current = val;
             },
             updateElementFilterValue(val) {
                 this.currentElementFilter = val;
@@ -365,9 +367,9 @@
             },
             loadCode(path, version) {
                 console.log("Loading code...selected:", this.revf(path, version));
-                this.isBusy.loadCode = true;
-                this.currentPackage.path = path;
-                this.currentPackage.version = version;
+                this.$data.isBusy.loadCode = true;
+                this.$data.currentPackage.path = path;
+                this.$data.currentPackage.version = version;
 
                 let url = '/api/source?path=' + path + "&v=" + version;
 
@@ -380,14 +382,15 @@
                         }
                     })
                     .then(json => {
-                        this.currentPackage.source = json;
-                        this.isBusy.loadCode = false;
+                        this.$data.currentPackage.source = json;
+                        this.$data.isBusy.loadCode = false;
+                        this.$data.currentElementFilter = "";
                         this.$bvModal.show('modal-show-code');
 
                         if (json.Module) {
                             // TODO: if the version is different from what was requested,
                             // then mark it some way.
-                            this.currentPackage.version = json.Module.Version;
+                            this.$data.currentPackage.version = json.Module.Version;
                         }
                     })
                     .catch((error) => {
@@ -416,14 +419,14 @@
                         let gotResults = [];
 
                         if (json.results == null) {
-                            this.searchResults = [];
+                            this.searchData.results = [];
                         } else {
                             json.results.forEach(function(item, itemIndex) {
                                 item.versions = [];
                                 item.gotVersions = false;
                                 gotResults.push(item);
                             });
-                            this.searchResults = gotResults;
+                            this.searchData.results = gotResults;
                         }
                     })
                     .catch((error) => {
@@ -492,6 +495,13 @@
         methods: {
             cc: cc,
             len: len,
+            onChangeBlock(event, index, item){
+              // TODO:
+              // - Send the update to the API
+              // - Save the response in this.$root.$data.XSpec
+              // - The UI is bind to this.$root.$data.XSpec (scoped by package)
+              console.log(event, index, item.ID, this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+            }
         },
         template: "#cm-func-item-template"
     });
@@ -536,8 +546,8 @@
                       </tr>
                       <tr v-bind:class="{ hidden: len(item.Parameters)==0 && len(item.Results)==0 }">
                         <td class="pl-0 pr-0">&nbsp;</td>
-                        <td v-for="(param, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
-                          <b-form-checkbox class="d-flex justify-content-center" switch></b-form-checkbox>
+                        <td v-for="(inp, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
+                          <b-form-checkbox class="d-flex justify-content-center" @change="onChangeBlock($event, index, item)" switch></b-form-checkbox>
                         </td>
                       </tr>
                   </tbody>
