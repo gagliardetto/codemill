@@ -39,6 +39,10 @@
         right: 0;
         display: flex;
         border-radius: 0px;
+        max-width: auto !important;
+        max-height: auto !important;
+        height: auto;
+        min-height: 100%;
     }
 
     .modal-content {
@@ -51,6 +55,11 @@
         display: flex;
         border-radius: 0px;
         padding: 0px;
+        max-width: auto !important;
+        max-height: auto !important;
+        height: auto;
+        min-height: 100%;
+        max-height: fit-content !important;
     }
 
     .tab-pane {
@@ -156,7 +165,7 @@
                     </b-form>
                     <template #modal-footer>
                         <div class="w-100">
-                            <b-button variant="secondary" class="float-right" @click="$bvModal.hide('modal-list-remote-packages')">
+                            <b-button variant="secondary" class="float-right" size="sm" @click="$bvModal.hide('modal-list-remote-packages')">
                                 Close
                             </b-button>
                         </div>
