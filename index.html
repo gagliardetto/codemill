@@ -466,7 +466,7 @@
                       <b-icon icon="box-seam" variant="primary"></b-icon> <b>{{item.path}}</b> as "{{item.name}}"
                   </span>
                   <span class="float-right">
-                      <span title="Imported N times">{{item.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span> | <span title="Starred N times">{{item.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
+                      <span :title="'Imported '+item.import_count+' times'">{{item.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span><span :title="'Starred '+item.stars+' times'" v-if="item.stars"> | {{item.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
                   </span>
               </b-col>
               <b-col align-self="end" lg="1">
