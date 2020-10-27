@@ -110,6 +110,10 @@
         white-space: nowrap !important;
         float: none !important;
     }
+    .skeleton-na {
+      background-color: rgba(0,0,0,0.06);
+      cursor: auto;
+    }
     </style>
 </head>
 
@@ -483,7 +487,8 @@
           <b-row class="mr-1">
               <b-col align-self="start">
                   <small v-bind:class="{ 'text-muted': !item.synopsis }">
-                      <b-icon icon="file-text" :variant="item.synopsis ? 'dark':'secondary'"></b-icon> {{!item.synopsis ? "✗" : item.synopsis}}
+                      <b-icon icon="file-text" :variant="item.synopsis ? 'dark':'secondary'"></b-icon> {{item.synopsis}}
+                      <b-skeleton animation v-if="!item.synopsis" width="20%" class="d-inline-flex skeleton-na ml-2" title="No description available"></b-skeleton>
                   </small>
               </b-col>
           </b-row>
