@@ -8,7 +8,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"runtime"
-	"sort"
 	"strings"
 	"sync"
 
@@ -197,7 +196,7 @@ func main() {
 		}
 
 		// Reverse versions' order to show the (presumably) most recent at the top of the list:
-		sort.Sort(sort.Reverse(sort.StringSlice(versions)))
+		ReverseStringSlice(versions)
 
 		Ln(versions)
 
