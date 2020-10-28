@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -450,88 +449,6 @@ func Structs(pkg *types.Package) map[string]*types.Struct {
 	return structs
 }
 
-func x() {
-	r := gin.Default()
-	r.POST("/api/x/module", func(c *gin.Context) {
-		// NOTE: this is EXPERIMENTAL and does not currently work.
-		// TODO: see https://github.com/golang/go/issues/33655 for a possible approach.
-
-		path := c.Query("path")
-		version := c.Query("v")
-
-		isStd := search.IsStandardImportPath(path)
-		if isStd {
-			Abort400(c, Sf("Package %q is from the standard library", path))
-			return
-		}
-
-		// Find out the root of the package:
-		root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
-		if err != nil {
-			panic(err)
-		}
-		Q(root)
-		path = root.Root
-
-		// Lookup the repo:
-		repo, err := modfetch.Lookup(proxy, path)
-		if err != nil {
-			panic(err)
-		}
-		_ = repo
-		modfileBytes, err := repo.GoMod(version)
-		if err != nil {
-			panic(err)
-		}
-
-		mf, err := modfile.Parse("go.mod", modfileBytes, nil)
-		if err != nil {
-			panic(err)
-		}
-
-		var args []string
-		for _, v := range mf.Require {
-			args = append(args, v.Mod.Path)
-			Q(modfetch.Download(v.Mod))
-		}
-
-		Q(mf)
-
-		mod := module.Version{
-			Path:    path,
-			Version: version,
-		}
-
-		modfetch.PkgMod = os.ExpandEnv("$GOPATH/pkg/mod")
-
-		gotPath, err := modfetch.Download(mod)
-		if err != nil {
-			panic(err)
-		}
-		Q(gotPath, err)
-
-		{
-			config := &packages.Config{
-				Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
-					packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
-					packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedTypesSizes | packages.NeedModule,
-			}
-			pkgs, err := packages.Load(config, path)
-			if err != nil {
-				panic(err)
-			}
-			Ln("parsed")
-			packages.PrintErrors(pkgs)
-
-			for _, pkg := range pkgs {
-				Q(pkg.Module)
-			}
-			for _, pkg := range pkgs {
-				fmt.Println(pkg.ID, pkg.GoFiles)
-			}
-		}
-	})
-}
 func Abort400(c *gin.Context, errorString string) {
 	abort(c, 400, errorString)
 }
