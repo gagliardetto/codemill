@@ -348,7 +348,7 @@ func main() {
 
 		{
 			// Initialize scanner:
-			sc, err := scanner.NewSimple(path)
+			sc, err := scanner.New(path)
 			if err != nil {
 				Q(err)
 				Abort400(c, err.Error())
@@ -397,7 +397,7 @@ func main() {
 			pk := pks[0]
 
 			// compose the fePackage:
-			Infof("Composing fePackage %q", scanner.RemoveGoSrcClonePath(pk.Path))
+			Infof("Composing fePackage %q", pk.Path)
 			fePackage, err := feparser.Load(pk)
 			if err != nil {
 				Q(err)
