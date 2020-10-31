@@ -386,6 +386,7 @@ func main() {
 				return pkgs[0], nil
 			}
 
+			Infof("Loading pkg=%q version=%q ...", path, version)
 			pks, err := sc.ScanWithCustomScanner(scanner.ScannerFunc(scannerFunc))
 			if err != nil {
 				Q(err)
@@ -395,7 +396,7 @@ func main() {
 			pk := pks[0]
 
 			// compose the fePackage:
-			Infof("Composing fePackage %q", pk.Path)
+			Infof("Composing fePackage for pkg=%q version=%q ...", pk.Path, version)
 			fePackage, err := feparser.Load(pk)
 			if err != nil {
 				Q(err)
@@ -411,7 +412,7 @@ func main() {
 
 	})
 
-	r.Run("0.0.0.0:8070") // listen and serve on 0.0.0.0:8080
+	r.Run("0.0.0.0:8070")
 }
 
 // Interfaces returns a map of interfaces which are declared in the package.
