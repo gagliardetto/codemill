@@ -728,20 +728,20 @@
                               </td>
                           </tr>
                           <tr v-bind:class="{ 'selected-struct-field': field.Enabled }">
-                              <td class="pt-0">
+                              <td class="pt-1 pb-1">
                                   <span class="pl-4">
                                       {{field.VarName}}
                                   </span>
                               </td>
-                              <td class="pt-0">
+                              <td class="pt-1 pb-1">
                                   <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch></b-form-checkbox>
                               </td>
-                              <td class="pt-0" :title="field.KindString">
+                              <td class="pt-1 pb-1" :title="field.KindString">
                                   <span>
                                       {{field.TypeString}}
                                   </span>
                               </td>
-                              <td class="pt-0">
+                              <td class="pt-1 pb-1">
                                   <span v-for="comment in field.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
                               </td>
                           </tr>
