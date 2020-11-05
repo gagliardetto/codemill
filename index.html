@@ -206,22 +206,22 @@
                     <b-tabs align="left" card>
                         <!-- This tabs content will not be mounted until the tab is shown -->
                         <!-- and will be un-mounted when hidden -->
-                        <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" lazy active>
+                        <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" active>
                             <b-list-group>
                                 <cm-func-item v-for="item in filteredFuncs" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'" lazy>
+                        <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'">
                             <b-list-group>
                                 <cm-tm-item v-for="item in filteredTypeMethods" v-bind:key="item.ID" v-bind:item="item"></cm-tm-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'" lazy>
+                        <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'">
                             <b-list-group>
                                 <cm-it-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID" v-bind:item="item"></cm-it-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" lazy>
+                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'">
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <cm-struct-item v-for="item in filteredStructs" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
                             </b-list-group>
@@ -657,7 +657,7 @@
     });
     </script>
     <script type="text/x-template" id="cm-type-template">
-        <span :title="param.KindString" data-toggle="tooltip" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</span>
+        <span :title="param.KindString" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</span>
     </script>
     <script type="text/javascript">
     Vue.component('cm-tm-item', {
