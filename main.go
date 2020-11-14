@@ -116,8 +116,8 @@ type XMethod struct {
 type SelectorKind string
 
 const (
-	SelectorKindField SelectorKind = "Field" // Qualifier for struct fields.
-	SelectorKindFunc  SelectorKind = "Func"  // Qualifier for funcs, methods, interfaces.
+	SelectorKindStruct SelectorKind = "Struct" // Qualifier for structs.
+	SelectorKindFunc   SelectorKind = "Func"   // Qualifier for funcs, methods, interfaces.
 )
 
 type Selector struct {
@@ -129,15 +129,15 @@ type Qualifier struct {
 	Version string
 	ID      string
 }
-type FieldQualifier struct {
+type StructQualifier struct {
 	Qualifier
 	TypeName string
-	VarName  string
+	Fields   map[string]bool
 }
 
 //
-func (sel *Selector) GetFieldQualifier() *FieldQualifier {
-	got, ok := sel.Qualifier.(*FieldQualifier)
+func (sel *Selector) GetFieldQualifier() *StructQualifier {
+	got, ok := sel.Qualifier.(*StructQualifier)
 	if !ok {
 		return nil
 	}
@@ -172,15 +172,17 @@ var (
 						IsSelf: true,
 						Selectors: []*Selector{
 							{
-								Kind: SelectorKindField,
-								Qualifier: &FieldQualifier{
+								Kind: SelectorKindStruct,
+								Qualifier: &StructQualifier{
 									Qualifier: Qualifier{
 										Path:    "github.com/aws/aws-sdk-go/aws",
 										Version: "v1.9.44",
 										ID:      "Struct-Config",
 									},
 									TypeName: "Config",
-									VarName:  "Endpoint",
+									Fields: map[string]bool{
+										"Endpoint": true,
+									},
 								},
 							},
 							{

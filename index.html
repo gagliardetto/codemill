@@ -121,7 +121,7 @@
 <body>
     <div id="codemill-app">
         <b-container>
-            <div>module <b>{{xspec.Name}}</b> {</div>
+            <div>spec <b>{{xspec.Name}}</b> {</div>
             <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
             <div>}</div>
             <!-- Modal for searching packages -->
@@ -561,7 +561,7 @@
     </script>
     <script type="text/x-template" id="cm-xmodel-template">
         <div>
-          <div>{{xmodel.IsPrivate?"private ":""}}class <b>{{xmodel.Name}}</b> of kind {{xmodel.Kind}} {</div>
+          <div>{{xmodel.IsPrivate?"private ":""}}model <b>{{xmodel.Name}}</b> of kind {{xmodel.Kind}} {</div>
             <cm-xmethod v-for="(item, key) in xmodel.Methods" v-bind:key="key" v-bind:xmethod="item" class="ml-2"></cm-xmethod>
           <div>}</div>
         </div>
@@ -597,9 +597,12 @@
     </script>
     <script type="text/x-template" id="cm-xselector-template">
         <div>
-          <div v-if="xselector.Kind == 'Field'">
-            {{xselector.Kind}}: <b>{{xselector.Qualifier.Path}}@{{xselector.Qualifier.Version}}</b>
-            {{xselector.Qualifier.TypeName}}{}.{{xselector.Qualifier.VarName}}
+          <div v-if="xselector.Kind == 'Struct'">
+            <div>{{xselector.Kind}}: <b>{{xselector.Qualifier.Path}}@{{xselector.Qualifier.Version}}</b> {{xselector.Qualifier.TypeName}} {</div>
+            <div v-for="(ok, field) in xselector.Qualifier.Fields" v-bind:key="key" class="ml-2">
+              {{field}}
+            </div>
+            <div>}</div>
           </div>
 
           <div v-if="xselector.Kind == 'Func'">
