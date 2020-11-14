@@ -7,7 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"path/filepath"
-	"runtime"
+	"sort"
 	"strings"
 	"sync"
 
@@ -32,13 +32,19 @@ const (
 	proxy = "https://proxy.golang.org/"
 )
 
-var (
-	spec = &XSpec{
-		Name:    "HelloWorldModule",
-		Classes: make(map[string]*XClass),
-	}
-	specMu = &sync.RWMutex{}
+type ModelKind string
+
+const (
+	ModelKindUntrustedFlowSource ModelKind = "UntrustedFlowSource"
 )
+
+func IsValidModelKind(kind ModelKind) bool {
+	return IsAnyOf(
+		string(kind),
+		// All valid:
+		string(ModelKindUntrustedFlowSource),
+	)
+}
 
 type ClassProto struct {
 	Extends []string
@@ -46,33 +52,158 @@ type ClassProto struct {
 
 var (
 	// class kinds:
-	classes = map[string]*ClassProto{
-		"UntrustedFlowSource": {
+	classProto = map[ModelKind]*ClassProto{
+		ModelKindUntrustedFlowSource: {
 			Extends: []string{"UntrustedFlowSource::Range"},
 		},
 	}
 )
 
 type XSpec struct {
-	Name    string // Name of the module
-	Classes map[string]*XClass
+	Name   string // Name of the module
+	Models []*XModel
+	*sync.RWMutex
 }
 
-type XClass struct {
+//
+func (spec *XSpec) HasModelName(name string) bool {
+	spec.RLock()
+	defer spec.RUnlock()
+
+	for _, md := range spec.Models {
+		if md.Name == name {
+			return true
+		}
+	}
+	return false
+}
+
+//
+func (spec *XSpec) PushModel(model *XModel) error {
+	spec.Lock()
+	defer spec.Unlock()
+
+	{ // Validate model before adding:
+
+		ok := spec.HasModelName(model.Name)
+		if ok {
+			return fmt.Errorf("Class with the provided name already exists: %q", model.Name)
+		}
+
+		valid := IsValidModelKind(model.Kind)
+		if !valid {
+			return fmt.Errorf("Model Kind not valid: %q", model.Kind)
+		}
+	}
+
+	spec.Models = append(spec.Models, model)
+	return nil
+}
+
+type XModel struct {
 	Name      string
+	Kind      ModelKind
 	IsPrivate bool
-	Extends   []string
-	Methods   map[string]*XMethod
+	Methods   []*XMethod
 }
 
 type XMethod struct {
 	Name      string
-	Selectors []Selector
+	IsSelf    bool
+	Selectors []*Selector
 }
 
-type Selector interface {
-	IsSelf() bool
+type SelectorKind string
+
+const (
+	SelectorKindField SelectorKind = "Field" // Qualifier for struct fields.
+	SelectorKindFunc  SelectorKind = "Func"  // Qualifier for funcs, methods, interfaces.
+)
+
+type Selector struct {
+	Kind      SelectorKind
+	Qualifier interface{}
 }
+type Qualifier struct {
+	Path    string
+	Version string
+	ID      string
+}
+type FieldQualifier struct {
+	Qualifier
+	TypeName string
+	VarName  string
+}
+
+//
+func (sel *Selector) GetFieldQualifier() *FieldQualifier {
+	got, ok := sel.Qualifier.(*FieldQualifier)
+	if !ok {
+		return nil
+	}
+	return got
+}
+
+type FuncQualifier struct {
+	Qualifier
+	Pos []bool
+}
+
+//
+func (sel *Selector) GetFuncQualifier() *FuncQualifier {
+	got, ok := sel.Qualifier.(*FuncQualifier)
+	if !ok {
+		return nil
+	}
+	return got
+}
+
+var (
+	// TODO: try loading spec from file.
+	globalSpec = &XSpec{
+		Name: "HelloWorldModule",
+		Models: []*XModel{
+			{
+				Name: "UntrustedSource",
+				Kind: ModelKindUntrustedFlowSource,
+				Methods: []*XMethod{
+					{
+						Name:   "_Self",
+						IsSelf: true,
+						Selectors: []*Selector{
+							{
+								Kind: SelectorKindField,
+								Qualifier: &FieldQualifier{
+									Qualifier: Qualifier{
+										Path:    "github.com/aws/aws-sdk-go/aws",
+										Version: "v1.9.44",
+										ID:      "Struct-Config",
+									},
+									TypeName: "Config",
+									VarName:  "Endpoint",
+								},
+							},
+							{
+								Kind: SelectorKindFunc,
+								Qualifier: &FuncQualifier{
+									Qualifier: Qualifier{
+										Path:    "github.com/aws/aws-sdk-go/aws",
+										Version: "v1.9.44",
+										ID:      "Type-Method-Config-WithRegion",
+									},
+									Pos: []bool{
+										false, false, true,
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+		RWMutex: &sync.RWMutex{},
+	}
+)
 
 func main() {
 	r := gin.Default()
@@ -81,54 +212,50 @@ func main() {
 	httpClient := new(http.Client)
 
 	r.GET("/api/spec", func(c *gin.Context) {
-		specMu.RLock()
-		defer specMu.RUnlock()
-		c.IndentedJSON(200, spec)
+		globalSpec.RLock()
+		defer globalSpec.RUnlock()
+		c.IndentedJSON(200, globalSpec)
+	})
+	r.GET("/api/cached", func(c *gin.Context) {
+		// List already cached modules:
+		list := GetListCachedSources()
+
+		sort.Slice(list, func(i, j int) bool {
+			return FormatPathVersion(list[i].Path, list[i].Version) < FormatPathVersion(list[j].Path, list[j].Version)
+		})
+		c.IndentedJSON(200, M{"results": list})
 	})
 	r.POST("/api/spec/classes", func(c *gin.Context) {
-		var addClassPayload struct {
+		var req struct {
 			Name      string
+			Kind      ModelKind
 			IsPrivate bool
-			Kind      string
 		}
-		err := c.BindJSON(&addClassPayload)
+		err := c.BindJSON(&req)
 		if err != nil {
 			Q(err)
 			Abort400(c, err.Error())
 			return
 		}
-		specMu.Lock()
-		defer specMu.Unlock()
 
-		addClassPayload.Name = ToCamel(addClassPayload.Name)
-		if len(addClassPayload.Name) == 0 {
+		req.Name = ToCamel(req.Name)
+		if len(req.Name) == 0 {
 			Abort400(c, "Class name not valid")
 			return
 		}
 
-		_, ok := spec.Classes[addClassPayload.Name]
-		if ok {
-			Abort400(c, "Class with the provided name already exists")
+		created := &XModel{
+			Name:      req.Name,
+			Kind:      req.Kind,
+			IsPrivate: req.IsPrivate,
+		}
+
+		err = globalSpec.PushModel(created)
+		if err != nil {
+			Abort400(c, Sf("Error adding model: %s", err))
 			return
 		}
-
-		proto, ok := classes[addClassPayload.Kind]
-		if !ok {
-			Abort400(c, "Kind not found")
-			return
-		}
-
-		created := &XClass{
-			Name:      addClassPayload.Name,
-			IsPrivate: addClassPayload.IsPrivate,
-			Extends:   make([]string, len(proto.Extends)),
-			Methods:   make(map[string]*XMethod),
-		}
-
-		copy(created.Extends, proto.Extends)
-
-		spec.Classes[addClassPayload.Name] = created
-		c.IndentedJSON(200, spec)
+		c.IndentedJSON(200, globalSpec)
 	})
 
 	r.GET("/api/search", func(c *gin.Context) {
@@ -161,7 +288,8 @@ func main() {
 		isStd := search.IsStandardImportPath(path)
 		if isStd {
 			// Return the current Go version:
-			c.IndentedJSON(200, M{"results": []string{runtime.Version()}})
+			// TODO: get the version
+			c.IndentedJSON(200, M{"results": []string{"local"}})
 			return
 		}
 
@@ -225,10 +353,7 @@ func main() {
 			return
 		}
 		if version == "" {
-			// TODO: if version not specified, use latest?
-			// TODO: if package is std, specifying a version is not needed.
-			Abort400(c, "`v` (version) parameter not specified")
-			return
+			// If version not specified, we'll use the latest.
 		}
 
 		Infof("Loading package %q", path+"@"+version)
@@ -241,6 +366,7 @@ func main() {
 		var rootPath string
 		if isStd {
 			rootPath = path
+			version = "local"
 		} else {
 			// Find out the root of the package:
 			root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
@@ -260,6 +386,19 @@ func main() {
 				Q(err)
 				Abort400(c, err.Error())
 				return
+			}
+
+			if version == "" {
+				// If version not specified, we'll use the latest.
+				Infof("no version specified; using latest")
+				latest, err := repo.Latest()
+				if err != nil {
+					Q(err)
+					Abort400(c, err.Error())
+					return
+				}
+				Q(latest)
+				version = latest.Version
 			}
 
 			rev, err := repo.Stat(version)
@@ -460,14 +599,41 @@ func abort(c *gin.Context, statusCode int, errorString string) {
 }
 
 var (
-	sourceCache   = make(map[string]*feparser.FEPackage)
+	sourceCache   = make(map[PathVersion]*feparser.FEPackage)
 	sourceCacheMu = &sync.RWMutex{}
 )
+
+type PathVersion struct {
+	Path    string
+	Version string
+}
+
+func FormatPathVersion(path string, version string) string {
+	return path + "@" + version
+}
+
+func GetListCachedSources() []PathVersion {
+	list := make([]PathVersion, 0)
+
+	sourceCacheMu.RLock()
+	defer sourceCacheMu.RUnlock()
+
+	for key := range sourceCache {
+		list = append(list, key)
+	}
+
+	return list
+}
 
 func GetCachedSource(path string, version string) *feparser.FEPackage {
 	sourceCacheMu.RLock()
 	defer sourceCacheMu.RUnlock()
-	got, ok := sourceCache[path+"@"+version]
+
+	key := PathVersion{
+		Path:    path,
+		Version: version,
+	}
+	got, ok := sourceCache[key]
 	if !ok {
 		return nil
 	}
@@ -477,5 +643,10 @@ func GetCachedSource(path string, version string) *feparser.FEPackage {
 func SetCachedSource(path string, version string, pkg *feparser.FEPackage) {
 	sourceCacheMu.Lock()
 	defer sourceCacheMu.Unlock()
-	sourceCache[path+"@"+version] = pkg
+
+	key := PathVersion{
+		Path:    path,
+		Version: version,
+	}
+	sourceCache[key] = pkg
 }

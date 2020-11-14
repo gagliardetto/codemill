@@ -121,8 +121,8 @@
 <body>
     <div id="codemill-app">
         <b-container>
-            <div>module {{xspec.Name}} {</div>
-            <cm-xclass v-for="(item, key) in xspec.Classes" v-bind:key="key" v-bind:xclass="item" class="ml-2"></cm-xclass>
+            <div>module <b>{{xspec.Name}}</b> {</div>
+            <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
             <div>}</div>
             <!-- Modal for searching packages -->
             <template>
@@ -133,7 +133,16 @@
         <b-container>
             <!-- Modal for searching packages -->
             <template>
-                <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl" no-close-on-backdrop>
+                <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl" no-close-on-backdrop @show="loadCachedVersionList">
+                    <span v-if="len(cacheModules) > 0">Recently used:</span>
+                    <b-list-group v-bind:class="{ hidden: !isBusy.cacheModules }">
+                        <b-list-group-item><b-skeleton animation="wave" width="33%" type="input"></b-skeleton></b-list-group-item>
+                        <b-list-group-item><b-skeleton animation="wave" width="59%" type="input"></b-skeleton></b-list-group-item>
+                        <b-list-group-item><b-skeleton animation="wave" width="49%" type="input"></b-skeleton></b-list-group-item>
+                    </b-list-group>
+                    <b-list-group v-bind:class="{ hidden: isBusy.cacheModules }">
+                      <cm-cached-module v-for="(item, key) in cacheModules" v-bind:key="revf(item.Path, item.Version)" v-bind:cached="item" class="ml-2"></cm-cached-module>
+                    </b-list-group>
                     <b-form v-on:submit.prevent="search">
                         <label for="search-input-field">Search</label>
                         <b-overlay :show="isBusy.search" rounded="lg" opacity="0.6">
@@ -188,7 +197,7 @@
         </b-container>
         <b-container>
             <template>
-                <b-modal id="modal-show-code" scrollable title="Code" size="xl" lazy no-close-on-backdrop>
+                <b-modal id="modal-show-code" scrollable title="Code" size="xl" lazy no-close-on-backdrop @hidden="loadCachedVersionList">
                     <template #modal-title>
                         Source of <b>{{currentPackage.path}}@{{currentPackage.version}}</b>
                         <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
@@ -259,6 +268,7 @@
     window.app = new Vue({
         el: '#codemill-app',
         data: {
+            cacheModules: [],
             xspec: {},
             currentPackage: {
                 source: {},
@@ -272,7 +282,8 @@
             },
             isBusy: {
                 search: false,
-                loadCode: false
+                loadCode: false,
+                cacheModules: false
             },
             currentElementFilter: "",
         },
@@ -374,6 +385,31 @@
                         searchItem.gotVersions = true;
                     })
                     .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
+            },
+            loadCachedVersionList() {
+                console.log("Getting list of cached versions...");
+                let url = '/api/cached';
+
+                this.$data.isBusy.cacheModules = true;
+                fetch(url)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.$data.cacheModules = json.results;
+                        this.$data.isBusy.cacheModules = false;
+                    })
+                    .catch((error) => {
+                        this.$data.isBusy.cacheModules = false;
                         console.error('Error:', error);
                         error.json().then((body) => {
                             this.makeToast("danger", "Error", body.error);
@@ -512,23 +548,87 @@
         }
     });
     </script>
+
     <script type="text/javascript">
-    Vue.component('cm-xclass', {
+    Vue.component('cm-xmodel', {
         methods: {
             cc: cc,
             len: len,
         },
-        props: ['xclass'],
-        template: "#cm-xclass-template"
+        props: ['xmodel'],
+        template: "#cm-xmodel-template"
     });
     </script>
-    <script type="text/x-template" id="cm-xclass-template">
+    <script type="text/x-template" id="cm-xmodel-template">
         <div>
-          <div>{{xclass.IsPrivate?"private":""}} class {{xclass.Name}} extends {{xclass.Extends.join(", ")}} {</div>
-            //TODO: methods go here
+          <div>{{xmodel.IsPrivate?"private ":""}}class <b>{{xmodel.Name}}</b> of kind {{xmodel.Kind}} {</div>
+            <cm-xmethod v-for="(item, key) in xmodel.Methods" v-bind:key="key" v-bind:xmethod="item" class="ml-2"></cm-xmethod>
           <div>}</div>
         </div>
     </script>
+
+    <script type="text/javascript">
+    Vue.component('cm-xmethod', {
+        methods: {
+            cc: cc,
+            len: len,
+        },
+        props: ['xmethod'],
+        template: "#cm-xmethod-template"
+    });
+    </script>
+    <script type="text/x-template" id="cm-xmethod-template">
+        <div>
+          <div>{{xmethod.IsPrivate?"private ":""}}<b>{{xmethod.Name}}()</b> {</div>
+            <cm-xselector v-for="(item, key) in xmethod.Selectors" v-bind:key="key" v-bind:xselector="item" class="ml-2"></cm-xselector>
+          <div>}</div>
+        </div>
+    </script>
+
+    <script type="text/javascript">
+    Vue.component('cm-xselector', {
+        methods: {
+            cc: cc,
+            len: len,
+        },
+        props: ['xselector'],
+        template: "#cm-xselector-template"
+    });
+    </script>
+    <script type="text/x-template" id="cm-xselector-template">
+        <div>
+          <div v-if="xselector.Kind == 'Field'">
+            {{xselector.Kind}}: <b>{{xselector.Qualifier.Path}}@{{xselector.Qualifier.Version}}</b>
+            {{xselector.Qualifier.TypeName}}{}.{{xselector.Qualifier.VarName}}
+          </div>
+
+          <div v-if="xselector.Kind == 'Func'">
+            {{xselector.Kind}}: <b>{{xselector.Qualifier.Path}}@{{xselector.Qualifier.Version}}</b>
+            {{xselector.Qualifier.ID}} {{xselector.Qualifier.Pos}}
+          </div>
+        </div>
+    </script>
+
+    <script type="text/javascript">
+    Vue.component('cm-cached-module', {
+        methods: {
+            cc: cc,
+            len: len,
+            loadCode: function(path, version) {
+                this.$root.loadCode(path, version);
+            }
+        },
+        props: ['cached'],
+        template: "#cm-cached-module-template"
+    });
+    </script>
+    <script type="text/x-template" id="cm-cached-module-template">
+        <b-list-group-item v-bind:key="cached.Path + cached.Version">
+          <b-button variant="success" size="sm" @click="loadCode(cached.Path,cached.Version)">Open</b-button>
+          <b class="text-monospace bold">{{cached.Path}}@{{cached.Version}}</b>
+        </b-list-group-item>
+    </script>
+
     <script type="text/javascript">
     Vue.component('cm-search-result', {
         props: ['item', 'index'],
@@ -591,7 +691,10 @@
                 // - Save the response in this.$root.$data.xspec
                 // - The UI is bind to this.$root.$data.xspec (scoped by package)
                 console.log(event, index, item.ID, this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
-            }
+            },
+            isSelectedFirst: function(blockIndex, inpIndex, func) {
+                return func.CodeQL.Blocks[blockIndex].Inp[inpIndex] == true
+            },
         },
         template: "#cm-func-item-template"
     });
@@ -637,7 +740,7 @@
                       <tr v-bind:class="{ hidden: len(item.Parameters)==0 && len(item.Results)==0 }">
                         <td class="pl-0 pr-0">&nbsp;</td>
                         <td v-for="(inp, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
-                          <b-form-checkbox class="d-flex justify-content-center" @change="onChangeBlock($event, index, item)" switch></b-form-checkbox>
+                          <b-form-checkbox class="d-flex justify-content-center" @change="onChangeBlock($event, index, item)" v-model="item.CodeQL.Blocks[0].Inp[index]" v-bind:class="{ 'selected-struct-field': isSelectedFirst(0, index, item) }" switch></b-form-checkbox>
                         </td>
                       </tr>
                   </tbody>
