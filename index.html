@@ -120,7 +120,7 @@
 
 <body>
     <div id="codemill-app">
-        <b-container>
+        <b-container v-if="!isBusy.xspec">
             <div>spec <b>{{xspec.Name}}</b> {</div>
             <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
             <div>}</div>
@@ -283,7 +283,8 @@
             isBusy: {
                 search: false,
                 loadCode: false,
-                cacheModules: false
+                cacheModules: false,
+                xspec: true
             },
             currentElementFilter: "",
         },
@@ -445,7 +446,7 @@
                         }
                     })
                     .catch((error) => {
-                        this.isBusy.loadCode = false;
+                        this.$data.isBusy.loadCode = false;
                         console.error('Error:', error);
                         error.json().then((body) => {
                             this.makeToast("danger", "Error", body.error);
@@ -491,6 +492,7 @@
             spec_Load() {
                 console.log("Loading spec...");
                 let url = '/api/spec';
+                this.$data.isBusy.xspec = true;
 
                 fetch(url)
                     .then(response => {
@@ -502,17 +504,19 @@
                     })
                     .then(json => {
                         this.$data.xspec = json;
+                        this.$data.isBusy.xspec = false;
                     })
                     .catch((error) => {
+                        this.$data.isBusy.xspec = false;
                         console.error('Error:', error);
                         error.json().then((body) => {
                             this.makeToast("danger", "Error", body.error);
                         });
                     });
             },
-            spec_AddClass(name, isPrivate, kind) {
-                console.log("Adding class to spec ...", name);
-                let url = '/api/spec/classes';
+            spec_PushModel(name, isPrivate, kind) {
+                console.log("Adding model to spec ...", name);
+                let url = '/api/spec/models';
 
                 let payload = {
                     "Name": name,
@@ -599,7 +603,7 @@
         <div>
           <div v-if="xselector.Kind == 'Struct'">
             <div>{{xselector.Kind}}: <b>{{xselector.Qualifier.Path}}@{{xselector.Qualifier.Version}}</b> {{xselector.Qualifier.TypeName}} {</div>
-            <div v-for="(ok, field) in xselector.Qualifier.Fields" v-bind:key="key" class="ml-2">
+            <div v-for="(ok, field) in xselector.Qualifier.Fields" v-bind:key="field" class="ml-2">
               {{field}}
             </div>
             <div>}</div>

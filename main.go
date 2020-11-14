@@ -46,19 +46,6 @@ func IsValidModelKind(kind ModelKind) bool {
 	)
 }
 
-type ClassProto struct {
-	Extends []string
-}
-
-var (
-	// class kinds:
-	classProto = map[ModelKind]*ClassProto{
-		ModelKindUntrustedFlowSource: {
-			Extends: []string{"UntrustedFlowSource::Range"},
-		},
-	}
-)
-
 type XSpec struct {
 	Name   string // Name of the module
 	Models []*XModel
@@ -227,7 +214,27 @@ func main() {
 		})
 		c.IndentedJSON(200, M{"results": list})
 	})
-	r.POST("/api/spec/classes", func(c *gin.Context) {
+	r.GET("/api/models/kinds", func(c *gin.Context) {
+		type ProtoMethod struct {
+			Name       ModelKind
+			IsSelf     bool
+			IsRequired bool
+		}
+		kinds := []M{
+			{
+				"Name": ModelKindUntrustedFlowSource,
+				"Methods": []*ProtoMethod{
+					{
+						Name:       "_Self",
+						IsSelf:     true,
+						IsRequired: true,
+					},
+				},
+			},
+		}
+		c.IndentedJSON(200, M{"results": kinds})
+	})
+	r.POST("/api/spec/models", func(c *gin.Context) {
 		var req struct {
 			Name      string
 			Kind      ModelKind
