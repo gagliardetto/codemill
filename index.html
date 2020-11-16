@@ -183,7 +183,7 @@
                         <b-overlay :show="isBusy.search" rounded="lg" opacity="0.6">
                             <div>
                                 <b-input-group class="mt-3">
-                                    <b-form-input type="search" id="search-input-field" @change="updateSearchValue" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
+                                    <b-form-input type="search" id="search-input-field" v-model="searchData.current" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
                                     <b-input-group-append>
                                         <b-button variant="primary" @click="search" :disabled="isBusy.search">{{isBusy.search ? "Searching..." : "Search" }}</b-button>
                                     </b-input-group-append>
@@ -393,6 +393,7 @@
                 this.searchData.currentOut = this.searchData.current.trim();
                 this.doSearch(this.searchData.currentOut);
             },
+            // DEPRECATED:
             updateSearchValue(val) {
                 this.searchData.current = val;
             },
@@ -495,6 +496,10 @@
                             this.makeToast("danger", "Error", body.error);
                         });
                     });
+            },
+            openSearchView(xmodel, xmethod) {
+              console.log(xmodel, xmethod);
+              this.$bvModal.show('modal-list-remote-packages');
             },
             doSearch(searchText) {
                 this.isBusy.search = true;
@@ -648,7 +653,7 @@
     <script type="text/x-template" id="cm-xmodel-template">
         <div>
           <div>{{xmodel.IsPrivate?"private ":""}}model <b>{{xmodel.Name}}</b> of kind {{xmodel.Kind}} {</div>
-            <cm-xmethod v-for="(item, key) in xmodel.Methods" v-bind:key="key" v-bind:xmethod="item" class="ml-2"></cm-xmethod>
+            <cm-xmethod v-for="(item, key) in xmodel.Methods" v-bind:key="key" v-bind:xmethod="item" v-bind:xmodel="xmodel" class="ml-2"></cm-xmethod>
           <div>}</div>
         </div>
     </script>
@@ -658,8 +663,11 @@
         methods: {
             cc: cc,
             len: len,
+            openSearchView: function(xmodel, xmethod) {
+              this.$root.openSearchView(xmodel, xmethod);
+            }
         },
-        props: ['xmethod'],
+        props: ['xmethod', 'xmodel'],
         template: "#cm-xmethod-template"
     });
     </script>
@@ -667,12 +675,13 @@
         <div v-bind:class="{ 'error-red': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
           <div>{{xmethod.IsPrivate?"private ":""}}<b>{{xmethod.Name}}()</b> {</div>
             <cm-xselector v-for="(item, key) in xmethod.Selectors" v-bind:key="key" v-bind:xselector="item" class="ml-2"></cm-xselector>
-          <div>}</div>
 
-          <!-- Modal for searching packages -->
-          <template>
-              <b-button v-b-modal.modal-list-remote-packages size="sm" variant="outline-primary">Add a selector</b-button>
-          </template>
+            <!-- Modal for searching packages -->
+            <template>
+                <b-button @click="openSearchView(xmodel, xmethod)" size="sm" variant="outline-primary">Add a selector</b-button>
+            </template>
+
+          <div>}</div>
         </div>
     </script>
 
