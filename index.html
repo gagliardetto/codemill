@@ -115,6 +115,10 @@
         background-color: rgba(0, 0, 0, 0.06);
         cursor: auto;
     }
+
+    .error-red {
+        color: red;
+    }
     </style>
 </head>
 
@@ -123,10 +127,41 @@
         <b-container v-if="!isBusy.xspec">
             <div>spec <b>{{xspec.Name}}</b> {</div>
             <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
+
+            <b-row class="mr-1" v-if="!newModel.show">
+              <b-button variant="outline-primary" size="sm" @click="newModel.show = true" class="ml-3">Add a model</b-button>
+            </b-row>
+            <b-row class="mr-1" v-if="newModel.show">
+              <div class="ml-3">
+                <b-form inline>
+                  <label class="mr-sm-2" for="inline-form-custom-select-pref">Model:</label>
+                  <b-form-select
+                    id="inline-form-custom-select-pref"
+                    class="mb-2 mr-sm-2 mb-sm-0"
+                    :options="modelKinds"
+                    :value="null"
+                    v-model="newModel.kind"
+                    required
+                    :state="newModel.kind != ''"
+                  ></b-form-select>
+
+                  <b-form-input
+                    id="inline-form-input-name"
+                    class="mb-2 mr-sm-2 mb-sm-0"
+                    placeholder="Name"
+                    v-model="newModel.name"
+                    :state="newModel.name != ''"
+                  ></b-form-input>
+
+                  <b-button variant="success" size="sm" @click="spec_VerifyPushModel">+ Push</b-button>
+                </b-form>
+              </div>
+            </b-row>
+
             <div>}</div>
             <!-- Modal for searching packages -->
             <template>
-                <b-button v-b-modal.modal-list-remote-packages>Search packages</b-button>
+                <b-button v-b-modal.modal-list-remote-packages size="sm" variant="outline-primary">Add a selector</b-button>
             </template>
         </b-container>
         <!-- Content here -->
@@ -269,6 +304,12 @@
         el: '#codemill-app',
         data: {
             cacheModules: [],
+            modelKinds: [],
+            newModel: {
+              kind: "",
+              name: "",
+              show: false
+            },
             xspec: {},
             currentPackage: {
                 source: {},
@@ -290,6 +331,8 @@
         },
         created() {
             this.spec_Load();
+            this.spec_LoadModelKinds();
+
             // TODO: remove.
             this.doSearch("revel");
         },
@@ -489,6 +532,29 @@
                         });
                     });
             },
+            spec_LoadModelKinds() {
+                console.log("Loading list of available model kinds...");
+                let url = '/api/models/kinds';
+
+                fetch(url)
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        let res = [{ text: 'Choose kind...', value: '' }].concat(json.results)
+                        this.$data.modelKinds = res;
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
+            },
             spec_Load() {
                 console.log("Loading spec...");
                 let url = '/api/spec';
@@ -514,14 +580,26 @@
                         });
                     });
             },
-            spec_PushModel(name, isPrivate, kind) {
+            spec_VerifyPushModel() {
+              if (this.newModel.kind == "") {
+                this.makeToast("danger", "Error", "No kind specified for new model");
+                return
+              }
+              if (this.newModel.name == "") {
+                this.makeToast("danger", "Error", "No name specified for new model");
+                return
+              }
+
+              this.spec_PushModel(this.newModel.name,this.newModel.kind,true)
+            },
+            spec_PushModel(name, kind, isPrivate) {
                 console.log("Adding model to spec ...", name);
                 let url = '/api/spec/models';
 
                 let payload = {
                     "Name": name,
-                    "IsPrivate": Boolean(isPrivate),
-                    "Kind": kind
+                    "Kind": kind,
+                    "IsPrivate": Boolean(isPrivate)
                 }
                 console.log(payload);
 
@@ -541,6 +619,10 @@
                     })
                     .then(json => {
                         this.$data.xspec = json;
+
+                        this.$data.newModel.kind = "";
+                        this.$data.newModel.name = "";
+                        this.$data.newModel.show = false;
                     })
                     .catch((error) => {
                         console.error('Error:', error);
@@ -582,10 +664,15 @@
     });
     </script>
     <script type="text/x-template" id="cm-xmethod-template">
-        <div>
+        <div v-bind:class="{ 'error-red': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
           <div>{{xmethod.IsPrivate?"private ":""}}<b>{{xmethod.Name}}()</b> {</div>
             <cm-xselector v-for="(item, key) in xmethod.Selectors" v-bind:key="key" v-bind:xselector="item" class="ml-2"></cm-xselector>
           <div>}</div>
+
+          <!-- Modal for searching packages -->
+          <template>
+              <b-button v-b-modal.modal-list-remote-packages size="sm" variant="outline-primary">Add a selector</b-button>
+          </template>
         </div>
     </script>
 

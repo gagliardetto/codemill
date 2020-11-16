@@ -41,9 +41,27 @@ const (
 func IsValidModelKind(kind ModelKind) bool {
 	return IsAnyOf(
 		string(kind),
-		// All valid:
+		// All the valid kinds:
 		string(ModelKindUntrustedFlowSource),
 	)
+}
+
+func NewScavengeMethods(kind ModelKind) []*XMethod {
+
+	switch kind {
+	case ModelKindUntrustedFlowSource:
+		{
+			return []*XMethod{
+				{
+					Name:      "_Self",
+					IsSelf:    true,
+					Selectors: []*Selector{},
+				},
+			}
+		}
+	default:
+		panic(Sf("No default method scavenging for %q kind", kind))
+	}
 }
 
 type XSpec struct {
@@ -67,9 +85,6 @@ func (spec *XSpec) HasModelName(name string) bool {
 
 //
 func (spec *XSpec) PushModel(model *XModel) error {
-	spec.Lock()
-	defer spec.Unlock()
-
 	{ // Validate model before adding:
 
 		ok := spec.HasModelName(model.Name)
@@ -83,6 +98,9 @@ func (spec *XSpec) PushModel(model *XModel) error {
 		}
 	}
 
+	model.Methods = NewScavengeMethods(model.Kind)
+	spec.Lock()
+	defer spec.Unlock()
 	spec.Models = append(spec.Models, model)
 	return nil
 }
@@ -205,8 +223,9 @@ func main() {
 		defer globalSpec.RUnlock()
 		c.IndentedJSON(200, globalSpec)
 	})
+
 	r.GET("/api/cached", func(c *gin.Context) {
-		// List already cached modules:
+		// List already cached sources:
 		list := GetListCachedSources()
 
 		sort.Slice(list, func(i, j int) bool {
@@ -214,26 +233,12 @@ func main() {
 		})
 		c.IndentedJSON(200, M{"results": list})
 	})
+
 	r.GET("/api/models/kinds", func(c *gin.Context) {
-		type ProtoMethod struct {
-			Name       ModelKind
-			IsSelf     bool
-			IsRequired bool
-		}
-		kinds := []M{
-			{
-				"Name": ModelKindUntrustedFlowSource,
-				"Methods": []*ProtoMethod{
-					{
-						Name:       "_Self",
-						IsSelf:     true,
-						IsRequired: true,
-					},
-				},
-			},
-		}
+		kinds := []ModelKind{ModelKindUntrustedFlowSource}
 		c.IndentedJSON(200, M{"results": kinds})
 	})
+
 	r.POST("/api/spec/models", func(c *gin.Context) {
 		var req struct {
 			Name      string
