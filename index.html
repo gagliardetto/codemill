@@ -137,6 +137,13 @@
     .error-red {
         color: red;
     }
+    .checkbox-success > .custom-control-input:checked~.custom-control-label::before{
+      background-color: #28a745 !important;
+    }
+    .checkbox-warning > .custom-control-input:checked~.custom-control-label::before {
+      color: #212529 !important;
+      background-color: #ffc107 !important;
+    }
     </style>
 </head>
 
@@ -993,7 +1000,13 @@
                       <tr v-bind:class="{ hidden: len(item.Parameters)==0 && len(item.Results)==0 }">
                         <td class="pl-0 pr-0">&nbsp;</td>
                         <td v-for="(inp, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
-                          <b-form-checkbox class="d-flex justify-content-center" @change="onChangeFunc($event, index, item)" v-model="getValue(index, item)" switch></b-form-checkbox>
+                          <b-form-checkbox 
+                            class="d-flex justify-content-center"
+                            @change="onChangeFunc($event, index, item)"
+                            v-model="getValue(index, item)"
+                            switch
+                            v-bind:class="{ 'checkbox-success': index >= len(item.Parameters) }"
+                          ></b-form-checkbox>
                         </td>
                       </tr>
                   </tbody>
