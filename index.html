@@ -129,7 +129,7 @@
             <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
 
             <b-row class="mr-1" v-if="!newModel.show">
-              <b-button variant="outline-primary" size="sm" @click="newModel.show = true" class="ml-3">Add a model</b-button>
+              <b-button variant="outline-primary" size="sm" @click="newModel.show = true" class="ml-3"><b-icon icon="plus-square"></b-icon> Add a model</b-button>
             </b-row>
             <b-row class="mr-1" v-if="newModel.show">
               <div class="ml-3">
@@ -161,7 +161,7 @@
             <div>}</div>
             <!-- Modal for searching packages -->
             <template>
-                <b-button v-b-modal.modal-list-remote-packages size="sm" variant="outline-primary">Add a selector</b-button>
+                <b-button v-b-modal.modal-list-remote-packages size="sm" variant="outline-primary"><b-icon icon="plus-square"></b-icon> Add a selector</b-button>
             </template>
         </b-container>
         <!-- Content here -->
@@ -303,6 +303,10 @@
     window.app = new Vue({
         el: '#codemill-app',
         data: {
+            context: {
+              modelName: "",
+              methodName: ""
+            },
             cacheModules: [],
             modelKinds: [],
             newModel: {
@@ -498,8 +502,13 @@
                     });
             },
             openSearchView(xmodel, xmethod) {
-              // TODO: set as current:
               console.log(xmodel, xmethod);
+              
+              // Set current context:
+              this.$data.context.modelName = xmodel.Name;
+              this.$data.context.methodName = xmethod.Name;
+
+              // Open the modal that list packages (search/recent):
               this.$bvModal.show('modal-list-remote-packages');
             },
             doSearch(searchText) {
@@ -679,7 +688,7 @@
 
             <!-- Modal for searching packages -->
             <template>
-                <b-button @click="openSearchView(xmodel, xmethod)" size="sm" variant="outline-primary">Add a selector</b-button>
+                <b-button @click="openSearchView(xmodel, xmethod)" size="sm" variant="outline-primary"><b-icon icon="plus-square"></b-icon> Add a selector</b-button>
             </template>
 
           <div>}</div>
@@ -789,12 +798,14 @@
         methods: {
             cc: cc,
             len: len,
-            onChangeBlock(event, index, item) {
+            onChangeFunc(event, index, item) {
                 // TODO:
                 // - Send the update to the API
                 // - Save the response in this.$root.$data.xspec
                 // - The UI is bind to this.$root.$data.xspec (scoped by package)
-                console.log(event, index, item.ID, this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
+                console.log(event, index, item.ID)
             },
             isSelectedFirst: function(blockIndex, inpIndex, func) {
                 return func.CodeQL.Blocks[blockIndex].Inp[inpIndex] == true
@@ -844,7 +855,7 @@
                       <tr v-bind:class="{ hidden: len(item.Parameters)==0 && len(item.Results)==0 }">
                         <td class="pl-0 pr-0">&nbsp;</td>
                         <td v-for="(inp, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
-                          <b-form-checkbox class="d-flex justify-content-center" @change="onChangeBlock($event, index, item)" v-model="item.CodeQL.Blocks[0].Inp[index]" v-bind:class="{ 'selected-struct-field': isSelectedFirst(0, index, item) }" switch></b-form-checkbox>
+                          <b-form-checkbox class="d-flex justify-content-center" @change="onChangeFunc($event, index, item)" v-model="item.CodeQL.Blocks[0].Inp[index]" v-bind:class="{ 'selected-struct-field': isSelectedFirst(0, index, item) }" switch></b-form-checkbox>
                         </td>
                       </tr>
                   </tbody>
@@ -910,6 +921,11 @@
     Vue.component('cm-struct-item', {
         methods: {
             cc: cc,
+            onChangeStruct(event, struct, field) {
+              console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+              console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
+              console.log(event, struct.ID, field.ID)
+            }
         },
         props: ['item'],
         template: "#cm-struct-item-template"
@@ -941,7 +957,7 @@
                                   </span>
                               </td>
                               <td class="pt-1 pb-1">
-                                  <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch></b-form-checkbox>
+                                  <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch @change="onChangeStruct($event, item, field)"></b-form-checkbox>
                               </td>
                               <td class="pt-1 pb-1" :title="field.KindString">
                                   <span>
