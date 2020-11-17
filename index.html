@@ -86,7 +86,7 @@
         color: #007bff !important;
     }
 
-    .selected-struct-field {
+    .selected {
         background-color: #28a745 !important;
         border-radius: 0.3em;
     }
@@ -236,6 +236,8 @@
                     <template #modal-title>
                         Source of <b>{{currentPackage.path}}@{{currentPackage.version}}</b>
                         <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
+                        <br>
+                        <small class="text-muted">Modifying model::<b>{{context.modelName}}</b> / method::<b>{{context.methodName}}</b></small>
                     </template>
                     <b-form v-on:submit.prevent="">
                         <div>
@@ -645,7 +647,41 @@
                             this.makeToast("danger", "Error", body.error);
                         });
                     });
-            }
+            },
+            findModel(name) {
+
+              var found = this.$data.xspec.Models.filter(function (mdl) {
+                return mdl.Name == name;
+              });
+
+              if (len(found) == 0) {
+                return null
+              }
+
+              return found[0]
+            },
+            findMethod(methods, name) {
+              var found = methods.filter(function (mdl) {
+                return mdl.Name == name;
+              });
+
+              if (len(found) == 0) {
+                return null
+              }
+
+              return found[0]
+            },
+            findSelector(selectors, kind, path, version, id) {
+              var found = selectors.filter(function (sl) {
+                return sl.Kind == kind && sl.Qualifier.Path == path && sl.Qualifier.Version == version && sl.Qualifier.ID == id;
+              });
+
+              if (len(found) == 0) {
+                return null
+              }
+
+              return found[0]
+            },
         }
     });
     </script>
@@ -855,8 +891,42 @@
                         });
                     });
             },
-            isSelectedFirst: function(blockIndex, inpIndex, func) {
-                return func.CodeQL.Blocks[blockIndex].Inp[inpIndex] == true
+            findModel(name) {
+              return this.$root.findModel(name)
+            },
+            findMethod(methods, name) {
+              return this.$root.findMethod(methods, name)
+            },
+            findSelector(selectors, kind, path, version, id) {
+              return this.$root.findSelector(selectors, kind, path, version, id)
+            },
+            getValue(index, fn) {
+              // console.log("Getting func component checkbox value")
+
+              let rPath = this.$root.$data.currentPackage.path;
+              let rVersion = this.$root.$data.currentPackage.version;
+              let rModel = this.$root.$data.context.modelName;
+              let rMethod = this.$root.$data.context.methodName;
+
+              let model = this.findModel(rModel);
+              // console.log("model", model);
+              if (model == null) {
+                return false
+              }
+              let method = this.findMethod(model.Methods, rMethod);
+              // console.log("method", method);
+              if (method == null) {
+                return false
+              }
+              let selector = this.findSelector(method.Selectors, "Func", rPath, rVersion, fn.ID);
+              // console.log("selector", selector);
+              if (selector == null) {
+                return false
+              }
+
+              if (selector.Qualifier.Pos && selector.Qualifier.Pos[index]) {
+                return selector.Qualifier.Pos[index]
+              }
             },
         },
         template: "#cm-func-item-template"
@@ -883,6 +953,7 @@
                               v-bind:index="index"
                               v-bind:key="item.ID + 'param' + index"
                               v-bind:total="len(item.Parameters)"
+                              v-bind:class="{ 'selected': getValue(index, item) }"
                               ></cm-type>
                           </td>
                             
@@ -894,6 +965,7 @@
                               v-bind:index="index"
                               v-bind:key="item.ID + 'result' + index"
                               v-bind:total="len(item.Results)"
+                              v-bind:class="{ 'selected': getValue(len(item.Parameters) + index, item) }"
                               ></cm-type>
                           </td>
                           <td>
@@ -903,7 +975,7 @@
                       <tr v-bind:class="{ hidden: len(item.Parameters)==0 && len(item.Results)==0 }">
                         <td class="pl-0 pr-0">&nbsp;</td>
                         <td v-for="(inp, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
-                          <b-form-checkbox class="d-flex justify-content-center" @change="onChangeFunc($event, index, item)" v-model="item.CodeQL.Blocks[0].Inp[index]" v-bind:class="{ 'selected-struct-field': isSelectedFirst(0, index, item) }" switch></b-form-checkbox>
+                          <b-form-checkbox class="d-flex justify-content-center" @change="onChangeFunc($event, index, item)" v-model="getValue(index, item)" switch></b-form-checkbox>
                         </td>
                       </tr>
                   </tbody>
@@ -969,6 +1041,50 @@
     Vue.component('cm-struct-item', {
         methods: {
             cc: cc,
+            findModel(name) {
+              return this.$root.findModel(name)
+            },
+            findMethod(methods, name) {
+              return this.$root.findMethod(methods, name)
+            },
+            findSelector(selectors, kind, path, version, id) {
+              return this.$root.findSelector(selectors, kind, path, version, id)
+            },
+            getValue(struct, field) {
+              // console.log("Getting struct field checkbox value")
+              // console.log(struct, field)
+
+              let rPath = this.$root.$data.currentPackage.path;
+              let rVersion = this.$root.$data.currentPackage.version;
+              let rModel = this.$root.$data.context.modelName;
+              let rMethod = this.$root.$data.context.methodName;
+
+              let model = this.findModel(rModel);
+              // console.log("model", model);
+              if (model == null) {
+                return false
+              }
+              let method = this.findMethod(model.Methods, rMethod);
+              // console.log("method", method);
+              if (method == null) {
+                return false
+              }
+              let selector = this.findSelector(method.Selectors, "Struct", rPath, rVersion, struct.ID);
+              // console.log("selector", selector);
+              if (selector == null) {
+                return false
+              }
+
+              if (selector.Qualifier.Fields && selector.Qualifier.Fields[field.VarName]) {
+                return selector.Qualifier.Fields[field.VarName]
+              }
+
+              // - find model
+              // - find method
+              // - find selector (Kind=Struct)
+              // - matches Qualifier
+              // - if .Fields[fieldVar] exists, then use the value.
+            },
             onChangeStruct(value, struct, field) {
               console.log("Modifying struct selectors ...");
 
@@ -1046,14 +1162,14 @@
                                   <span class="documentation pl-4">// {{ doc }}</span>
                               </td>
                           </tr>
-                          <tr v-bind:class="{ 'selected-struct-field': field.Enabled }">
+                          <tr v-bind:class="{ 'selected': field.Enabled }">
                               <td class="pt-1 pb-1">
                                   <span class="pl-4">
                                       {{field.VarName}}
                                   </span>
                               </td>
                               <td class="pt-1 pb-1">
-                                  <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="field.Enabled" switch @change="onChangeStruct($event, item, field)"></b-form-checkbox>
+                                  <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="getValue(item, field)" switch @change="onChangeStruct($event, item, field)"></b-form-checkbox>
                               </td>
                               <td class="pt-1 pb-1" :title="field.KindString">
                                   <span>
