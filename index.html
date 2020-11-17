@@ -925,7 +925,7 @@
             findSelector(selectors, kind, path, version, id) {
               return this.$root.findSelector(selectors, kind, path, version, id)
             },
-            getValue(index, fn) {
+            getFuncValue(index, fn) {
               // console.log("Getting func component checkbox value")
 
               let rPath = this.$root.$data.currentPackage.path;
@@ -978,7 +978,7 @@
                               v-bind:index="index"
                               v-bind:key="item.ID + 'param' + index"
                               v-bind:total="len(item.Parameters)"
-                              v-bind:class="{ 'selected-primary': getValue(index, item) }"
+                              v-bind:class="{ 'selected-primary': getFuncValue(index, item) }"
                               ></cm-type>
                           </td>
                             
@@ -990,7 +990,7 @@
                               v-bind:index="index"
                               v-bind:key="item.ID + 'result' + index"
                               v-bind:total="len(item.Results)"
-                              v-bind:class="{ 'selected-success': getValue(len(item.Parameters) + index, item) }"
+                              v-bind:class="{ 'selected-success': getFuncValue(len(item.Parameters) + index, item) }"
                               ></cm-type>
                           </td>
                           <td>
@@ -1003,7 +1003,7 @@
                           <b-form-checkbox 
                             class="d-flex justify-content-center"
                             @change="onChangeFunc($event, index, item)"
-                            v-model="getValue(index, item)"
+                            v-model="getFuncValue(index, item)"
                             switch
                             v-bind:class="{ 'checkbox-success': index >= len(item.Parameters) }"
                           ></b-form-checkbox>
@@ -1081,7 +1081,7 @@
             findSelector(selectors, kind, path, version, id) {
               return this.$root.findSelector(selectors, kind, path, version, id)
             },
-            getValue(struct, field) {
+            getStructValue(struct, field) {
               // console.log("Getting struct field checkbox value")
               // console.log(struct, field)
 
@@ -1193,14 +1193,19 @@
                                   <span class="documentation pl-4">// {{ doc }}</span>
                               </td>
                           </tr>
-                          <tr v-bind:class="{ 'selected': field.Enabled }">
+                          <tr v-bind:class="{ 'selected-primary': getStructValue(item, field) }">
                               <td class="pt-1 pb-1">
                                   <span class="pl-4">
                                       {{field.VarName}}
                                   </span>
                               </td>
                               <td class="pt-1 pb-1">
-                                  <b-form-checkbox :id="cc('checkbox',field.ID)" v-model="getValue(item, field)" switch @change="onChangeStruct($event, item, field)"></b-form-checkbox>
+                                  <b-form-checkbox
+                                    :id="cc('checkbox',field.ID)"
+                                    v-model="getStructValue(item, field)"
+                                    switch
+                                    @change="onChangeStruct($event, item, field)"
+                                  ></b-form-checkbox>
                               </td>
                               <td class="pt-1 pb-1" :title="field.KindString">
                                   <span>
