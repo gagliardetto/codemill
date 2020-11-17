@@ -90,6 +90,24 @@
         background-color: #28a745 !important;
         border-radius: 0.3em;
     }
+    .selected-primary {
+        color: #004085 !important;
+        background-color: #cce5ff !important;
+        border-color: #b8daff !important;
+        border-radius: 0.3em;
+    }
+    .selected-success {
+        color: #155724 !important;
+        background-color: #d4edda !important;
+        border-color: #c3e6cb !important;
+        border-radius: 0.3em;
+    }
+    .selected-warning {
+        color: #856404 !important;
+        background-color: #fff3cd !important;
+        border-color: #ffeeba !important;
+        border-radius: 0.3em;
+    }
 
     .custom-control-label {
         cursor: pointer;
@@ -953,7 +971,7 @@
                               v-bind:index="index"
                               v-bind:key="item.ID + 'param' + index"
                               v-bind:total="len(item.Parameters)"
-                              v-bind:class="{ 'selected': getValue(index, item) }"
+                              v-bind:class="{ 'selected-primary': getValue(index, item) }"
                               ></cm-type>
                           </td>
                             
@@ -965,7 +983,7 @@
                               v-bind:index="index"
                               v-bind:key="item.ID + 'result' + index"
                               v-bind:total="len(item.Results)"
-                              v-bind:class="{ 'selected': getValue(len(item.Parameters) + index, item) }"
+                              v-bind:class="{ 'selected-success': getValue(len(item.Parameters) + index, item) }"
                               ></cm-type>
                           </td>
                           <td>
