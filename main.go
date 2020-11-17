@@ -46,6 +46,8 @@ func IsValidModelKind(kind ModelKind) bool {
 	)
 }
 
+// NewScavengeMethods returns an array of XMethod that are specific
+// to the provided kind.
 func NewScavengeMethods(kind ModelKind) []*XMethod {
 
 	switch kind {
@@ -235,11 +237,13 @@ func main() {
 	})
 
 	r.GET("/api/models/kinds", func(c *gin.Context) {
+		// List available model kinds:
 		kinds := []ModelKind{ModelKindUntrustedFlowSource}
 		c.IndentedJSON(200, M{"results": kinds})
 	})
 
 	r.POST("/api/spec/models", func(c *gin.Context) {
+		// Add a new model to the spec:
 		var req struct {
 			Name      string
 			Kind      ModelKind
@@ -273,6 +277,7 @@ func main() {
 	})
 
 	r.GET("/api/search", func(c *gin.Context) {
+		// Search packages on godoc:
 		req := request.NewRequest(httpClient)
 
 		query := c.Query("q")
@@ -296,6 +301,7 @@ func main() {
 	})
 
 	r.GET("/api/versions", func(c *gin.Context) {
+		// List versions of a package:
 
 		path := c.Query("path")
 
