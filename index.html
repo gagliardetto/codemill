@@ -921,10 +921,58 @@
     Vue.component('cm-struct-item', {
         methods: {
             cc: cc,
-            onChangeStruct(event, struct, field) {
+            onChangeStruct(value, struct, field) {
+              console.log("Modifying struct selectors ...");
+              
               console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
               console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-              console.log(event, struct.ID, field.ID)
+              console.log(value, struct.ID, field.ID)
+
+
+              let rPath = this.$root.$data.currentPackage.path;
+              let rVersion = this.$root.$data.currentPackage.version;
+              let rModel = this.$root.$data.context.modelName;
+              let rMethod = this.$root.$data.context.methodName;
+
+              let payload = {
+                  "Where": {
+                    "Path": rPath,
+                    "Version": rVersion,
+                    "Model": rModel,
+                    "Method": rMethod
+                  },
+                  "What": {
+                    "StructID": struct.ID,
+                    "FieldID": field.ID,
+                    "Value": value
+                  }
+              }
+              console.log(payload);
+
+              let url = '/api/spec/structs';
+              fetch(url, {
+                      method: 'PATCH',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(payload),
+                  })
+                  .then(response => {
+                      if (response.ok) {
+                          return response.json()
+                      } else {
+                          throw response;
+                      }
+                  })
+                  .then(json => {
+                      this.$root.$data.xspec = json;
+                  })
+                  .catch((error) => {
+                      console.error('Error:', error);
+                      error.json().then((body) => {
+                          this.makeToast("danger", "Error", body.error);
+                      });
+                  });
             }
         },
         props: ['item'],

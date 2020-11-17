@@ -86,6 +86,73 @@ func (spec *XSpec) HasModelName(name string) bool {
 }
 
 //
+func (spec *XSpec) ModifyModelByName(
+	name string,
+	modifier func(*XModel) error,
+) error {
+	spec.RLock()
+	defer spec.RUnlock()
+
+	for _, md := range spec.Models {
+		if md.Name == name {
+			return modifier(md)
+		}
+	}
+	return fmt.Errorf("Model %q (on spec %q) not found", name, spec.Name)
+}
+
+//
+func (mdl *XModel) ModifyMethodByName(
+	name string,
+	modifier func(*XMethod) error,
+) error {
+	// TODO: lock here too??
+	// NOTE: it's already locked at model level in XSpec.
+	for _, md := range mdl.Methods {
+		if md.Name == name {
+			return modifier(md)
+		}
+	}
+	return fmt.Errorf("Method %q (on model %q) not found", name, mdl.Name)
+}
+
+//
+func (mt *XMethod) GetStructSelector(
+	path string,
+	version string,
+	structID string,
+) *StructQualifier {
+	for _, sel := range mt.Selectors {
+		stQual := sel.GetStructQualifier()
+		if stQual == nil {
+			continue
+		}
+		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == structID {
+			return stQual
+		}
+	}
+	return nil
+}
+
+//
+func (mt *XMethod) GetFuncSelector(
+	path string,
+	version string,
+	structID string,
+) *FuncQualifier {
+	for _, sel := range mt.Selectors {
+		stQual := sel.GetFuncQualifier()
+		if stQual == nil {
+			continue
+		}
+		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == structID {
+			return stQual
+		}
+	}
+	return nil
+}
+
+//
 func (spec *XSpec) PushModel(model *XModel) error {
 	{ // Validate model before adding:
 
@@ -143,7 +210,7 @@ type StructQualifier struct {
 }
 
 //
-func (sel *Selector) GetFieldQualifier() *StructQualifier {
+func (sel *Selector) GetStructQualifier() *StructQualifier {
 	got, ok := sel.Qualifier.(*StructQualifier)
 	if !ok {
 		return nil
@@ -273,6 +340,107 @@ func main() {
 			Abort400(c, Sf("Error adding model: %s", err))
 			return
 		}
+		c.IndentedJSON(200, globalSpec)
+	})
+
+	r.PATCH("/api/spec/structs", func(c *gin.Context) {
+		// Patch a struct, i.e. add/remove a field:
+		var req struct {
+			Where struct {
+				Path    string
+				Version string
+				Model   string
+				Method  string
+			}
+			What struct {
+				StructID string
+				FieldID  string
+				Value    bool
+			}
+		}
+		err := c.BindJSON(&req)
+		if err != nil {
+			Q(err)
+			Abort400(c, err.Error())
+			return
+		}
+
+		source := GetCachedSource(req.Where.Path, req.Where.Version)
+		if source == nil {
+			Abort404(c, Sf("Source not found: %s@%s", req.Where.Path, req.Where.Version))
+			return
+		}
+		// Make sure that the struct exist:
+		st := FindStructByID(source, req.What.StructID)
+		if st == nil {
+			Abort404(c, Sf("Struct not found: %q", req.What.StructID))
+			return
+		}
+		fld := FindFieldByID(st, req.What.FieldID)
+		if fld == nil {
+			Abort404(c, Sf("Field not found: %q", req.What.FieldID))
+			return
+		}
+
+		err = globalSpec.ModifyModelByName(
+			req.Where.Model,
+			func(mdl *XModel) error {
+				err := mdl.ModifyMethodByName(
+					req.Where.Method,
+					func(mt *XMethod) error {
+
+						existingSel := mt.GetStructSelector(
+							req.Where.Path,
+							req.Where.Version,
+							req.What.StructID,
+						)
+						if existingSel == nil {
+							// Add a new selector only if the value is true:
+							if req.What.Value == true {
+								// If there is no existing selector for the struct,
+								// then create a new one:
+								newSel := &Selector{
+									Kind: SelectorKindStruct,
+									Qualifier: &StructQualifier{
+										Qualifier: Qualifier{
+											Path:    req.Where.Path,
+											Version: req.Where.Version,
+											ID:      req.What.StructID,
+										},
+										TypeName: st.TypeName,
+										Fields: map[string]bool{
+											fld.VarName: true,
+										},
+									},
+								}
+
+								mt.Selectors = append(mt.Selectors, newSel)
+							}
+						} else {
+							if req.What.Value {
+								// Enable field:
+								existingSel.Fields[fld.VarName] = true
+							} else {
+								// Remove field:
+								delete(existingSel.Fields, fld.VarName)
+							}
+							// TODO: what to do if no field remains enabled? (i.e. all fields are disabled)
+						}
+
+						return nil
+					},
+				)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			Abort400(c, Sf("Error modifying model: %s", err))
+			return
+		}
+
 		c.IndentedJSON(200, globalSpec)
 	})
 
@@ -669,4 +837,21 @@ func SetCachedSource(path string, version string, pkg *feparser.FEPackage) {
 		Version: version,
 	}
 	sourceCache[key] = pkg
+}
+
+func FindStructByID(fe *feparser.FEPackage, id string) *feparser.FEStruct {
+	for _, st := range fe.Structs {
+		if st.ID == id {
+			return st
+		}
+	}
+	return nil
+}
+func FindFieldByID(st *feparser.FEStruct, id string) *feparser.FEField {
+	for _, st := range st.Fields {
+		if st.ID == id {
+			return st
+		}
+	}
+	return nil
 }
