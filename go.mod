@@ -6,7 +6,7 @@ require (
 	github.com/bitly/go-simplejson v0.5.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/gagliardetto/codebox v0.0.0-20201028125312-a6b9ab5964bb
-	github.com/gagliardetto/feparser v0.0.0-20201028125514-646b648536f9
+	github.com/gagliardetto/feparser v0.0.0-20201117172744-d72446574765
 	github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814
 	github.com/gagliardetto/request v0.8.0
 	github.com/gagliardetto/utilz v0.0.0-20200824151221-3a6131a12868

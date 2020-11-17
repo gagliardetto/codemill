@@ -798,14 +798,62 @@
         methods: {
             cc: cc,
             len: len,
-            onChangeFunc(event, index, item) {
+            onChangeFunc(value, index, item) {
                 // TODO:
                 // - Send the update to the API
                 // - Save the response in this.$root.$data.xspec
                 // - The UI is bind to this.$root.$data.xspec (scoped by package)
+                console.log("Modifying func selectors ...");
+                
                 console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
                 console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-                console.log(event, index, item.ID)
+                console.log(value, index, item.ID)
+
+
+                let rPath = this.$root.$data.currentPackage.path;
+                let rVersion = this.$root.$data.currentPackage.version;
+                let rModel = this.$root.$data.context.modelName;
+                let rMethod = this.$root.$data.context.methodName;
+
+                let payload = {
+                    "Where": {
+                      "Path": rPath,
+                      "Version": rVersion,
+                      "Model": rModel,
+                      "Method": rMethod
+                    },
+                    "What": {
+                      "FuncID": item.ID,
+                      "Index": index,
+                      "Value": value
+                    }
+                }
+                console.log(payload);
+
+                let url = '/api/spec/funcs';
+                fetch(url, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.$root.$data.xspec = json;
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
             },
             isSelectedFirst: function(blockIndex, inpIndex, func) {
                 return func.CodeQL.Blocks[blockIndex].Inp[inpIndex] == true
@@ -923,7 +971,7 @@
             cc: cc,
             onChangeStruct(value, struct, field) {
               console.log("Modifying struct selectors ...");
-              
+
               console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
               console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
               console.log(value, struct.ID, field.ID)

@@ -135,21 +135,71 @@ func (mt *XMethod) GetStructSelector(
 }
 
 //
+func (mt *XMethod) DeleteStructSelector(
+	path string,
+	version string,
+	funcID string,
+) bool {
+	for i, sel := range mt.Selectors {
+		stQual := sel.GetStructQualifier()
+		if stQual == nil {
+			continue
+		}
+		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == funcID {
+			return mt.deleteSelectorAtIndex(i)
+		}
+	}
+	return false
+}
+
+//
 func (mt *XMethod) GetFuncSelector(
 	path string,
 	version string,
-	structID string,
+	funcID string,
 ) *FuncQualifier {
 	for _, sel := range mt.Selectors {
 		stQual := sel.GetFuncQualifier()
 		if stQual == nil {
 			continue
 		}
-		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == structID {
+		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == funcID {
 			return stQual
 		}
 	}
 	return nil
+}
+
+//
+func (mt *XMethod) DeleteFuncSelector(
+	path string,
+	version string,
+	funcID string,
+) bool {
+	for i, sel := range mt.Selectors {
+		stQual := sel.GetFuncQualifier()
+		if stQual == nil {
+			continue
+		}
+		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == funcID {
+			return mt.deleteSelectorAtIndex(i)
+		}
+	}
+	return false
+}
+
+//
+func (mt *XMethod) deleteSelectorAtIndex(index int) bool {
+	for i := range mt.Selectors {
+		if i == index {
+			// Remove the element at index i from a.
+			mt.Selectors[i] = mt.Selectors[len(mt.Selectors)-1] // Copy last element to index i.
+			mt.Selectors[len(mt.Selectors)-1] = nil             // Erase last element (write zero value).
+			mt.Selectors = mt.Selectors[:len(mt.Selectors)-1]   // Truncate slice.
+			return true
+		}
+	}
+	return false
 }
 
 //
@@ -424,7 +474,118 @@ func main() {
 								// Remove field:
 								delete(existingSel.Fields, fld.VarName)
 							}
-							// TODO: what to do if no field remains enabled? (i.e. all fields are disabled)
+
+							if len(existingSel.Fields) == 0 {
+								// If all fields are disabled, then remove the selector:
+								mt.DeleteStructSelector(
+									req.Where.Path,
+									req.Where.Version,
+									req.What.StructID,
+								)
+							}
+						}
+
+						return nil
+					},
+				)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			Abort400(c, Sf("Error modifying model: %s", err))
+			return
+		}
+
+		c.IndentedJSON(200, globalSpec)
+	})
+
+	r.PATCH("/api/spec/funcs", func(c *gin.Context) {
+		// Patch a func (func/type-method/interface-method), i.e. select/unselect its components:
+		var req struct {
+			Where struct {
+				Path    string
+				Version string
+				Model   string
+				Method  string
+			}
+			What struct {
+				FuncID string
+				Index  int
+				Value  bool
+			}
+		}
+		err := c.BindJSON(&req)
+		if err != nil {
+			Q(err)
+			Abort400(c, err.Error())
+			return
+		}
+
+		source := GetCachedSource(req.Where.Path, req.Where.Version)
+		if source == nil {
+			Abort404(c, Sf("Source not found: %s@%s", req.Where.Path, req.Where.Version))
+			return
+		}
+		// Find the func/type-method/interface-method:
+		fn := FindFuncByID(source, req.What.FuncID)
+		if fn == nil {
+			Abort404(c, Sf("Func not found: %q", req.What.FuncID))
+			return
+		}
+
+		if req.What.Index >= fn.Len() {
+			Abort400(c, Sf("Index out of bounds: index=%v, but v.Len() = %v", req.What.Index, fn.Len()))
+			return
+		}
+
+		err = globalSpec.ModifyModelByName(
+			req.Where.Model,
+			func(mdl *XModel) error {
+				err := mdl.ModifyMethodByName(
+					req.Where.Method,
+					func(mt *XMethod) error {
+
+						existingSel := mt.GetFuncSelector(
+							req.Where.Path,
+							req.Where.Version,
+							req.What.FuncID,
+						)
+						if existingSel == nil {
+							// Add a new selector only if the value is true:
+							if req.What.Value {
+								pos := make([]bool, fn.Len())
+								pos[req.What.Index] = req.What.Value
+
+								// If there is no existing selector,
+								// then create a new one:
+								newSel := &Selector{
+									Kind: SelectorKindFunc,
+									Qualifier: &FuncQualifier{
+										Qualifier: Qualifier{
+											Path:    req.Where.Path,
+											Version: req.Where.Version,
+											ID:      req.What.FuncID,
+										},
+										Pos: pos,
+									},
+								}
+
+								mt.Selectors = append(mt.Selectors, newSel)
+							}
+						} else {
+							existingSel.Pos[req.What.Index] = req.What.Value
+
+							if AllFalse(existingSel.Pos...) {
+								// If all false, then remove the selector:
+								mt.DeleteFuncSelector(
+									req.Where.Path,
+									req.Where.Version,
+									req.What.FuncID,
+								)
+							}
 						}
 
 						return nil
@@ -849,6 +1010,29 @@ func FindStructByID(fe *feparser.FEPackage, id string) *feparser.FEStruct {
 }
 func FindFieldByID(st *feparser.FEStruct, id string) *feparser.FEField {
 	for _, st := range st.Fields {
+		if st.ID == id {
+			return st
+		}
+	}
+	return nil
+}
+
+type LenInterface interface {
+	Len() int
+}
+
+func FindFuncByID(fe *feparser.FEPackage, id string) LenInterface {
+	for _, st := range fe.Funcs {
+		if st.ID == id {
+			return st
+		}
+	}
+	for _, st := range fe.TypeMethods {
+		if st.ID == id {
+			return st
+		}
+	}
+	for _, st := range fe.InterfaceMethods {
 		if st.ID == id {
 			return st
 		}
