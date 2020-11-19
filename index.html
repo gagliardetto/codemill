@@ -279,17 +279,17 @@
                                 <cm-func-item v-for="item in filteredFuncs" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'">
+                        <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'" lazy>
                             <b-list-group>
-                                <cm-tm-item v-for="item in filteredTypeMethods" v-bind:key="item.ID" v-bind:item="item"></cm-tm-item>
+                                <cm-func-item v-for="item in filteredTypeMethods" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'">
+                        <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'" lazy>
                             <b-list-group>
-                                <cm-it-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID" v-bind:item="item"></cm-it-item>
+                                <cm-func-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'">
+                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" lazy>
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <cm-struct-item v-for="item in filteredStructs" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
                             </b-list-group>
@@ -855,23 +855,38 @@
         props: ['item'],
         template: "#cm-func-item-template",
         computed: {
-          syncedParameters() {
-            if (!this.item || !this.item.Parameters) {
+          syncRecv() {
+            if (!this.item.Receiver) {
               return null
             }
-            this.item.Parameters.forEach((param, paramIndex) => {
-                param.Checked = this.getFuncValue(paramIndex, this.item.ID);
+            let receiver = this.item.Receiver;
+            receiver.Checked = this.getFuncValue(0, this.item.ID);
+            return receiver
+          },
+          syncedParameters() {
+            let fItem = this.item.Func || this.item;
+            if (!fItem || !fItem.Parameters) {
+              return null
+            }
+            let receiverLen = this.item.Receiver?1:0;
+            var params = fItem.Parameters;
+            params.forEach((param, paramIndex) => {
+                param.Checked = this.getFuncValue(receiverLen + paramIndex, this.item.ID);
             });
-            return this.item.Parameters
+            return params
           },
           syncedResults() {
-            if (!this.item || !this.item.Results) {
+            let fItem = this.item.Func || this.item;
+            if (!fItem || !fItem.Results) {
               return null
             }
-            this.item.Results.forEach((res, resIndex) => {
-                res.Checked = this.getFuncValue(resIndex + this.len(this.item.Parameters), this.item.ID);
+            let receiverLen = this.item.Receiver?1:0;
+            let paramsLen = this.len(fItem.Parameters);
+            var results = fItem.Results;
+            results.forEach((res, resIndex) => {
+                res.Checked = this.getFuncValue(receiverLen + paramsLen + resIndex, this.item.ID);
             });
-            return this.item.Results
+            return results
           }
         },
         methods: {
@@ -986,7 +1001,8 @@
               <table class="table-responsive table-sm">
                   <tbody>
                       <tr>
-                          <td class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{item.Parameters == null ? "( )" : "" }}</td>
+                          <td v-if="syncRecv" class="pl-0 pr-0">func (<b :title="syncRecv.QualifiedName" v-bind:class="{ 'selected-warning': syncRecv.Checked }">{{ syncRecv.TypeName }}</b>).<b :title="item.Func.Signature">{{ item.Func.Name }}</b>{{item.Func.Parameters == null ? "( )" : "" }}</td>
+                          <td v-if="!syncRecv" class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{syncedParameters == null ? "( )" : "" }}</td>
                           <td class="pl-0 pr-0"
                             v-for="(param, index) in syncedParameters"
                             >
@@ -994,7 +1010,7 @@
                               v-bind:elem="param"
                               v-bind:index="index"
                               v-bind:key="item.ID + 'param' + index"
-                              v-bind:total="len(item.Parameters)"
+                              v-bind:total="len(syncedParameters)"
                               v-bind:class="{ 'selected-primary': param.Checked }"
                               ></cm-type>
                           </td>
@@ -1006,7 +1022,7 @@
                               v-bind:elem="res"
                               v-bind:index="index"
                               v-bind:key="item.ID + 'result' + index"
-                              v-bind:total="len(item.Results)"
+                              v-bind:total="len(syncedResults)"
                               v-bind:class="{ 'selected-success': res.Checked }"
                               ></cm-type>
                           </td>
@@ -1015,20 +1031,28 @@
                           </td>
                       </tr>
                       <tr>
-                        <td class="pl-0 pr-0">&nbsp;</td>
+                        <td v-if="syncRecv" class="pl-0 pr-0">
+                          <b-form-checkbox 
+                            class="d-flex justify-content-center checkbox-warning"
+                            @change="onChangeFunc($event, 0, item)"
+                            v-model="syncRecv.Checked"
+                            switch
+                          ></b-form-checkbox>
+                        </td>
+                        <td v-if="!syncRecv" class="pl-0 pr-0">&nbsp;</td>
                         <td v-for="(param, index) in syncedParameters" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center"
-                            @change="onChangeFunc($event, index, item)"
+                            @change="onChangeFunc($event, syncRecv?1+index:index, item)"
                             v-model="param.Checked"
                             switch
-                            v-bind:class="{ 'checkbox-success': index >= len(item.Parameters) }"
+                            v-bind:class="{ 'checkbox-success': index >= len(syncedParameters) }"
                           ></b-form-checkbox>
                         </td>
                         <td v-for="(res, index) in syncedResults" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center checkbox-success"
-                            @change="onChangeFunc($event, index + len(item.Parameters), item)"
+                            @change="onChangeFunc($event, syncRecv?1+index + len(syncedParameters):index + len(syncedParameters), item)"
                             v-model="res.Checked"
                             switch
                           ></b-form-checkbox>
