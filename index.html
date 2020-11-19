@@ -276,20 +276,20 @@
                         <!-- and will be un-mounted when hidden -->
                         <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" active>
                             <b-list-group>
-                                <cm-func-item v-for="item in filteredFuncs" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
+                                <cm-func-item v-for="item in filteredFuncs" v-bind:key="item.ID" v-bind:item="item" v-bind:func="item.Func || item"></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'" lazy>
+                        <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'">
                             <b-list-group>
-                                <cm-func-item v-for="item in filteredTypeMethods" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
+                                <cm-func-item v-for="item in filteredTypeMethods" v-bind:key="item.ID" v-bind:item="item" v-bind:func="item.Func || item"></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'" lazy>
+                        <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'">
                             <b-list-group>
-                                <cm-func-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID" v-bind:item="item"></cm-func-item>
+                                <cm-func-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID" v-bind:item="item" v-bind:func="item.Func || item"></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" lazy>
+                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'">
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <cm-struct-item v-for="item in filteredStructs" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
                             </b-list-group>
@@ -506,10 +506,31 @@
                         }
                     })
                     .then(json => {
+
+                        // Sync source with spec:
+                        json.Funcs.forEach((item) => {
+                          this.syncParametersWithSpec(item);
+                          this.syncResultsWithSpec(item);
+                        });
+                        json.TypeMethods.forEach((item) => {
+                          this.syncReceiverWithSpec(item);
+                          this.syncParametersWithSpec(item);
+                          this.syncResultsWithSpec(item);
+                        });
+                        json.InterfaceMethods.forEach((item) => {
+                          this.syncReceiverWithSpec(item);
+                          this.syncParametersWithSpec(item);
+                          this.syncResultsWithSpec(item);
+                        });
+                        json.Structs.forEach((item) => {
+                          this.syncFieldsWithSpec(item);
+                        });
+                        
                         this.$data.currentPackage.source = json;
                         this.$data.isBusy.loadCode = false;
                         this.$data.currentElementFilter = "";
                         this.$bvModal.show('modal-show-code');
+
 
                         if (json.Module) {
                             // TODO: if the version is different from what was requested,
@@ -704,6 +725,103 @@
 
               return found[0]
             },
+            getFuncValueFromSpec(index, funcID) {
+              // console.log("Getting func component checkbox value")
+
+              let rPath = this.$data.currentPackage.path;
+              let rVersion = this.$data.currentPackage.version;
+              let rModel = this.$data.context.modelName;
+              let rMethod = this.$data.context.methodName;
+
+              let model = this.findModel(rModel);
+              // console.log("model", model);
+              if (model == null) {
+                return false
+              }
+              let method = this.findMethod(model.Methods, rMethod);
+              // console.log("method", method);
+              if (method == null) {
+                return false
+              }
+              let selector = this.findSelector(method.Selectors, "Func", rPath, rVersion, funcID);
+              // console.log("selector", selector);
+              if (selector == null) {
+                return false
+              }
+
+              if (selector.Qualifier.Pos && selector.Qualifier.Pos[index]) {
+                return selector.Qualifier.Pos[index]
+              }
+            },
+            syncReceiverWithSpec(item) {
+              if (!item.Receiver) {
+                return
+              }
+              item.Receiver.Checked = this.getFuncValueFromSpec(0, item.ID);
+            },
+            syncParametersWithSpec(item) {
+              let fItem = item.Func || item;
+              if (!fItem || !fItem.Parameters) {
+                return
+              }
+              let receiverLen = item.Receiver?1:0;
+              var params = fItem.Parameters;
+              params.forEach((param, paramIndex) => {
+                  param.Checked = this.getFuncValueFromSpec(receiverLen + paramIndex, item.ID);
+              });
+            },
+            syncResultsWithSpec(item) {
+              let fItem = item.Func || item;
+              if (!fItem || !fItem.Results) {
+                return
+              }
+              let receiverLen = item.Receiver?1:0;
+              let paramsLen = this.len(fItem.Parameters);
+              var results = fItem.Results;
+              results.forEach((res, resIndex) => {
+                  res.Checked = this.getFuncValueFromSpec(receiverLen + paramsLen + resIndex, item.ID);
+              });
+            },
+            getStructFieldValueFromSpec(struct, field) {
+              // console.log("Getting struct field checkbox value")
+              // console.log(struct, field)
+
+              let rPath = this.$data.currentPackage.path;
+              let rVersion = this.$data.currentPackage.version;
+              let rModel = this.$data.context.modelName;
+              let rMethod = this.$data.context.methodName;
+
+              let model = this.findModel(rModel);
+              // console.log("model", model);
+              if (model == null) {
+                return false
+              }
+              let method = this.findMethod(model.Methods, rMethod);
+              // console.log("method", method);
+              if (method == null) {
+                return false
+              }
+              let selector = this.findSelector(method.Selectors, "Struct", rPath, rVersion, struct.ID);
+              // console.log("selector", selector);
+              if (selector == null) {
+                return false
+              }
+
+              if (selector.Qualifier.Fields && selector.Qualifier.Fields[field.VarName]) {
+                return selector.Qualifier.Fields[field.VarName]
+              }
+
+              // - find model
+              // - find method
+              // - find selector (Kind=Struct)
+              // - matches Qualifier
+              // - if .Fields[fieldVar] exists, then use the value.
+            },
+            syncFieldsWithSpec(item) {
+              item.Fields.forEach((field) => {
+                  field.Checked = this.getStructFieldValueFromSpec(item, field);
+              });
+            }
         }
     });
     </script>
@@ -852,42 +970,10 @@
     </script>
     <script type="text/javascript">
     Vue.component('cm-func-item', {
-        props: ['item'],
+        props: ['item', 'func'],
         template: "#cm-func-item-template",
         computed: {
-          syncRecv() {
-            if (!this.item.Receiver) {
-              return null
-            }
-            let receiver = this.item.Receiver;
-            receiver.Checked = this.getFuncValue(0, this.item.ID);
-            return receiver
-          },
-          syncedParameters() {
-            let fItem = this.item.Func || this.item;
-            if (!fItem || !fItem.Parameters) {
-              return null
-            }
-            let receiverLen = this.item.Receiver?1:0;
-            var params = fItem.Parameters;
-            params.forEach((param, paramIndex) => {
-                param.Checked = this.getFuncValue(receiverLen + paramIndex, this.item.ID);
-            });
-            return params
-          },
-          syncedResults() {
-            let fItem = this.item.Func || this.item;
-            if (!fItem || !fItem.Results) {
-              return null
-            }
-            let receiverLen = this.item.Receiver?1:0;
-            let paramsLen = this.len(fItem.Parameters);
-            var results = fItem.Results;
-            results.forEach((res, resIndex) => {
-                res.Checked = this.getFuncValue(receiverLen + paramsLen + resIndex, this.item.ID);
-            });
-            return results
-          }
+ 
         },
         methods: {
             cc: cc,
@@ -949,43 +1035,7 @@
                         });
                     });
             },
-            findModel(name) {
-              return this.$root.findModel(name)
-            },
-            findMethod(methods, name) {
-              return this.$root.findMethod(methods, name)
-            },
-            findSelector(selectors, kind, path, version, id) {
-              return this.$root.findSelector(selectors, kind, path, version, id)
-            },
-            getFuncValue(index, funcID) {
-              // console.log("Getting func component checkbox value")
 
-              let rPath = this.$root.$data.currentPackage.path;
-              let rVersion = this.$root.$data.currentPackage.version;
-              let rModel = this.$root.$data.context.modelName;
-              let rMethod = this.$root.$data.context.methodName;
-
-              let model = this.findModel(rModel);
-              // console.log("model", model);
-              if (model == null) {
-                return false
-              }
-              let method = this.findMethod(model.Methods, rMethod);
-              // console.log("method", method);
-              if (method == null) {
-                return false
-              }
-              let selector = this.findSelector(method.Selectors, "Func", rPath, rVersion, funcID);
-              // console.log("selector", selector);
-              if (selector == null) {
-                return false
-              }
-
-              if (selector.Qualifier.Pos && selector.Qualifier.Pos[index]) {
-                return selector.Qualifier.Pos[index]
-              }
-            },
         }
     });
     </script>
@@ -1001,28 +1051,28 @@
               <table class="table-responsive table-sm">
                   <tbody>
                       <tr>
-                          <td v-if="syncRecv" class="pl-0 pr-0">func (<b :title="syncRecv.QualifiedName" v-bind:class="{ 'selected-warning': syncRecv.Checked }">{{ syncRecv.TypeName }}</b>).<b :title="item.Func.Signature">{{ item.Func.Name }}</b>{{item.Func.Parameters == null ? "( )" : "" }}</td>
-                          <td v-if="!syncRecv" class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{syncedParameters == null ? "( )" : "" }}</td>
+                          <td v-if="item.Receiver" class="pl-0 pr-0">func (<b :title="item.Receiver.QualifiedName" v-bind:class="{ 'selected-warning': item.Receiver.Checked }">{{ item.Receiver.TypeName }}</b>).<b :title="func.Signature">{{ func.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
+                          <td v-if="!item.Receiver" class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
                           <td class="pl-0 pr-0"
-                            v-for="(param, index) in syncedParameters"
+                            v-for="(param, index) in func.Parameters"
                             >
                             <cm-type
                               v-bind:elem="param"
                               v-bind:index="index"
                               v-bind:key="item.ID + 'param' + index"
-                              v-bind:total="len(syncedParameters)"
+                              v-bind:total="len(func.Parameters)"
                               v-bind:class="{ 'selected-primary': param.Checked }"
                               ></cm-type>
                           </td>
                             
                           <td class="pl-0 pr-0"
-                            v-for="(res, index) in syncedResults"
+                            v-for="(res, index) in func.Results"
                             >
                             <cm-type
                               v-bind:elem="res"
                               v-bind:index="index"
                               v-bind:key="item.ID + 'result' + index"
-                              v-bind:total="len(syncedResults)"
+                              v-bind:total="len(func.Results)"
                               v-bind:class="{ 'selected-success': res.Checked }"
                               ></cm-type>
                           </td>
@@ -1031,28 +1081,27 @@
                           </td>
                       </tr>
                       <tr>
-                        <td v-if="syncRecv" class="pl-0 pr-0">
+                        <td v-if="item.Receiver" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center checkbox-warning"
                             @change="onChangeFunc($event, 0, item)"
-                            v-model="syncRecv.Checked"
+                            v-model="item.Receiver.Checked"
                             switch
                           ></b-form-checkbox>
                         </td>
-                        <td v-if="!syncRecv" class="pl-0 pr-0">&nbsp;</td>
-                        <td v-for="(param, index) in syncedParameters" class="pl-0 pr-0">
+                        <td v-if="!item.Receiver" class="pl-0 pr-0">&nbsp;</td>
+                        <td v-for="(param, index) in func.Parameters" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center"
-                            @change="onChangeFunc($event, syncRecv?1+index:index, item)"
+                            @change="onChangeFunc($event, item.Receiver?1+index:index, item)"
                             v-model="param.Checked"
                             switch
-                            v-bind:class="{ 'checkbox-success': index >= len(syncedParameters) }"
                           ></b-form-checkbox>
                         </td>
-                        <td v-for="(res, index) in syncedResults" class="pl-0 pr-0">
+                        <td v-for="(res, index) in func.Results" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center checkbox-success"
-                            @change="onChangeFunc($event, syncRecv?1+index + len(syncedParameters):index + len(syncedParameters), item)"
+                            @change="onChangeFunc($event, item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, item)"
                             v-model="res.Checked"
                             switch
                           ></b-form-checkbox>
@@ -1120,59 +1169,9 @@
     <script type="text/javascript">
     Vue.component('cm-struct-item', {
         computed: {
-          syncedFields() {
-            this.item.Fields.forEach((field) => {
-                field.Checked = this.getStructFieldValue(this.item, field);
-            });
-            return this.item.Fields
-          }
         },
         methods: {
             cc: cc,
-            findModel(name) {
-              return this.$root.findModel(name)
-            },
-            findMethod(methods, name) {
-              return this.$root.findMethod(methods, name)
-            },
-            findSelector(selectors, kind, path, version, id) {
-              return this.$root.findSelector(selectors, kind, path, version, id)
-            },
-            getStructFieldValue(struct, field) {
-              // console.log("Getting struct field checkbox value")
-              // console.log(struct, field)
-
-              let rPath = this.$root.$data.currentPackage.path;
-              let rVersion = this.$root.$data.currentPackage.version;
-              let rModel = this.$root.$data.context.modelName;
-              let rMethod = this.$root.$data.context.methodName;
-
-              let model = this.findModel(rModel);
-              // console.log("model", model);
-              if (model == null) {
-                return false
-              }
-              let method = this.findMethod(model.Methods, rMethod);
-              // console.log("method", method);
-              if (method == null) {
-                return false
-              }
-              let selector = this.findSelector(method.Selectors, "Struct", rPath, rVersion, struct.ID);
-              // console.log("selector", selector);
-              if (selector == null) {
-                return false
-              }
-
-              if (selector.Qualifier.Fields && selector.Qualifier.Fields[field.VarName]) {
-                return selector.Qualifier.Fields[field.VarName]
-              }
-
-              // - find model
-              // - find method
-              // - find selector (Kind=Struct)
-              // - matches Qualifier
-              // - if .Fields[fieldVar] exists, then use the value.
-            },
             onChangeStructField(value, struct, field) {
               console.log("Modifying struct selectors ...");
 
@@ -1244,7 +1243,7 @@
               </b-row>
               <table class="table-responsive table-sm table-hover">
                   <tbody>
-                      <template v-for="(field, fieldIndex) in syncedFields">
+                      <template v-for="(field, fieldIndex) in item.Fields">
                           <tr v-for="doc in field.Docs" title="This is a doc">
                               <td colspan="3" class="comment-cell">
                                   <span class="documentation pl-4">// {{ doc }}</span>
