@@ -1000,7 +1000,40 @@ func SetCachedSource(path string, version string, pkg *feparser.FEPackage) {
 		Path:    path,
 		Version: version,
 	}
+
+	cleanupFEPackage(pkg)
 	sourceCache[key] = pkg
+}
+
+// cleanupFEPackage removes superfuous stuff.
+func cleanupFEPackage(pkg *feparser.FEPackage) {
+	for _, v := range pkg.Funcs {
+		v.CodeQL = nil
+		for _, param := range v.Parameters {
+			param.Identity = nil
+		}
+		for _, res := range v.Results {
+			res.Identity = nil
+		}
+	}
+	for _, v := range pkg.TypeMethods {
+		v.CodeQL = nil
+		for _, param := range v.Func.Parameters {
+			param.Identity = nil
+		}
+		for _, res := range v.Func.Results {
+			res.Identity = nil
+		}
+	}
+	for _, v := range pkg.InterfaceMethods {
+		v.CodeQL = nil
+		for _, param := range v.Func.Parameters {
+			param.Identity = nil
+		}
+		for _, res := range v.Func.Results {
+			res.Identity = nil
+		}
+	}
 }
 
 func FindStructByID(fe *feparser.FEPackage, id string) *feparser.FEStruct {
