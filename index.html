@@ -253,12 +253,13 @@
         </b-container>
         <b-container>
             <template>
-                <b-modal id="modal-show-code" scrollable title="Code" size="xl" lazy no-close-on-backdrop @hidden="loadCachedVersionList">
+                <b-modal id="modal-show-code" scrollable hide-footer title="Code" size="xl" lazy no-close-on-backdrop @hidden="loadCachedVersionList">
                     <template #modal-title>
                         Source of <b>{{currentPackage.path}}@{{currentPackage.version}}</b>
                         <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
                         <br>
-                        <small class="text-muted">Modifying model::<b>{{context.modelName}}</b> / method::<b>{{context.methodName}}</b></small>
+                        <span class="text-muted d-flex">
+                          Modifying&nbsp;<span class="text-monospace">model::<b>{{context.modelName}}</b></span>&nbsp;/&nbsp;<span class="text-monospace">method::<b>{{context.methodName}}</b></span></span>
                     </template>
                     <b-form v-on:submit.prevent="">
                         <div>
@@ -852,6 +853,27 @@
     <script type="text/javascript">
     Vue.component('cm-func-item', {
         props: ['item'],
+        template: "#cm-func-item-template",
+        computed: {
+          syncedParameters() {
+            if (!this.item || !this.item.Parameters) {
+              return null
+            }
+            this.item.Parameters.forEach((param, paramIndex) => {
+                param.Checked = this.getFuncValue(paramIndex, this.item.ID);
+            });
+            return this.item.Parameters
+          },
+          syncedResults() {
+            if (!this.item || !this.item.Results) {
+              return null
+            }
+            this.item.Results.forEach((res, resIndex) => {
+                res.Checked = this.getFuncValue(resIndex + this.len(this.item.Parameters), this.item.ID);
+            });
+            return this.item.Results
+          }
+        },
         methods: {
             cc: cc,
             len: len,
@@ -921,7 +943,7 @@
             findSelector(selectors, kind, path, version, id) {
               return this.$root.findSelector(selectors, kind, path, version, id)
             },
-            getFuncValue(index, fn) {
+            getFuncValue(index, funcID) {
               // console.log("Getting func component checkbox value")
 
               let rPath = this.$root.$data.currentPackage.path;
@@ -939,7 +961,7 @@
               if (method == null) {
                 return false
               }
-              let selector = this.findSelector(method.Selectors, "Func", rPath, rVersion, fn.ID);
+              let selector = this.findSelector(method.Selectors, "Func", rPath, rVersion, funcID);
               // console.log("selector", selector);
               if (selector == null) {
                 return false
@@ -949,8 +971,7 @@
                 return selector.Qualifier.Pos[index]
               }
             },
-        },
-        template: "#cm-func-item-template"
+        }
     });
     </script>
     <script type="text/x-template" id="cm-func-item-template">
@@ -967,41 +988,49 @@
                       <tr>
                           <td class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{item.Parameters == null ? "( )" : "" }}</td>
                           <td class="pl-0 pr-0"
-                            v-for="(param, index) in item.Parameters"
+                            v-for="(param, index) in syncedParameters"
                             >
                             <cm-type
-                              v-bind:param="param"
+                              v-bind:elem="param"
                               v-bind:index="index"
                               v-bind:key="item.ID + 'param' + index"
                               v-bind:total="len(item.Parameters)"
-                              v-bind:class="{ 'selected-primary': getFuncValue(index, item) }"
+                              v-bind:class="{ 'selected-primary': param.Checked }"
                               ></cm-type>
                           </td>
                             
                           <td class="pl-0 pr-0"
-                            v-for="(param, index) in item.Results"
+                            v-for="(res, index) in syncedResults"
                             >
                             <cm-type
-                              v-bind:param="param"
+                              v-bind:elem="res"
                               v-bind:index="index"
                               v-bind:key="item.ID + 'result' + index"
                               v-bind:total="len(item.Results)"
-                              v-bind:class="{ 'selected-success': getFuncValue(len(item.Parameters) + index, item) }"
+                              v-bind:class="{ 'selected-success': res.Checked }"
                               ></cm-type>
                           </td>
                           <td>
                             <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
                           </td>
                       </tr>
-                      <tr v-bind:class="{ hidden: len(item.Parameters)==0 && len(item.Results)==0 }">
+                      <tr>
                         <td class="pl-0 pr-0">&nbsp;</td>
-                        <td v-for="(inp, index) in item.CodeQL.Blocks[0].Inp" class="pl-0 pr-0">
+                        <td v-for="(param, index) in syncedParameters" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center"
                             @change="onChangeFunc($event, index, item)"
-                            v-model="getFuncValue(index, item)"
+                            v-model="param.Checked"
                             switch
                             v-bind:class="{ 'checkbox-success': index >= len(item.Parameters) }"
+                          ></b-form-checkbox>
+                        </td>
+                        <td v-for="(res, index) in syncedResults" class="pl-0 pr-0">
+                          <b-form-checkbox 
+                            class="d-flex justify-content-center checkbox-success"
+                            @change="onChangeFunc($event, index + len(item.Parameters), item)"
+                            v-model="res.Checked"
+                            switch
                           ></b-form-checkbox>
                         </td>
                       </tr>
@@ -1017,12 +1046,12 @@
             cc: cc,
             len: len,
         },
-        props: ['param', 'index', 'total'],
+        props: ['elem', 'index', 'total'],
         template: "#cm-type-template"
     });
     </script>
     <script type="text/x-template" id="cm-type-template">
-        <span :title="param.KindString" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{param.VarName ? param.VarName+" ":""}}<b>{{param.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</span>
+        <span :title="elem.KindString" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{elem.VarName ? elem.VarName+" ":""}}<b>{{elem.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</span>
     </script>
     <script type="text/javascript">
     Vue.component('cm-tm-item', {
@@ -1066,6 +1095,14 @@
     </script>
     <script type="text/javascript">
     Vue.component('cm-struct-item', {
+        computed: {
+          syncedFields() {
+            this.item.Fields.forEach((field) => {
+                field.Checked = this.getStructFieldValue(this.item, field);
+            });
+            return this.item.Fields
+          }
+        },
         methods: {
             cc: cc,
             findModel(name) {
@@ -1077,7 +1114,7 @@
             findSelector(selectors, kind, path, version, id) {
               return this.$root.findSelector(selectors, kind, path, version, id)
             },
-            getStructValue(struct, field) {
+            getStructFieldValue(struct, field) {
               // console.log("Getting struct field checkbox value")
               // console.log(struct, field)
 
@@ -1112,7 +1149,7 @@
               // - matches Qualifier
               // - if .Fields[fieldVar] exists, then use the value.
             },
-            onChangeStruct(value, struct, field) {
+            onChangeStructField(value, struct, field) {
               console.log("Modifying struct selectors ...");
 
               console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
@@ -1183,13 +1220,13 @@
               </b-row>
               <table class="table-responsive table-sm table-hover">
                   <tbody>
-                      <template v-for="(field, fieldIndex) in item.Fields">
+                      <template v-for="(field, fieldIndex) in syncedFields">
                           <tr v-for="doc in field.Docs" title="This is a doc">
                               <td colspan="3" class="comment-cell">
                                   <span class="documentation pl-4">// {{ doc }}</span>
                               </td>
                           </tr>
-                          <tr v-bind:class="{ 'selected-primary': getStructValue(item, field) }">
+                          <tr v-bind:class="{ 'selected-primary': field.Checked }">
                               <td class="pt-1 pb-1">
                                   <span class="pl-4">
                                       {{field.VarName}}
@@ -1198,9 +1235,9 @@
                               <td class="pt-1 pb-1">
                                   <b-form-checkbox
                                     :id="cc('checkbox',field.ID)"
-                                    v-model="getStructValue(item, field)"
+                                    v-model="field.Checked"
                                     switch
-                                    @change="onChangeStruct($event, item, field)"
+                                    @change="onChangeStructField($event, item, field)"
                                   ></b-form-checkbox>
                               </td>
                               <td class="pt-1 pb-1" :title="field.KindString">
