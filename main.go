@@ -90,8 +90,8 @@ func (spec *XSpec) ModifyModelByName(
 	name string,
 	modifier func(*XModel) error,
 ) error {
-	spec.RLock()
-	defer spec.RUnlock()
+	spec.Lock()
+	defer spec.Unlock()
 
 	for _, md := range spec.Models {
 		if md.Name == name {
@@ -218,9 +218,12 @@ func (spec *XSpec) PushModel(model *XModel) error {
 	}
 
 	model.Methods = NewScavengeMethods(model.Kind)
-	spec.Lock()
-	defer spec.Unlock()
-	spec.Models = append(spec.Models, model)
+
+	{
+		spec.Lock()
+		defer spec.Unlock()
+		spec.Models = append(spec.Models, model)
+	}
 	return nil
 }
 
