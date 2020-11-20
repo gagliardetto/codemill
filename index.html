@@ -110,7 +110,7 @@
     }
 
     .custom-control-label {
-        cursor: pointer;
+      cursor: pointer;
     }
 
     .b-table-sticky-header,
@@ -134,8 +134,11 @@
         cursor: auto;
     }
 
-    .error-red {
-        color: red;
+    .error-no-selectors {
+      color: red !important;
+    }
+    .error-no-selectors::before {
+      content: "Error: No selectors";
     }
     .checkbox-success > .custom-control-input:checked~.custom-control-label::before{
       background-color: #28a745 !important;
@@ -143,6 +146,51 @@
     .checkbox-warning > .custom-control-input:checked~.custom-control-label::before {
       color: #212529 !important;
       background-color: #ffc107 !important;
+    }
+    .xmodel {
+      border: 1px solid;
+      border-radius: 0.1em;
+      padding: 0.6em;
+      margin: 0.1em;
+      color: #004085;
+      border-color: #009432;
+    }
+    .xmodel:hover {
+      background-color: #cce5ff;
+    }
+    .xmethod {
+      border: 1px solid;
+      border-radius: 0.1em;
+      padding: 0.6em;
+      margin: 0.1em;
+      color: #0c5460;
+      border-color: #A3CB38;
+    }
+    .xmethod:hover {
+      background-color: #d1ecf1;
+    }
+    .xselector {
+      border: 1px solid;
+      border-radius: 0.1em;
+      padding: 1em;
+      margin: 0.1em;
+
+      color: #1B1464;
+      border-color: #D980FA;
+      position: relative;
+    }
+    .xselector:hover {
+      background-color: #9980FA;
+      cursor: pointer;
+    }
+    .package-indication {
+        position: absolute;
+        right: 0.3em;
+        top: 0.15em;
+        font-weight: bolder;
+        font-style: initial;
+        font-size: 1em;
+        color: #341f97;
     }
     </style>
 </head>
@@ -259,7 +307,7 @@
                         <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
                         <br>
                         <span class="text-muted d-flex">
-                          Modifying&nbsp;<span class="text-monospace">model::<b>{{context.modelName}}</b></span>&nbsp;/&nbsp;<span class="text-monospace">method::<b>{{context.methodName}}</b></span></span>
+                          Modifying&nbsp;<span class="text-monospace">model::<b>{{context.modelName}}</b></span>&nbsp;&gt;&nbsp;<span class="text-monospace">method::<b>{{context.methodName}}</b></span></span>
                     </template>
                     <b-form v-on:submit.prevent="">
                         <div>
@@ -837,7 +885,7 @@
     });
     </script>
     <script type="text/x-template" id="cm-xmodel-template">
-        <div>
+        <div class="xmodel">
           <div>{{xmodel.IsPrivate?"private ":""}}model <b>{{xmodel.Name}}</b> of kind {{xmodel.Kind}} {</div>
             <cm-xmethod v-for="(item, key) in xmodel.Methods" v-bind:key="key" v-bind:xmethod="item" v-bind:xmodel="xmodel" class="ml-2"></cm-xmethod>
           <div>}</div>
@@ -858,13 +906,13 @@
     });
     </script>
     <script type="text/x-template" id="cm-xmethod-template">
-        <div v-bind:class="{ 'error-red': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
+        <div class="xmethod" v-bind:class="{ 'error-no-selectors': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
           <div>{{xmethod.IsPrivate?"private ":""}}<b>{{xmethod.Name}}()</b> {</div>
             <cm-xselector v-for="(item, key) in xmethod.Selectors" v-bind:key="key" v-bind:xselector="item" class="ml-2"></cm-xselector>
 
             <!-- Modal for searching packages -->
             <template>
-                <b-button @click="openSearchView(xmodel, xmethod)" size="sm" variant="outline-primary"><b-icon icon="plus-square"></b-icon> Add a selector</b-button>
+                <b-button @click="openSearchView(xmodel, xmethod)" size="sm" variant="outline-primary" class="ml-2"><b-icon icon="plus-square"></b-icon> Add a selector</b-button>
             </template>
 
           <div>}</div>
@@ -882,9 +930,10 @@
     });
     </script>
     <script type="text/x-template" id="cm-xselector-template">
-        <div>
+        <div class="xselector">
           <div v-if="xselector.Kind == 'Struct'">
-            <div>{{xselector.Kind}}: <b>{{xselector.Qualifier.Path}}@{{xselector.Qualifier.Version}}</b> {{xselector.Qualifier.TypeName}} {</div>
+            <div class="package-indication">{{xselector.Qualifier.Path}}{{xselector.Qualifier.Version!="local"?"@"+xselector.Qualifier.Version:""}}</div>
+            <div>{{xselector.Kind}}: {{xselector.Qualifier.TypeName}} {</div>
             <div v-for="(ok, field) in xselector.Qualifier.Fields" v-bind:key="field" class="ml-2">
               {{field}}
             </div>
@@ -892,7 +941,8 @@
           </div>
 
           <div v-if="xselector.Kind == 'Func'">
-            {{xselector.Kind}}: <b>{{xselector.Qualifier.Path}}@{{xselector.Qualifier.Version}}</b>
+            <div class="package-indication">{{xselector.Qualifier.Path}}{{xselector.Qualifier.Version!="local"?"@"+xselector.Qualifier.Version:""}}</div>
+            {{xselector.Kind}}:
             {{xselector.Qualifier.ID}} {{xselector.Qualifier.Pos}}
           </div>
         </div>
