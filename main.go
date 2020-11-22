@@ -390,63 +390,21 @@ func (sel *Selector) GetFuncQualifier() *FuncQualifier {
 
 var (
 	// TODO: try loading spec from file.
-	globalSpec = &XSpec{
-		Name: "HelloWorldModule",
-		Models: []*XModel{
-			{
-				Name: "UntrustedSource",
-				Kind: ModelKindUntrustedFlowSource,
-				Methods: []*XMethod{
-					{
-						Name:   "_Self",
-						IsSelf: true,
-						Selectors: []*Selector{
-							{
-								Kind: SelectorKindStruct,
-								Qualifier: &StructQualifier{
-									Qualifier: Qualifier{
-										Path:    "github.com/aws/aws-sdk-go/aws",
-										Version: "v1.9.44",
-										ID:      "Struct-Config",
-									},
-									TypeName: "Config",
-									Fields: map[string]*FieldMeta{
-										"Endpoint": {
-											Name:       "Endpoint",
-											TypeString: "string",
-											KindString: "a basic string",
-										},
-									},
-									Total: 10,
-									Left:  9,
-								},
-							},
-							{
-								Kind: SelectorKindFunc,
-								Qualifier: &FuncQualifier{
-									Qualifier: Qualifier{
-										Path:    "github.com/aws/aws-sdk-go/aws",
-										Version: "v1.9.44",
-										ID:      "Type-Method-Config-WithRegion",
-									},
-									Pos: []bool{
-										false, false, true,
-									},
-									Elements: &FuncQualifierElementsMeta{
-										Receiver:   &FuncElementMeta{Name: "a", TypeString: "Config", KindString: "a named struct"},
-										Parameters: []*FuncElementMeta{{Name: "b", TypeString: "string", KindString: "a basic string"}},
-										Results:    []*FuncElementMeta{{Name: "c", TypeString: "string", KindString: "a basic string"}},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
+	globalSpec = NewXSpec("HelloWorldModule")
+)
+
+func NewXSpec(name string) *XSpec {
+	name = ToCamel(name)
+	if name == "" {
+		panic("provided empty name")
+	}
+
+	return &XSpec{
+		Name:    name,
+		Models:  []*XModel{},
 		RWMutex: &sync.RWMutex{},
 	}
-)
+}
 
 func main() {
 	r := gin.Default()
