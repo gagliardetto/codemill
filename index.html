@@ -946,7 +946,7 @@
             <div v-for="(field, fieldIndex) in xselector.Qualifier.Fields" v-bind:key="field.Name" class="ml-2">
               <span :title="field.KindString" class="hover-field">{{field.Name}} <b>{{field.TypeString}}</b></span>
             </div>
-            <div class="ml-2 text-muted">// Has {{xselector.Qualifier.Left}} other ignored fields</div>
+            <div class="ml-2 text-muted" v-if="xselector.Qualifier.Left">// Has {{xselector.Qualifier.Left}} other ignored fields</div>
             <div>}</div>
           </div>
 

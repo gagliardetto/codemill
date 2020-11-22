@@ -3,11 +3,13 @@ package main
 import (
 	"encoding/json"
 	"errors"
+	"flag"
 	"fmt"
 	"go/types"
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"path/filepath"
 	"sort"
 	"sync"
@@ -55,7 +57,7 @@ func NewScavengeMethods(kind ModelKind) []*XMethod {
 		{
 			return []*XMethod{
 				{
-					Name:      "_Self",
+					Name:      "Self",
 					IsSelf:    true,
 					Selectors: []*XSelector{},
 				},
@@ -122,10 +124,8 @@ func (spec *XSpec) Cleanup() error {
 	return nil
 }
 
-// Populate populates a spec with meta.
-func (spec *XSpec) Populate() error {
-	// TODO
-
+// AddMeta populates a spec with meta.
+func (spec *XSpec) AddMeta() error {
 	for _, mdl := range spec.Models {
 		for _, mtd := range mdl.Methods {
 			for _, sel := range mtd.Selectors {
@@ -157,11 +157,11 @@ func (spec *XSpec) Populate() error {
 									TypeString: fld.TypeString,
 									KindString: fld.KindString,
 								}
+							}
 
-								{ // Update counts:
-									qual.Total = len(st.Fields)
-									qual.Left = len(st.Fields) - len(qual.Fields)
-								}
+							{ // Update counts:
+								qual.Total = len(st.Fields)
+								qual.Left = len(st.Fields) - len(qual.Fields)
 							}
 
 						}
@@ -180,6 +180,40 @@ func (spec *XSpec) Populate() error {
 
 						meta := CompileFuncQualifierElementsMeta(fn)
 						qual.Elements = meta
+					}
+				default:
+					panic(Sf("Unknown type: %T", sel.Qualifier))
+				}
+
+			}
+		}
+	}
+
+	return nil
+}
+
+func (spec *XSpec) RemoveMeta() error {
+	for _, mdl := range spec.Models {
+		for _, mtd := range mdl.Methods {
+			for _, sel := range mtd.Selectors {
+
+				switch qual := sel.Qualifier.(type) {
+
+				case *StructQualifier:
+					{
+						for fieldName := range qual.Fields {
+							qual.Fields[fieldName] = nil // TODO: will this still work in json?
+						}
+
+						{ // Update counts:
+							qual.Total = 0
+							qual.Left = 0
+						}
+					}
+				case *FuncQualifier:
+					{
+						// TODO
+						qual.Elements = nil
 					}
 				}
 
@@ -344,7 +378,10 @@ func (sel *XSelector) Validate() error {
 
 func (sel *XSelector) UnmarshalJSON(data []byte) error {
 
-	var temp XSelector
+	var temp struct {
+		Kind      SelectorKind
+		Qualifier interface{}
+	}
 	if err := json.Unmarshal(data, &temp); err != nil {
 		return err
 	}
@@ -359,18 +396,18 @@ func (sel *XSelector) UnmarshalJSON(data []byte) error {
 	case SelectorKindFunc:
 		{
 			var v FuncQualifier
-			if err := TranscodeJSON(temp.Qualifier, v); err != nil {
+			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
 				return err
 			}
-			sel.Qualifier = v
+			sel.Qualifier = &v
 		}
 	case SelectorKindStruct:
 		{
 			var v StructQualifier
-			if err := TranscodeJSON(temp.Qualifier, v); err != nil {
+			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
 				return err
 			}
-			sel.Qualifier = v
+			sel.Qualifier = &v
 		}
 	default:
 		return fmt.Errorf("Unknown selector kind: %s", sel.Kind)
@@ -576,8 +613,8 @@ type StructQualifier struct {
 	BasicQualifier
 	TypeName string
 	Fields   map[string]*FieldMeta
-	Total    int
-	Left     int
+	Total    int `json:",omitempty"`
+	Left     int `json:",omitempty"`
 }
 
 // Validate validates a BasicQualifier.
@@ -626,9 +663,9 @@ func (qual *StructQualifier) Validate() error {
 }
 
 type FieldMeta struct {
-	Name       string
-	TypeString string
-	KindString string
+	Name       string `json:",omitempty"`
+	TypeString string `json:",omitempty"`
+	KindString string `json:",omitempty"`
 }
 
 //
@@ -643,8 +680,8 @@ func (sel *XSelector) GetStructQualifier() *StructQualifier {
 type FuncQualifier struct {
 	BasicQualifier
 	Pos      []bool
-	Name     string // Name of the func.
-	Elements *FuncQualifierElementsMeta
+	Name     string                     // Name of the func.
+	Elements *FuncQualifierElementsMeta `json:",omitempty"`
 }
 
 type FuncQualifierElementsMeta struct {
@@ -767,13 +804,12 @@ func (sel *XSelector) GetFuncQualifier() *FuncQualifier {
 }
 
 var (
-	// TODO: try loading spec from file.
-	globalSpec = NewXSpec("HelloWorldModule")
+	globalSpec = NewXSpecWithName("DefaultModule")
 )
 
 func TryLoadSpecFromFile(path string) (*XSpec, error) {
-	var spec XSpec
-	err := LoadJSON(&spec, path)
+	spec := newXSpec()
+	err := LoadJSON(spec, path)
 	if err != nil {
 		return nil, fmt.Errorf("error while loading spec file: %s", err)
 	}
@@ -802,20 +838,25 @@ func TryLoadSpecFromFile(path string) (*XSpec, error) {
 			}
 		}
 	}
-	if err := spec.Populate(); err != nil {
+	if err := spec.AddMeta(); err != nil {
 		return nil, err
 	}
-	return &spec, nil
+	return spec, nil
 }
 
-func NewXSpec(name string) *XSpec {
+func NewXSpecWithName(name string) *XSpec {
 	name = ToCamel(name)
 	if name == "" {
 		panic("provided empty name")
 	}
 
+	spec := newXSpec()
+	spec.Name = name
+	return spec
+}
+
+func newXSpec() *XSpec {
 	return &XSpec{
-		Name:    name,
 		Models:  []*XModel{},
 		RWMutex: &sync.RWMutex{},
 	}
@@ -826,6 +867,48 @@ func main() {
 	r.StaticFile("", "./index.html")
 	r.Static("/static", "./static")
 	httpClient := new(http.Client)
+
+	var specFilepath string
+	flag.StringVar(&specFilepath, "spec", "", "Path to spec file; will be created if not existing.")
+	flag.Parse()
+
+	if specFilepath == "" {
+		panic("--spec flag not provided")
+	}
+
+	if MustFileExists(specFilepath) {
+		spec, err := TryLoadSpecFromFile(specFilepath)
+		if err != nil {
+			panic(err)
+		}
+		globalSpec = spec
+	}
+
+	onExitCallback := func() {
+		globalSpec.Lock()
+		defer globalSpec.Unlock()
+
+		globalSpec.RemoveMeta()
+
+		Infof("Saving spec to %q", MustAbs(specFilepath))
+		err := SaveAsJSON(globalSpec, specFilepath)
+		if err != nil {
+			panic(err)
+		}
+
+		os.Exit(0)
+	}
+
+	var once sync.Once
+	go Notify(
+		func(os.Signal) bool {
+			once.Do(onExitCallback)
+			return false
+		},
+		os.Kill,
+		os.Interrupt,
+	)
+	defer once.Do(onExitCallback)
 
 	r.GET("/api/spec", func(c *gin.Context) {
 		globalSpec.RLock()
