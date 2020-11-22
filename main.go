@@ -355,13 +355,13 @@ func CompileFuncQualifierElementsMeta(raw interface{}) *FuncQualifierElementsMet
 			return out
 		}
 	default:
-		panic(t)
+		panic(Sf("Unknown type: %T", raw))
 	}
 
 }
 
-func getFuncName(t interface{}) string {
-	switch thing := t.(type) {
+func getFuncName(raw interface{}) string {
+	switch thing := raw.(type) {
 	case *feparser.FEFunc:
 		{
 			return thing.Name
@@ -375,7 +375,7 @@ func getFuncName(t interface{}) string {
 			return thing.Func.Name
 		}
 	default:
-		panic(t)
+		panic(Sf("Unknown type: %T", raw))
 	}
 }
 
