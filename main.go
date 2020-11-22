@@ -1,6 +1,8 @@
 package main
 
 import (
+	"encoding/json"
+	"errors"
 	"fmt"
 	"go/types"
 	"io/ioutil"
@@ -8,7 +10,6 @@ import (
 	"net/url"
 	"path/filepath"
 	"sort"
-	"strings"
 	"sync"
 
 	"github.com/gagliardetto/codebox/scanner"
@@ -21,7 +22,6 @@ import (
 	. "github.com/gagliardetto/utilz"
 	"github.com/gin-gonic/gin"
 	"golang.org/x/mod/modfile"
-	"golang.org/x/mod/module"
 	"golang.org/x/tools/go/packages"
 )
 
@@ -57,7 +57,7 @@ func NewScavengeMethods(kind ModelKind) []*XMethod {
 				{
 					Name:      "_Self",
 					IsSelf:    true,
-					Selectors: []*Selector{},
+					Selectors: []*XSelector{},
 				},
 			}
 		}
@@ -70,6 +70,313 @@ type XSpec struct {
 	Name   string // Name of the module
 	Models []*XModel
 	*sync.RWMutex
+}
+
+func (spec *XSpec) NormalizeName() error {
+	spec.Name = ToCamel(spec.Name)
+	if spec.Name == "" {
+		return errors.New("Name is not valid")
+	}
+	return nil
+}
+
+// Cleanup cleans up a spec..
+func (spec *XSpec) Cleanup() error {
+	// TODO
+
+	for _, mdl := range spec.Models {
+		for _, mtd := range mdl.Methods {
+			for _, sel := range mtd.Selectors {
+
+				basicQual := sel.GetBasicQualifier()
+				switch qual := sel.Qualifier.(type) {
+
+				case *StructQualifier:
+					{
+						if len(qual.Fields) == 0 {
+							// If all fields are disabled, then remove the selector:
+							mtd.DeleteStructSelector(
+								basicQual.Path,
+								basicQual.Version,
+								basicQual.ID,
+							)
+						}
+					}
+				case *FuncQualifier:
+					{
+						if AllFalse(qual.Pos...) {
+							// If all false, then remove the selector:
+							mtd.DeleteFuncSelector(
+								basicQual.Path,
+								basicQual.Version,
+								basicQual.ID,
+							)
+						}
+					}
+				}
+
+			}
+		}
+	}
+
+	return nil
+}
+
+// Populate populates a spec with meta.
+func (spec *XSpec) Populate() error {
+	// TODO
+
+	for _, mdl := range spec.Models {
+		for _, mtd := range mdl.Methods {
+			for _, sel := range mtd.Selectors {
+
+				basicQual := sel.GetBasicQualifier()
+				switch qual := sel.Qualifier.(type) {
+
+				case *StructQualifier:
+					{
+						{
+							source := GetCachedSource(basicQual.Path, basicQual.Version)
+							if source == nil {
+								return fmt.Errorf("Source not found: %s@%s", basicQual.Path, basicQual.Version)
+							}
+							// Make sure that the struct exist:
+							st := FindStructByID(source, basicQual.ID)
+							if st == nil {
+								return fmt.Errorf("Struct not found: %q", basicQual.ID)
+							}
+
+							for fieldName := range qual.Fields {
+								fld := FindFieldByName(st, fieldName)
+								if fld == nil {
+									return fmt.Errorf("Field not found: %q", fieldName)
+								}
+
+								qual.Fields[fld.VarName] = &FieldMeta{
+									Name:       fld.VarName,
+									TypeString: fld.TypeString,
+									KindString: fld.KindString,
+								}
+
+								{ // Update counts:
+									qual.Total = len(st.Fields)
+									qual.Left = len(st.Fields) - len(qual.Fields)
+								}
+							}
+
+						}
+					}
+				case *FuncQualifier:
+					{
+						source := GetCachedSource(basicQual.Path, basicQual.Version)
+						if source == nil {
+							return fmt.Errorf("Source not found: %s@%s", basicQual.Path, basicQual.Version)
+						}
+						// Find the func/type-method/interface-method:
+						fn := FindFuncByID(source, basicQual.ID)
+						if fn == nil {
+							return fmt.Errorf("Func not found: %q", basicQual.ID)
+						}
+
+						meta := CompileFuncQualifierElementsMeta(fn)
+						qual.Elements = meta
+					}
+				}
+
+			}
+		}
+	}
+
+	return nil
+}
+
+// ListModules lists all the modules (unique) used inside the spec.
+func (spec *XSpec) ListModules() []*BasicQualifier {
+	qualifiers := make([]*BasicQualifier, 0)
+
+	for _, mdl := range spec.Models {
+		for _, mtd := range mdl.Methods {
+			for _, sel := range mtd.Selectors {
+
+				qual := sel.GetBasicQualifier()
+				if qual != nil {
+					qualifiers = append(qualifiers, qual)
+				}
+
+			}
+		}
+	}
+
+	// Deduplicate:
+	qualifiers = DeduplicateSlice(qualifiers, func(i int) string {
+		return qualifiers[i].Path + "@" + qualifiers[i].Version
+	}).([]*BasicQualifier)
+
+	return qualifiers
+}
+
+// Validate validates a spec.
+func (spec *XSpec) Validate() error {
+	if err := spec.NormalizeName(); err != nil {
+		return err
+	}
+
+	// Normalize and validate names of models:
+	for _, mdl := range spec.Models {
+		err := mdl.NormalizeName()
+		if err != nil {
+			return fmt.Errorf("error for model %q: %s", mdl.Name, err)
+		}
+	}
+	{
+		// Check whether model names are unique:
+		var names []string
+		for _, mdl := range spec.Models {
+			if SliceContains(names, mdl.Name) {
+				return fmt.Errorf("Model name %q is not unique", mdl.Name)
+			}
+			names = append(names, mdl.Name)
+		}
+	}
+
+	// Validate models:
+	for _, mdl := range spec.Models {
+		err := mdl.Validate()
+		if err != nil {
+			return fmt.Errorf("error for model %q: %s", mdl.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func (mdl *XModel) NormalizeName() error {
+	mdl.Name = ToCamel(mdl.Name)
+	if mdl.Name == "" {
+		return errors.New("Name is not valid")
+	}
+	return nil
+}
+
+// Validate validates a model.
+func (mdl *XModel) Validate() error {
+	if err := mdl.NormalizeName(); err != nil {
+		return err
+	}
+
+	// Validate model kind:
+	isValid := IsValidModelKind(mdl.Kind)
+	if !isValid {
+		return fmt.Errorf("model kind not valid: %q", mdl.Kind)
+	}
+
+	// Normalize and validate names of methods:
+	for _, mtd := range mdl.Methods {
+		err := mtd.NormalizeName()
+		if err != nil {
+			return fmt.Errorf("error for model %q: %s", mtd.Name, err)
+		}
+	}
+	{
+		// Check whether method names are unique:
+		var names []string
+		for _, mtd := range mdl.Methods {
+			if SliceContains(names, mtd.Name) {
+				return fmt.Errorf("Method name %q is not unique", mtd.Name)
+			}
+			names = append(names, mtd.Name)
+		}
+	}
+
+	// Validate Methods:
+	for _, mtd := range mdl.Methods {
+		err := mtd.Validate()
+		if err != nil {
+			return fmt.Errorf("error for method %q: %s", mtd.Name, err)
+		}
+	}
+
+	return nil
+}
+
+func (mtd *XMethod) NormalizeName() error {
+	mtd.Name = ToCamel(mtd.Name)
+	if mtd.Name == "" {
+		return errors.New("Name is not valid")
+	}
+	return nil
+}
+
+// Validate validates a method.
+func (mtd *XMethod) Validate() error {
+	if err := mtd.NormalizeName(); err != nil {
+		return err
+	}
+	return nil
+}
+
+// Validate validates a selector.
+func (sel *XSelector) Validate() error {
+	isValid := IsValidSelectorKind(sel.Kind)
+	if !isValid {
+		return fmt.Errorf("selector kind not valid: %q", sel.Kind)
+	}
+
+	switch sel.Kind {
+	case SelectorKindFunc:
+		{
+			if err := sel.GetFuncQualifier().Validate(); err != nil {
+				return err
+			}
+		}
+	case SelectorKindStruct:
+		{
+			if err := sel.GetStructQualifier().Validate(); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("Unknown selector kind: %s", sel.Kind)
+	}
+
+	return nil
+}
+
+func (sel *XSelector) UnmarshalJSON(data []byte) error {
+
+	var temp XSelector
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	if !IsValidSelectorKind(temp.Kind) {
+		return fmt.Errorf("selector kind not valid: %q", sel.Kind)
+	}
+
+	sel.Kind = temp.Kind
+
+	switch sel.Kind {
+	case SelectorKindFunc:
+		{
+			var v FuncQualifier
+			if err := TranscodeJSON(temp.Qualifier, v); err != nil {
+				return err
+			}
+			sel.Qualifier = v
+		}
+	case SelectorKindStruct:
+		{
+			var v StructQualifier
+			if err := TranscodeJSON(temp.Qualifier, v); err != nil {
+				return err
+			}
+			sel.Qualifier = v
+		}
+	default:
+		return fmt.Errorf("Unknown selector kind: %s", sel.Kind)
+	}
+
+	return nil
 }
 
 //
@@ -127,7 +434,7 @@ func (mt *XMethod) GetStructSelector(
 		if stQual == nil {
 			continue
 		}
-		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == structID {
+		if stQual.BasicQualifier.Is(path, version, structID) {
 			return stQual
 		}
 	}
@@ -145,7 +452,7 @@ func (mt *XMethod) DeleteStructSelector(
 		if stQual == nil {
 			continue
 		}
-		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == funcID {
+		if stQual.BasicQualifier.Is(path, version, funcID) {
 			return mt.deleteSelectorAtIndex(i)
 		}
 	}
@@ -163,7 +470,7 @@ func (mt *XMethod) GetFuncSelector(
 		if stQual == nil {
 			continue
 		}
-		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == funcID {
+		if stQual.BasicQualifier.Is(path, version, funcID) {
 			return stQual
 		}
 	}
@@ -181,7 +488,7 @@ func (mt *XMethod) DeleteFuncSelector(
 		if stQual == nil {
 			continue
 		}
-		if stQual.Qualifier.Path == path && stQual.Qualifier.Version == version && stQual.Qualifier.ID == funcID {
+		if stQual.BasicQualifier.Is(path, version, funcID) {
 			return mt.deleteSelectorAtIndex(i)
 		}
 	}
@@ -237,7 +544,7 @@ type XModel struct {
 type XMethod struct {
 	Name      string
 	IsSelf    bool
-	Selectors []*Selector
+	Selectors []*XSelector
 }
 
 type SelectorKind string
@@ -247,21 +554,75 @@ const (
 	SelectorKindFunc   SelectorKind = "Func"   // Qualifier for funcs, methods, interfaces.
 )
 
-type Selector struct {
+func IsValidSelectorKind(kind SelectorKind) bool {
+	return IsAnyOf(
+		string(kind),
+		// All the valid kinds:
+		string(SelectorKindStruct),
+		string(SelectorKindFunc),
+	)
+}
+
+type XSelector struct {
 	Kind      SelectorKind
 	Qualifier interface{}
 }
-type Qualifier struct {
+type BasicQualifier struct {
 	Path    string
 	Version string
 	ID      string
 }
 type StructQualifier struct {
-	Qualifier
+	BasicQualifier
 	TypeName string
 	Fields   map[string]*FieldMeta
 	Total    int
 	Left     int
+}
+
+// Validate validates a BasicQualifier.
+func (qual *BasicQualifier) Validate() error {
+	if qual.Path == "" {
+		return errors.New("Path not set")
+	}
+	if qual.Version == "" {
+		return errors.New("Version not set")
+	}
+	if qual.ID == "" {
+		return errors.New("ID not set")
+	}
+	return nil
+}
+
+func (qual *BasicQualifier) Is(path string, version string, id string) bool {
+	if qual.Path != path {
+		return false
+	}
+	if qual.Version != version {
+		return false
+	}
+	if qual.ID != id {
+		return false
+	}
+	return true
+}
+
+// Validate validates a FuncQualifier.
+func (qual *FuncQualifier) Validate() error {
+	if err := qual.BasicQualifier.Validate(); err != nil {
+		return fmt.Errorf("error while validating BasicQualifier: %s", err)
+	}
+	// TODO
+	return nil
+}
+
+// Validate validates a StructQualifier.
+func (qual *StructQualifier) Validate() error {
+	if err := qual.BasicQualifier.Validate(); err != nil {
+		return fmt.Errorf("error while validating BasicQualifier: %s", err)
+	}
+	// TODO
+	return nil
 }
 
 type FieldMeta struct {
@@ -271,7 +632,7 @@ type FieldMeta struct {
 }
 
 //
-func (sel *Selector) GetStructQualifier() *StructQualifier {
+func (sel *XSelector) GetStructQualifier() *StructQualifier {
 	got, ok := sel.Qualifier.(*StructQualifier)
 	if !ok {
 		return nil
@@ -280,7 +641,7 @@ func (sel *Selector) GetStructQualifier() *StructQualifier {
 }
 
 type FuncQualifier struct {
-	Qualifier
+	BasicQualifier
 	Pos      []bool
 	Name     string // Name of the func.
 	Elements *FuncQualifierElementsMeta
@@ -380,7 +741,24 @@ func getFuncName(raw interface{}) string {
 }
 
 //
-func (sel *Selector) GetFuncQualifier() *FuncQualifier {
+func (sel *XSelector) GetBasicQualifier() *BasicQualifier {
+	{
+		got, ok := sel.Qualifier.(*FuncQualifier)
+		if ok {
+			return &got.BasicQualifier
+		}
+	}
+	{
+		got, ok := sel.Qualifier.(*StructQualifier)
+		if ok {
+			return &got.BasicQualifier
+		}
+	}
+	return nil
+}
+
+//
+func (sel *XSelector) GetFuncQualifier() *FuncQualifier {
 	got, ok := sel.Qualifier.(*FuncQualifier)
 	if !ok {
 		return nil
@@ -392,6 +770,43 @@ var (
 	// TODO: try loading spec from file.
 	globalSpec = NewXSpec("HelloWorldModule")
 )
+
+func TryLoadSpecFromFile(path string) (*XSpec, error) {
+	var spec XSpec
+	err := LoadJSON(&spec, path)
+	if err != nil {
+		return nil, fmt.Errorf("error while loading spec file: %s", err)
+	}
+	// TODO:
+	// - validate names
+	// - validate classes
+	// - validate methods
+	// - validate selectors
+	// - check for duplicate names
+	// - remove empty selectors
+	// - populate selector meta
+
+	if err := spec.Validate(); err != nil {
+		return nil, err
+	}
+	if err := spec.Cleanup(); err != nil {
+		return nil, err
+	}
+	{
+		// Load all used packages (modules):
+		mods := spec.ListModules()
+		for _, m := range mods {
+			_, err := LoadPackage(m.Path, m.Version)
+			if err != nil {
+				return nil, fmt.Errorf("error while loading package %s@%s: %s", m.Path, m.Version, err)
+			}
+		}
+	}
+	if err := spec.Populate(); err != nil {
+		return nil, err
+	}
+	return &spec, nil
+}
 
 func NewXSpec(name string) *XSpec {
 	name = ToCamel(name)
@@ -524,10 +939,10 @@ func main() {
 							if req.What.Value == true {
 								// If there is no existing selector for the struct,
 								// then create a new one:
-								newSel := &Selector{
+								newSel := &XSelector{
 									Kind: SelectorKindStruct,
 									Qualifier: &StructQualifier{
-										Qualifier: Qualifier{
+										BasicQualifier: BasicQualifier{
 											Path:    req.Where.Path,
 											Version: req.Where.Version,
 											ID:      req.What.StructID,
@@ -652,10 +1067,10 @@ func main() {
 
 								// If there is no existing selector,
 								// then create a new one:
-								newSel := &Selector{
+								newSel := &XSelector{
 									Kind: SelectorKindFunc,
 									Qualifier: &FuncQualifier{
-										Qualifier: Qualifier{
+										BasicQualifier: BasicQualifier{
 											Path:    req.Where.Path,
 											Version: req.Where.Version,
 											ID:      req.What.FuncID,
@@ -798,203 +1213,178 @@ func main() {
 		if version == "" {
 			// If version not specified, we'll use the latest.
 		}
-
-		Infof("Loading package %q", path+"@"+version)
-
-		isStd := search.IsStandardImportPath(path)
-		if isStd {
-			Infof("Package %q is part of standard library", path)
-		}
-
-		var rootPath string
-		if isStd {
-			rootPath = path
-			version = "local"
-		} else {
-			// Find out the root of the package:
-			root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
-			if err != nil {
-				Q(err)
-				Abort400(c, err.Error())
-				return
-			}
-			Q(root)
-			rootPath = root.Root
-		}
-
-		if !isStd {
-			// Lookup the repo:
-			repo, err := modfetch.Lookup(proxy, rootPath)
-			if err != nil {
-				Q(err)
-				Abort400(c, err.Error())
-				return
-			}
-
-			if version == "" {
-				// If version not specified, we'll use the latest.
-				Infof("no version specified; using latest")
-				latest, err := repo.Latest()
-				if err != nil {
-					Q(err)
-					Abort400(c, err.Error())
-					return
-				}
-				Q(latest)
-				version = latest.Version
-			}
-
-			rev, err := repo.Stat(version)
-			if err != nil {
-				Q(err)
-				if strings.Contains(err.Error(), "invalid version: unknown revision") {
-					// TODO: cleanup
-					e, ok := err.(*module.ModuleError)
-					if ok {
-						wE, ok := e.Err.(*web.HTTPError)
-						if ok {
-							Abort404(c, wE.Detail)
-							return
-						}
-						iVE, ok := e.Err.(*module.InvalidVersionError)
-						if ok {
-							Abort404(c, iVE.Error())
-							return
-						}
-					}
-					Abort400(c, err.Error())
-					return
-				} else {
-					Abort400(c, err.Error())
-					return
-				}
-			}
-			Q(rev)
-		}
-
-		cached := GetCachedSource(path, version)
-		if cached != nil {
-			c.IndentedJSON(200, cached)
+		pkg, err := LoadPackage(path, version)
+		if err != nil {
+			Q(err)
+			Abort400(c, err.Error())
 			return
 		}
-
-		config := &packages.Config{
-			Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
-				packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
-				packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedTypesSizes | packages.NeedModule,
-		}
-		{
-			// Create a temporary folder:
-			tmpDir, err := ioutil.TempDir("", "codemill")
-			if err != nil {
-				Q(err)
-				Abort400(c, err.Error())
-				return
-			}
-			//defer os.RemoveAll(tmpDir)
-			tmpDir = MustAbs(tmpDir)
-			Q(tmpDir)
-
-			// Create a `go.mod` file requiring the specified version of the package:
-			mf := &modfile.File{}
-			mf.AddModuleStmt("example.com/hello/world")
-
-			if !isStd {
-				mf.AddNewRequire(rootPath, version, true)
-			}
-			mf.Cleanup()
-
-			mfBytes, err := mf.Format()
-			if err != nil {
-				Q(err)
-				Abort400(c, err.Error())
-				return
-			}
-			// Write `go.mod` file:
-			err = ioutil.WriteFile(filepath.Join(tmpDir, "go.mod"), mfBytes, 0666)
-			if err != nil {
-				Q(err)
-				Abort400(c, err.Error())
-				return
-			}
-			Ln(string(mfBytes))
-
-			// Set the package loader Dir to the `tmpDir`; that will force
-			// the package loader to use the `go.mod` file and thus
-			// load the wanted version of the package:
-			config.Dir = tmpDir
-			// NOTE: Why /api/source?path=github.com/revel/revel/testing&v=v0.9.1 gets the github.com/revel/revel@v1.0.0/testing ???
-		}
-
-		{
-			// Initialize scanner:
-			sc, err := scanner.New(path)
-			if err != nil {
-				Q(err)
-				Abort400(c, err.Error())
-				return
-			}
-
-			scannerFunc := func(path string) (*packages.Package, error) {
-				// - If you set `config.Dir` to a dir that contains a `go.mod` file,
-				// and a version of `path` package is specified in that `go.mod` file,
-				// then that specific version will be parsed.
-				// - You can have a temporary folder with only a `go.mod` file
-				// that contains a reuire for the package+version you want, and
-				// go will add the missing deps, and load that version you specified.
-				pkgs, err := packages.Load(config, path)
-				if err != nil {
-					return nil, fmt.Errorf("error while packages.Load: %s", err)
-				}
-				Infof("Loaded package %q", path)
-
-				var errs []error
-				packages.Visit(pkgs, nil, func(pkg *packages.Package) {
-					for _, err := range pkg.Errors {
-						errs = append(errs, err)
-					}
-				})
-				err = CombineErrors(errs...)
-				if len(errs) > 0 {
-					return nil, fmt.Errorf("error while packages.Load: %s", err)
-				}
-
-				for _, pkg := range pkgs {
-					Q(pkg.Module)
-				}
-				for _, pkg := range pkgs {
-					fmt.Println(pkg.ID, pkg.GoFiles)
-				}
-				return pkgs[0], nil
-			}
-
-			Infof("Loading pkg=%q version=%q ...", path, version)
-			pks, err := sc.ScanWithCustomScanner(scanner.ScannerFunc(scannerFunc))
-			if err != nil {
-				Q(err)
-				Abort400(c, Sf("Errors occurred while loading %q: %s.", path, err))
-				return
-			}
-			pk := pks[0]
-
-			// compose the fePackage:
-			Infof("Composing fePackage for pkg=%q version=%q ...", pk.Path, version)
-			fePackage, err := feparser.Load(pk)
-			if err != nil {
-				Q(err)
-				Abort400(c, err.Error())
-				return
-			}
-
-			fePackage.IsStandard = isStd
-
-			SetCachedSource(path, version, fePackage)
-			c.IndentedJSON(200, fePackage)
-		}
+		c.IndentedJSON(200, pkg)
 
 	})
 
 	r.Run("0.0.0.0:8070")
+}
+
+func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
+
+	if path == "" {
+		return nil, errors.New("path not specified")
+	}
+	if version == "" {
+		// If version not specified, we'll use the latest.
+	}
+
+	Infof("Loading package %q", path+"@"+version)
+
+	isStd := search.IsStandardImportPath(path)
+	if isStd {
+		Infof("Package %q is part of standard library", path)
+	}
+
+	var rootPath string
+	if isStd {
+		rootPath = path
+		version = "local"
+	} else {
+		// Find out the root of the package:
+		root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
+		if err != nil {
+			return nil, err
+		}
+		Q(root)
+		rootPath = root.Root
+	}
+
+	if !isStd {
+		// Lookup the repo:
+		repo, err := modfetch.Lookup(proxy, rootPath)
+		if err != nil {
+			return nil, err
+		}
+
+		if version == "" {
+			// If version not specified, we'll use the latest.
+			Infof("no version specified; using latest")
+			latest, err := repo.Latest()
+			if err != nil {
+				return nil, err
+			}
+			Q(latest)
+			version = latest.Version
+		}
+
+		rev, err := repo.Stat(version)
+		if err != nil {
+			return nil, err
+		}
+		Q(rev)
+	}
+
+	cached := GetCachedSource(path, version)
+	if cached != nil {
+		return cached, nil
+	}
+
+	config := &packages.Config{
+		Mode: packages.NeedName | packages.NeedFiles | packages.NeedCompiledGoFiles |
+			packages.NeedImports | packages.NeedDeps | packages.NeedExportsFile |
+			packages.NeedTypes | packages.NeedSyntax | packages.NeedTypesInfo | packages.NeedTypesSizes | packages.NeedModule,
+	}
+	{
+		// Create a temporary folder:
+		tmpDir, err := ioutil.TempDir("", "codemill")
+		if err != nil {
+			return nil, err
+		}
+		//defer os.RemoveAll(tmpDir)
+		tmpDir = MustAbs(tmpDir)
+		Q(tmpDir)
+
+		// Create a `go.mod` file requiring the specified version of the package:
+		mf := &modfile.File{}
+		mf.AddModuleStmt("example.com/hello/world")
+
+		if !isStd {
+			mf.AddNewRequire(rootPath, version, true)
+		}
+		mf.Cleanup()
+
+		mfBytes, err := mf.Format()
+		if err != nil {
+			return nil, err
+		}
+		// Write `go.mod` file:
+		err = ioutil.WriteFile(filepath.Join(tmpDir, "go.mod"), mfBytes, 0666)
+		if err != nil {
+			return nil, err
+		}
+		Ln(string(mfBytes))
+
+		// Set the package loader Dir to the `tmpDir`; that will force
+		// the package loader to use the `go.mod` file and thus
+		// load the wanted version of the package:
+		config.Dir = tmpDir
+		// NOTE: Why /api/source?path=github.com/revel/revel/testing&v=v0.9.1 gets the github.com/revel/revel@v1.0.0/testing ???
+	}
+
+	// Initialize scanner:
+	sc, err := scanner.New(path)
+	if err != nil {
+		return nil, err
+	}
+
+	scannerFunc := func(path string) (*packages.Package, error) {
+		// - If you set `config.Dir` to a dir that contains a `go.mod` file,
+		// and a version of `path` package is specified in that `go.mod` file,
+		// then that specific version will be parsed.
+		// - You can have a temporary folder with only a `go.mod` file
+		// that contains a reuire for the package+version you want, and
+		// go will add the missing deps, and load that version you specified.
+		pkgs, err := packages.Load(config, path)
+		if err != nil {
+			return nil, fmt.Errorf("error while packages.Load: %s", err)
+		}
+		Infof("Loaded package %q", path)
+
+		var errs []error
+		packages.Visit(pkgs, nil, func(pkg *packages.Package) {
+			for _, err := range pkg.Errors {
+				errs = append(errs, err)
+			}
+		})
+		err = CombineErrors(errs...)
+		if len(errs) > 0 {
+			return nil, fmt.Errorf("error while packages.Load: %s", err)
+		}
+
+		for _, pkg := range pkgs {
+			Q(pkg.Module)
+		}
+		for _, pkg := range pkgs {
+			fmt.Println(pkg.ID, pkg.GoFiles)
+		}
+		return pkgs[0], nil
+	}
+
+	Infof("Loading pkg=%q version=%q ...", path, version)
+	pks, err := sc.ScanWithCustomScanner(scanner.ScannerFunc(scannerFunc))
+	if err != nil {
+		return nil, fmt.Errorf("Errors occurred while loading %q: %s.", path, err)
+	}
+	pk := pks[0]
+
+	// compose the fePackage:
+	Infof("Composing fePackage for pkg=%q version=%q ...", pk.Path, version)
+	fePackage, err := feparser.Load(pk)
+	if err != nil {
+		return nil, err
+	}
+
+	fePackage.IsStandard = isStd
+
+	SetCachedSource(path, version, fePackage)
+	return fePackage, nil
 }
 
 // Interfaces returns a map of interfaces which are declared in the package.
@@ -1138,6 +1528,14 @@ func FindStructByID(fe *feparser.FEPackage, id string) *feparser.FEStruct {
 func FindFieldByID(st *feparser.FEStruct, id string) *feparser.FEField {
 	for _, st := range st.Fields {
 		if st.ID == id {
+			return st
+		}
+	}
+	return nil
+}
+func FindFieldByName(st *feparser.FEStruct, name string) *feparser.FEField {
+	for _, st := range st.Fields {
+		if st.VarName == name {
 			return st
 		}
 	}
