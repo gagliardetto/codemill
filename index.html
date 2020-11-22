@@ -167,13 +167,13 @@
       border-color: #A3CB38;
     }
     .xmethod:hover {
-      background-color: #d1ecf1;
+      background-color: #c8d6e5;
     }
     .xselector {
       border: 1px solid;
       border-radius: 0.1em;
-      padding: 1em;
-      margin: 0.1em;
+      padding: 1.3em;
+      margin: 0.3em;
 
       color: #1B1464;
       border-color: #D980FA;
@@ -192,13 +192,24 @@
         font-size: 1em;
         color: #341f97;
     }
+    .hover-field {
+      cursor: default;
+      padding: 0.1em;
+    }
+    .hover-field:hover {
+      background-color: #ff9ff3;
+      cursor: default;
+    }
+    .text-large {
+      font-size: large;
+    }
     </style>
 </head>
 
 <body>
     <div id="codemill-app">
-        <b-container v-if="!isBusy.xspec">
-            <div>spec <b>{{xspec.Name}}</b> {</div>
+        <b-container fluid v-if="!isBusy.xspec">
+            <div>spec <b class="text-large">{{xspec.Name}}</b> {</div>
             <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
 
             <b-row class="mr-1" v-if="!newModel.show">
@@ -855,9 +866,7 @@
                 return false
               }
 
-              if (selector.Qualifier.Fields && selector.Qualifier.Fields[field.VarName]) {
-                return selector.Qualifier.Fields[field.VarName]
-              }
+              return selector.Qualifier.Fields && field.VarName in selector.Qualifier.Fields
 
               // - find model
               // - find method
@@ -886,7 +895,7 @@
     </script>
     <script type="text/x-template" id="cm-xmodel-template">
         <div class="xmodel">
-          <div>{{xmodel.IsPrivate?"private ":""}}model <b>{{xmodel.Name}}</b> of kind {{xmodel.Kind}} {</div>
+          <div>model <b class="text-large">{{xmodel.Name}}</b> of kind <i class="text-large">{{xmodel.Kind}}</i> {</div>
             <cm-xmethod v-for="(item, key) in xmodel.Methods" v-bind:key="key" v-bind:xmethod="item" v-bind:xmodel="xmodel" class="ml-2"></cm-xmethod>
           <div>}</div>
         </div>
@@ -907,7 +916,7 @@
     </script>
     <script type="text/x-template" id="cm-xmethod-template">
         <div class="xmethod" v-bind:class="{ 'error-no-selectors': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
-          <div>{{xmethod.IsPrivate?"private ":""}}<b>{{xmethod.Name}}()</b> {</div>
+          <div>{{xmethod.IsPrivate?"private ":""}}method <b class="text-large">{{xmethod.Name}}()</b> {</div>
             <cm-xselector v-for="(item, key) in xmethod.Selectors" v-bind:key="key" v-bind:xselector="item" class="ml-2"></cm-xselector>
 
             <!-- Modal for searching packages -->
@@ -933,17 +942,41 @@
         <div class="xselector">
           <div v-if="xselector.Kind == 'Struct'">
             <div class="package-indication">{{xselector.Qualifier.Path}}{{xselector.Qualifier.Version!="local"?"@"+xselector.Qualifier.Version:""}}</div>
-            <div>{{xselector.Kind}}: {{xselector.Qualifier.TypeName}} {</div>
-            <div v-for="(ok, field) in xselector.Qualifier.Fields" v-bind:key="field" class="ml-2">
-              {{field}}
+            <div>struct <b>{{xselector.Qualifier.TypeName}}</b> {</div>
+            <div v-for="(field, fieldIndex) in xselector.Qualifier.Fields" v-bind:key="field.Name" class="ml-2">
+              <span :title="field.KindString" class="hover-field">{{field.Name}} <b>{{field.TypeString}}</b></span>
             </div>
+            <div class="ml-2 text-muted">// Has {{xselector.Qualifier.Left}} other ignored fields</div>
             <div>}</div>
           </div>
 
           <div v-if="xselector.Kind == 'Func'">
             <div class="package-indication">{{xselector.Qualifier.Path}}{{xselector.Qualifier.Version!="local"?"@"+xselector.Qualifier.Version:""}}</div>
-            {{xselector.Kind}}:
-            {{xselector.Qualifier.ID}} {{xselector.Qualifier.Pos}}
+            <div class="text-monospace d-inline">func</div>
+            
+            <div
+              v-if="xselector.Qualifier.Elements.Receiver"
+              :title="xselector.Qualifier.Elements.Receiver.KindString"
+              v-bind:class="{ 'selected-warning': xselector.Qualifier.Pos[xselector.Qualifier.Elements.Receiver.AI] }"
+              class="text-monospace d-inline"
+              >({{xselector.Qualifier.Elements.Receiver.TypeString}})</div>
+
+            <div class="text-monospace d-inline" v-if="len(xselector.Qualifier.Elements.Parameters) == 0"><b>{{xselector.Qualifier.Name}}</b>()</div>
+
+            <div
+              v-for="(elem, elemIndex) in xselector.Qualifier.Elements.Parameters"
+              v-bind:key="elem.TypeString + 'param' + elemIndex"
+              class="text-monospace d-inline"
+              ><span v-if="elemIndex==0"><b>{{xselector.Qualifier.Name}}</b>(</span><span :title="elem.KindString" v-bind:class="{ 'selected-primary': xselector.Qualifier.Pos[elem.AI] }">{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Parameters) - 1 ?")":", "}}</span>
+            </div>
+
+            <div
+              v-for="(elem, elemIndex) in xselector.Qualifier.Elements.Results"
+              v-bind:key="elem.TypeString + 'result' + elemIndex"
+              class="text-monospace d-inline"
+              :title="elem.KindString"
+              v-bind:class="{ 'selected-success': xselector.Qualifier.Pos[elem.AI] }"
+              >{{elemIndex==0?"(":""}}{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Results) - 1 ?")":", "}}</div>
           </div>
         </div>
     </script>
@@ -1101,7 +1134,7 @@
               <table class="table-responsive table-sm">
                   <tbody>
                       <tr>
-                          <td v-if="item.Receiver" class="pl-0 pr-0">func (<b :title="item.Receiver.QualifiedName" v-bind:class="{ 'selected-warning': item.Receiver.Checked }">{{ item.Receiver.TypeName }}</b>).<b :title="func.Signature">{{ func.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
+                          <td v-if="item.Receiver" class="pl-0 pr-0">func (<b :title="item.Receiver.KindString" v-bind:class="{ 'selected-warning': item.Receiver.Checked }">{{ item.Receiver.TypeString }}</b>).<b :title="func.Signature">{{ func.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
                           <td v-if="!item.Receiver" class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
                           <td class="pl-0 pr-0"
                             v-for="(param, index) in func.Parameters"

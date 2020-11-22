@@ -259,7 +259,15 @@ type Qualifier struct {
 type StructQualifier struct {
 	Qualifier
 	TypeName string
-	Fields   map[string]bool
+	Fields   map[string]*FieldMeta
+	Total    int
+	Left     int
+}
+
+type FieldMeta struct {
+	Name       string
+	TypeString string
+	KindString string
 }
 
 //
@@ -273,7 +281,102 @@ func (sel *Selector) GetStructQualifier() *StructQualifier {
 
 type FuncQualifier struct {
 	Qualifier
-	Pos []bool
+	Pos      []bool
+	Name     string // Name of the func.
+	Elements *FuncQualifierElementsMeta
+}
+
+type FuncQualifierElementsMeta struct {
+	Receiver   *FuncElementMeta
+	Parameters []*FuncElementMeta
+	Results    []*FuncElementMeta
+}
+
+type FuncElementMeta struct {
+	AI         int    // Absolute index
+	RI         int    // Relative index
+	Name       string // The VarName
+	TypeString string
+	KindString string
+}
+
+func compileFuncElemMeta(ai int, ri int, typ *feparser.FEType) *FuncElementMeta {
+	return &FuncElementMeta{
+		AI:         ai,
+		RI:         ri,
+		Name:       typ.VarName,
+		TypeString: typ.TypeString,
+		KindString: typ.KindString,
+	}
+}
+
+func CompileFuncQualifierElementsMeta(raw interface{}) *FuncQualifierElementsMeta {
+	switch thing := raw.(type) {
+	case *feparser.FEFunc:
+		{
+			out := &FuncQualifierElementsMeta{
+				Receiver: nil,
+			}
+
+			for i, re := range thing.Parameters {
+				out.Parameters = append(out.Parameters, compileFuncElemMeta(i, i, re))
+			}
+			for i, re := range thing.Results {
+				out.Results = append(out.Results, compileFuncElemMeta(i+len(thing.Parameters), i, re))
+			}
+			return out
+		}
+	case *feparser.FETypeMethod:
+		{
+			out := &FuncQualifierElementsMeta{
+				Receiver: compileFuncElemMeta(0, 0, &(thing.Receiver.FEType)),
+			}
+
+			for i, re := range thing.Func.Parameters {
+				out.Parameters = append(out.Parameters, compileFuncElemMeta(i+1, i, re))
+			}
+			for i, re := range thing.Func.Results {
+				out.Results = append(out.Results, compileFuncElemMeta(i+len(thing.Func.Parameters)+1, i, re))
+			}
+			return out
+		}
+	case *feparser.FEInterfaceMethod:
+		{
+			out := &FuncQualifierElementsMeta{
+				Receiver: compileFuncElemMeta(0, 0, &(thing.Receiver.FEType)),
+			}
+
+			for i, re := range thing.Func.Parameters {
+				out.Parameters = append(out.Parameters, compileFuncElemMeta(i+1, i, re))
+			}
+			for i, re := range thing.Func.Results {
+				out.Results = append(out.Results, compileFuncElemMeta(i+len(thing.Func.Parameters)+1, i, re))
+			}
+			return out
+		}
+	default:
+		panic(t)
+	}
+
+}
+
+func getFuncName(t interface{}) string {
+	switch thing := t.(type) {
+	case *feparser.FEFunc:
+		{
+			return thing.Name
+		}
+	case *feparser.FETypeMethod:
+		{
+			return thing.Func.Name
+		}
+	case *feparser.FEInterfaceMethod:
+		{
+			return thing.Func.Name
+		}
+	default:
+		panic(t)
+	}
 }
 
 //
@@ -307,9 +410,15 @@ var (
 										ID:      "Struct-Config",
 									},
 									TypeName: "Config",
-									Fields: map[string]bool{
-										"Endpoint": true,
+									Fields: map[string]*FieldMeta{
+										"Endpoint": {
+											Name:       "Endpoint",
+											TypeString: "string",
+											KindString: "a basic string",
+										},
 									},
+									Total: 10,
+									Left:  9,
 								},
 							},
 							{
@@ -322,6 +431,11 @@ var (
 									},
 									Pos: []bool{
 										false, false, true,
+									},
+									Elements: &FuncQualifierElementsMeta{
+										Receiver:   &FuncElementMeta{Name: "a", TypeString: "Config", KindString: "a named struct"},
+										Parameters: []*FuncElementMeta{{Name: "b", TypeString: "string", KindString: "a basic string"}},
+										Results:    []*FuncElementMeta{{Name: "c", TypeString: "string", KindString: "a basic string"}},
 									},
 								},
 							},
@@ -461,9 +575,15 @@ func main() {
 											ID:      req.What.StructID,
 										},
 										TypeName: st.TypeName,
-										Fields: map[string]bool{
-											fld.VarName: true,
+										Fields: map[string]*FieldMeta{
+											fld.VarName: {
+												Name:       fld.VarName,
+												TypeString: fld.TypeString,
+												KindString: fld.KindString,
+											},
 										},
+										Total: len(st.Fields),
+										Left:  len(st.Fields) - 1,
 									},
 								}
 
@@ -472,10 +592,19 @@ func main() {
 						} else {
 							if req.What.Value {
 								// Enable field:
-								existingSel.Fields[fld.VarName] = true
+								existingSel.Fields[fld.VarName] = &FieldMeta{
+									Name:       fld.VarName,
+									TypeString: fld.TypeString,
+									KindString: fld.KindString,
+								}
 							} else {
 								// Remove field:
 								delete(existingSel.Fields, fld.VarName)
+							}
+
+							{ // Update counts:
+								existingSel.Total = len(st.Fields)
+								existingSel.Left = len(st.Fields) - len(existingSel.Fields)
 							}
 
 							if len(existingSel.Fields) == 0 {
@@ -556,6 +685,7 @@ func main() {
 							req.Where.Version,
 							req.What.FuncID,
 						)
+						meta := CompileFuncQualifierElementsMeta(fn)
 						if existingSel == nil {
 							// Add a new selector only if the value is true:
 							if req.What.Value {
@@ -572,7 +702,9 @@ func main() {
 											Version: req.Where.Version,
 											ID:      req.What.FuncID,
 										},
-										Pos: pos,
+										Pos:      pos,
+										Name:     getFuncName(fn),
+										Elements: meta,
 									},
 								}
 
@@ -580,6 +712,7 @@ func main() {
 							}
 						} else {
 							existingSel.Pos[req.What.Index] = req.What.Value
+							existingSel.Elements = meta
 
 							if AllFalse(existingSel.Pos...) {
 								// If all false, then remove the selector:
