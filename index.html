@@ -227,7 +227,7 @@
 
 
         <b-container fluid v-if="!isBusy.xspec">
-            <div>spec <b class="text-large">{{xspec.Name}}</b> ({{len(xspec.Models)}} models) {</div>
+            <div>spec <b class="text-large">{{xspec.Name}}</b> (len = {{len(xspec.Models)}} models) {</div>
             <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2" v-bind:class="{'default-margin-top': key == 0}"></cm-xmodel>
 
             <b-row class="ml-1" v-if="!newModel.show">
@@ -986,7 +986,7 @@
     </script>
     <script type="text/x-template" id="cm-xmethod-template">
         <div class="xmethod" v-bind:class="{ 'error-no-selectors': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
-          <div>{{xmethod.IsPrivate?"private ":""}}method <b class="text-large">{{xmethod.Name}}()</b> {</div>
+          <div>{{xmethod.IsPrivate?"private ":""}}method <b class="text-large">{{xmethod.Name}}()</b> (len = {{len(xmethod.Selectors)}} selectors) {</div>
             <cm-xselector
               v-for="(item, key) in xmethod.Selectors"
               v-bind:key="key"
