@@ -151,12 +151,15 @@
       border: 1px solid;
       border-radius: 0.1em;
       padding: 0.6em;
-      margin: 0.1em;
+      margin-top: 1.5em;
       color: #004085;
       border-color: #009432;
     }
     .xmodel:hover {
       background-color: #cce5ff;
+    }
+    .default-margin-top {
+      margin-top: 0.6em !important;
     }
     .xmethod {
       border: 1px solid;
@@ -225,10 +228,10 @@
 
         <b-container fluid v-if="!isBusy.xspec">
             <div>spec <b class="text-large">{{xspec.Name}}</b> ({{len(xspec.Models)}} models) {</div>
-            <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
+            <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2" v-bind:class="{'default-margin-top': key == 0}"></cm-xmodel>
 
-            <b-row class="mr-1" v-if="!newModel.show">
-              <b-button variant="outline-primary" size="sm" @click="newModel.show = true" class="ml-3"><b-icon icon="plus-square"></b-icon> Add a model</b-button>
+            <b-row class="ml-1" v-if="!newModel.show">
+              <b-button variant="outline-primary" size="sm" @click="newModel.show = true" class="ml-1 mt-2"><b-icon icon="plus-square"></b-icon> Add a model</b-button>
             </b-row>
             <b-row class="mr-1" v-if="newModel.show">
               <div class="ml-3">
@@ -995,7 +998,7 @@
 
             <!-- Modal for searching packages -->
             <template>
-                <b-button @click="openSearchView(xmodel, xmethod)" size="sm" variant="outline-primary" class="ml-2"><b-icon icon="plus-square"></b-icon> Add a selector</b-button>
+                <b-button @click="openSearchView(xmodel, xmethod)" size="sm" variant="outline-primary" class="ml-2 mt-1"><b-icon icon="plus-square"></b-icon> Add a selector</b-button>
             </template>
 
           <div>}</div>
