@@ -221,10 +221,10 @@
                 </div>
             </template>
         </b-overlay>
+
+
         <b-container fluid v-if="!isBusy.xspec">
-
-
-            <div>spec <b class="text-large">{{xspec.Name}}</b> {</div>
+            <div>spec <b class="text-large">{{xspec.Name}}</b> ({{len(xspec.Models)}} models) {</div>
             <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
 
             <b-row class="mr-1" v-if="!newModel.show">
