@@ -84,7 +84,7 @@ func (spec *XSpec) NormalizeName() error {
 
 // Cleanup cleans up a spec..
 func (spec *XSpec) Cleanup() error {
-	// TODO
+	// Remove empty selectors:
 
 	for _, mdl := range spec.Models {
 		for _, mtd := range mdl.Methods {
@@ -115,6 +115,8 @@ func (spec *XSpec) Cleanup() error {
 							)
 						}
 					}
+				default:
+					panic(Sf("Unknown type: %T", sel.Qualifier))
 				}
 
 			}
@@ -215,6 +217,8 @@ func (spec *XSpec) RemoveMeta() error {
 						// TODO
 						qual.Elements = nil
 					}
+				default:
+					panic(Sf("Unknown type: %T", sel.Qualifier))
 				}
 
 			}
