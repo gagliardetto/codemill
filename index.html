@@ -331,6 +331,9 @@
                             <b-input-group class="mt-3">
                                 <b-form-input type="search" placeholder="Filter" id="element-filter-input-field" @input="updateElementFilterValue" class="mr-sm-6" aria-describedby="element-filter-help-block"></b-form-input>
                             </b-input-group>
+                            <b-form-checkbox v-model="currentElementSelectedOnly" name="check-button" switch>
+                                  Show only selected items
+                            </b-form-checkbox>
                         </div>
                         <b-form-text id="element-filter-help-block">
                             Filter elements.
@@ -421,6 +424,7 @@
                 xspec: true
             },
             currentElementFilter: "",
+            currentElementSelectedOnly: false,
         },
         created() {
             this.spec_Load();
@@ -440,32 +444,74 @@
                 if (!this.$data.currentPackage.source.Funcs) {
                     return
                 }
+                let ctx = this.getFilterCtx();
+                let path = ctx[0], version = ctx[1], modelName = ctx[2], methodName = ctx[3], selOnly = ctx[4];
+
+                const isTrue = (element) => element == true;
+ 
                 return this.$data.currentPackage.source.Funcs.filter(item => {
-                    return this.elementFilterMatches(item.Signature) || this.docsOrCommentsMatch(item)
+                    let matcher = this.elementFilterMatches(item.Signature) || this.docsOrCommentsMatch(item);
+                    if (selOnly) {
+                      let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                      return qualifier && qualifier.Pos.some(isTrue) && matcher
+                    }
+                    return matcher
                 });
             },
             filteredTypeMethods() {
                 if (!this.$data.currentPackage.source.TypeMethods) {
                     return
                 }
+                let ctx = this.getFilterCtx();
+                let path = ctx[0], version = ctx[1], modelName = ctx[2], methodName = ctx[3], selOnly = ctx[4];
+
+                const isTrue = (element) => element == true;
+
                 return this.$data.currentPackage.source.TypeMethods.filter(item => {
-                    return this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item)
+                    let matcher = this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item);
+                    if (selOnly) {
+                      let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                      return qualifier && qualifier.Pos.some(isTrue) && matcher
+                    }
+                    return matcher
                 });
             },
             filteredInterfaceMethods() {
                 if (!this.$data.currentPackage.source.InterfaceMethods) {
                     return
                 }
+                let ctx = this.getFilterCtx();
+                let path = ctx[0], version = ctx[1], modelName = ctx[2], methodName = ctx[3], selOnly = ctx[4];
+
+                const isTrue = (element) => element == true;
+
                 return this.$data.currentPackage.source.InterfaceMethods.filter(item => {
-                    return this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item)
+                    let matcher = this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item);
+                    if (selOnly) {
+                      let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                      return qualifier && qualifier.Pos.some(isTrue) && matcher
+                    }
+                    return matcher
                 });
             },
             filteredStructs() {
                 if (!this.$data.currentPackage.source.Structs) {
                     return
                 }
+
+                let ctx = this.getFilterCtx();
+                let path = ctx[0], version = ctx[1], modelName = ctx[2], methodName = ctx[3], selOnly = ctx[4];
+
+
                 return this.$data.currentPackage.source.Structs.filter(item => {
-                    return this.elementFilterMatches(item.TypeName) || item.Fields.some(this.structFieldMatches) || this.docsOrCommentsMatch(item) || item.Fields.some(this.docsOrCommentsMatch)
+                    let matcher = this.elementFilterMatches(item.TypeName) || item.Fields.some(this.structFieldMatches) || this.docsOrCommentsMatch(item) || item.Fields.some(this.docsOrCommentsMatch);
+
+                    if (selOnly) {
+                      let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                      const hasAnySelectedField = (field) => field.VarName in qualifier.Fields;
+                      return qualifier && item.Fields.some(hasAnySelectedField) && matcher
+                    }
+                    return matcher
                 });
             },
         },
@@ -478,6 +524,15 @@
               // Format version:
               return version!="local"?"@"+version:""
             },
+            getFilterCtx(){
+              let path = this.$data.currentPackage.path;
+              let version = this.$data.currentPackage.version;
+              let modelName = this.$data.context.modelName;
+              let methodName = this.$data.context.methodName;
+              let selOnly = this.$data.currentElementSelectedOnly;
+
+              return [path, version, modelName, methodName, selOnly]
+            },
             makeToast(variant = null, title, body) {
                 this.$bvToast.toast(
                     body, {
@@ -489,10 +544,6 @@
             search() {
                 this.searchData.currentOut = this.searchData.current.trim();
                 this.doSearch(this.searchData.currentOut);
-            },
-            // DEPRECATED:
-            updateSearchValue(val) {
-                this.searchData.current = val;
             },
             updateElementFilterValue(val) {
                 this.currentElementFilter = val;
@@ -598,6 +649,7 @@
                         this.$data.currentPackage.source = json;
                         this.$data.isBusy.loadCode = false;
                         this.$data.currentElementFilter = "";
+                        this.$data.currentElementSelectedOnly = false;
                         this.$bvModal.show('modal-show-code');
 
 
@@ -786,9 +838,9 @@
 
               return found[0]
             },
-            findSelector(selectors, kind, path, version, id) {
+            findSelector(selectors,path, version, id) {
               var found = selectors.filter(function (sl) {
-                return sl.Kind == kind && sl.Qualifier.Path == path && sl.Qualifier.Version == version && sl.Qualifier.ID == id;
+                return sl.Qualifier.Path == path && sl.Qualifier.Version == version && sl.Qualifier.ID == id;
               });
 
               if (len(found) == 0) {
@@ -797,33 +849,68 @@
 
               return found[0]
             },
+            getQualifierFromSpec(path, version, modelName, methodName, id) {
+              // console.log("Getting func component checkbox value")
+              let model = this.findModel(modelName);
+              // console.log("model", model);
+              if (model == null) {
+                return null
+              }
+              let method = this.findMethod(model.Methods, methodName);
+              // console.log("method", method);
+              if (method == null) {
+                return null
+              }
+              let selector = this.findSelector(method.Selectors, path, version, id);
+              // console.log("selector", selector);
+              if (selector == null) {
+                return null
+              }
+
+              if (selector.Qualifier) {
+                return selector.Qualifier
+              }
+              return null
+            },
             getFuncValueFromSpec(index, funcID) {
               // console.log("Getting func component checkbox value")
 
-              let rPath = this.$data.currentPackage.path;
-              let rVersion = this.$data.currentPackage.version;
-              let rModel = this.$data.context.modelName;
-              let rMethod = this.$data.context.methodName;
+              let path = this.$data.currentPackage.path;
+              let version = this.$data.currentPackage.version;
+              let modelName = this.$data.context.modelName;
+              let methodName = this.$data.context.methodName;
 
-              let model = this.findModel(rModel);
-              // console.log("model", model);
-              if (model == null) {
-                return false
-              }
-              let method = this.findMethod(model.Methods, rMethod);
-              // console.log("method", method);
-              if (method == null) {
-                return false
-              }
-              let selector = this.findSelector(method.Selectors, "Func", rPath, rVersion, funcID);
-              // console.log("selector", selector);
-              if (selector == null) {
+              let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, funcID);
+              if (qualifier == null) {
                 return false
               }
 
-              if (selector.Qualifier.Pos && selector.Qualifier.Pos[index]) {
-                return selector.Qualifier.Pos[index]
+              if (qualifier.Pos && qualifier.Pos[index]) {
+                return qualifier.Pos[index]
               }
+              return false
+            },
+            getStructFieldValueFromSpec(struct, field) {
+              // console.log("Getting struct field checkbox value")
+              // console.log(struct, field)
+
+              let path = this.$data.currentPackage.path;
+              let version = this.$data.currentPackage.version;
+              let modelName = this.$data.context.modelName;
+              let methodName = this.$data.context.methodName;
+
+              let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, struct.ID);
+              if (qualifier == null) {
+                return false
+              }
+
+              return qualifier.Fields && field.VarName in qualifier.Fields
+
+              // - find model
+              // - find method
+              // - find selector (Kind=Struct)
+              // - matches Qualifier
+              // - if .Fields[fieldVar] exists, then use the value.
             },
             syncReceiverWithSpec(item) {
               if (!item.Receiver) {
@@ -853,39 +940,6 @@
               results.forEach((res, resIndex) => {
                   res.Checked = this.getFuncValueFromSpec(receiverLen + paramsLen + resIndex, item.ID);
               });
-            },
-            getStructFieldValueFromSpec(struct, field) {
-              // console.log("Getting struct field checkbox value")
-              // console.log(struct, field)
-
-              let rPath = this.$data.currentPackage.path;
-              let rVersion = this.$data.currentPackage.version;
-              let rModel = this.$data.context.modelName;
-              let rMethod = this.$data.context.methodName;
-
-              let model = this.findModel(rModel);
-              // console.log("model", model);
-              if (model == null) {
-                return false
-              }
-              let method = this.findMethod(model.Methods, rMethod);
-              // console.log("method", method);
-              if (method == null) {
-                return false
-              }
-              let selector = this.findSelector(method.Selectors, "Struct", rPath, rVersion, struct.ID);
-              // console.log("selector", selector);
-              if (selector == null) {
-                return false
-              }
-
-              return selector.Qualifier.Fields && field.VarName in selector.Qualifier.Fields
-
-              // - find model
-              // - find method
-              // - find selector (Kind=Struct)
-              // - matches Qualifier
-              // - if .Fields[fieldVar] exists, then use the value.
             },
             syncFieldsWithSpec(item) {
               item.Fields.forEach((field) => {
