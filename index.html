@@ -192,6 +192,10 @@
         font-size: 1em;
         color: #341f97;
     }
+    .package-indication:hover {
+      cursor: pointer;
+      text-decoration: underline;
+    }
     .hover-field {
       cursor: default;
       padding: 0.1em;
@@ -208,7 +212,18 @@
 
 <body>
     <div id="codemill-app">
+        <b-overlay :show="isBusy.loadCode" rounded="lg" no-wrap fixed opacity="0.7" z-index="2000">
+            <template #overlay>
+                <div class="text-center">
+                    <b-icon icon="cloud-download" font-scale="2" animation="fade" variant="primary"></b-icon>
+                    <p>Loading <b>{{currentPackage.path}}{{fmtv(currentPackage.version)}}</b> ...</p>
+                    <p>(This may take a while...)</p>
+                </div>
+            </template>
+        </b-overlay>
         <b-container fluid v-if="!isBusy.xspec">
+
+
             <div>spec <b class="text-large">{{xspec.Name}}</b> {</div>
             <cm-xmodel v-for="(item, key) in xspec.Models" v-bind:key="key" v-bind:xmodel="item" class="ml-2"></cm-xmodel>
 
@@ -248,7 +263,7 @@
         <b-container>
             <!-- Modal for searching packages -->
             <template>
-                <b-modal id="modal-list-remote-packages" scrollable title="Search packages" size="xl" no-close-on-backdrop @show="loadCachedVersionList">
+                <b-modal id="modal-list-remote-packages" scrollable hide-footer title="Search packages" size="xl" no-close-on-backdrop @show="loadCachedVersionList">
                     <span v-if="len(cacheModules) > 0">Recently used:</span>
                     <b-list-group v-bind:class="{ hidden: !isBusy.cacheModules }">
                         <b-list-group-item><b-skeleton animation="wave" width="33%" type="input"></b-skeleton></b-list-group-item>
@@ -285,15 +300,6 @@
                             </b-list-group-item>
                         </b-list-group>
                         <b-list-group v-bind:class="{ hidden: isBusy.search }">
-                            <b-overlay :show="isBusy.loadCode" rounded="lg" no-wrap fixed opacity="0.7">
-                                <template #overlay>
-                                    <div class="text-center">
-                                        <b-icon icon="cloud-download" font-scale="2" animation="fade" variant="primary"></b-icon>
-                                        <p>Loading <b>{{currentPackage.path}}@{{currentPackage.version}}</b> ...</p>
-                                        <p>(This may take a while...)</p>
-                                    </div>
-                                </template>
-                            </b-overlay>
                             <span class="float-left d-inline-block" v-if="len(searchData.results) == 0" variant="danger">
                                 No results were found.
                             </span>
@@ -314,7 +320,7 @@
             <template>
                 <b-modal id="modal-show-code" scrollable hide-footer title="Code" size="xl" lazy no-close-on-backdrop @hidden="loadCachedVersionList">
                     <template #modal-title>
-                        Source of <b>{{currentPackage.path}}@{{currentPackage.version}}</b>
+                        Source of <b>{{currentPackage.path}}{{fmtv(currentPackage.version)}}</b>
                         <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
                         <br>
                         <span class="text-muted d-flex">
@@ -468,6 +474,10 @@
             len: len,
             marshal: marshal,
             revf: revf,
+            fmtv(version) {
+              // Format version:
+              return version!="local"?"@"+version:""
+            },
             makeToast(variant = null, title, body) {
                 this.$bvToast.toast(
                     body, {
@@ -605,12 +615,15 @@
                         });
                     });
             },
+            setContext(xmodelName, xmethodName) {
+              // Set current context:
+              this.$data.context.modelName = xmodelName;
+              this.$data.context.methodName = xmethodName;
+            },
             openSearchView(xmodel, xmethod) {
               console.log(xmodel, xmethod);
               
-              // Set current context:
-              this.$data.context.modelName = xmodel.Name;
-              this.$data.context.methodName = xmethod.Name;
+              this.setContext(xmodel.Name, xmethod.Name);
 
               // Open the modal that list packages (search/recent):
               this.$bvModal.show('modal-list-remote-packages');
@@ -917,7 +930,14 @@
     <script type="text/x-template" id="cm-xmethod-template">
         <div class="xmethod" v-bind:class="{ 'error-no-selectors': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
           <div>{{xmethod.IsPrivate?"private ":""}}method <b class="text-large">{{xmethod.Name}}()</b> {</div>
-            <cm-xselector v-for="(item, key) in xmethod.Selectors" v-bind:key="key" v-bind:xselector="item" class="ml-2"></cm-xselector>
+            <cm-xselector
+              v-for="(item, key) in xmethod.Selectors"
+              v-bind:key="key"
+              v-bind:xselector="item"
+              v-bind:xmodelName="xmodel.Name"
+              v-bind:xmethodName="xmethod.Name"
+              class="ml-2"
+              ></cm-xselector>
 
             <!-- Modal for searching packages -->
             <template>
@@ -933,15 +953,24 @@
         methods: {
             cc: cc,
             len: len,
+            loadCode: function(path, version) {
+                this.$root.loadCode(path, version);
+            },
+            fmtv: function(version) {
+              return this.$root.fmtv(version);
+            },
+            setContext(xmodelName, xmethodName) {
+                this.$root.setContext(xmodelName, xmethodName);
+            }
         },
-        props: ['xselector'],
+        props: ['xselector', 'xmodelName', 'xmethodName'],
         template: "#cm-xselector-template"
     });
     </script>
     <script type="text/x-template" id="cm-xselector-template">
         <div class="xselector">
+          <div class="package-indication" @click="loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version); setContext(xmodelName, xmethodName)">{{xselector.Qualifier.Path}}{{fmtv(xselector.Qualifier.Version)}}</div>
           <div v-if="xselector.Kind == 'Struct'">
-            <div class="package-indication">{{xselector.Qualifier.Path}}{{xselector.Qualifier.Version!="local"?"@"+xselector.Qualifier.Version:""}}</div>
             <div>struct <b>{{xselector.Qualifier.TypeName}}</b> {</div>
             <div v-for="(field, fieldIndex) in xselector.Qualifier.Fields" v-bind:key="field.Name" class="ml-2">
               <span :title="field.KindString" class="hover-field">{{field.Name}} <b>{{field.TypeString}}</b></span>
@@ -951,7 +980,6 @@
           </div>
 
           <div v-if="xselector.Kind == 'Func'">
-            <div class="package-indication">{{xselector.Qualifier.Path}}{{xselector.Qualifier.Version!="local"?"@"+xselector.Qualifier.Version:""}}</div>
             <div class="text-monospace d-inline">func</div>
             
             <div
@@ -988,6 +1016,9 @@
             len: len,
             loadCode: function(path, version) {
                 this.$root.loadCode(path, version);
+            },
+            fmtv: function(version) {
+              return this.$root.fmtv(version);
             }
         },
         props: ['cached'],
@@ -997,7 +1028,7 @@
     <script type="text/x-template" id="cm-cached-module-template">
         <b-list-group-item v-bind:key="cached.Path + cached.Version">
           <b-button variant="success" size="sm" @click="loadCode(cached.Path,cached.Version)">Open</b-button>
-          <b class="text-monospace bold">{{cached.Path}}@{{cached.Version}}</b>
+          <b class="text-monospace bold">{{cached.Path}}{{fmtv(cached.Version)}}</b>
         </b-list-group-item>
     </script>
 
