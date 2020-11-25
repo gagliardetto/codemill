@@ -576,10 +576,9 @@ func (spec *XSpec) PushModel(model *XModel) error {
 }
 
 type XModel struct {
-	Name      string
-	Kind      ModelKind
-	IsPrivate bool
-	Methods   []*XMethod
+	Name    string
+	Kind    ModelKind
+	Methods []*XMethod
 }
 
 type XMethod struct {
@@ -939,9 +938,8 @@ func main() {
 	r.POST("/api/spec/models", func(c *gin.Context) {
 		// Add a new model to the spec:
 		var req struct {
-			Name      string
-			Kind      ModelKind
-			IsPrivate bool
+			Name string
+			Kind ModelKind
 		}
 		err := c.BindJSON(&req)
 		if err != nil {
@@ -957,9 +955,8 @@ func main() {
 		}
 
 		created := &XModel{
-			Name:      req.Name,
-			Kind:      req.Kind,
-			IsPrivate: req.IsPrivate,
+			Name: req.Name,
+			Kind: req.Kind,
 		}
 
 		err = globalSpec.PushModel(created)

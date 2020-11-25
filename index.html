@@ -781,16 +781,15 @@
                 return
               }
 
-              this.spec_PushModel(this.newModel.name,this.newModel.kind,true)
+              this.spec_PushModel(this.newModel.name,this.newModel.kind)
             },
-            spec_PushModel(name, kind, isPrivate) {
+            spec_PushModel(name, kind) {
                 console.log("Adding model to spec ...", name);
                 let url = '/api/spec/models';
 
                 let payload = {
                     "Name": name,
-                    "Kind": kind,
-                    "IsPrivate": Boolean(isPrivate)
+                    "Kind": kind
                 }
                 console.log(payload);
 
@@ -990,7 +989,7 @@
     </script>
     <script type="text/x-template" id="cm-xmethod-template">
         <div class="xmethod" v-bind:class="{ 'error-no-selectors': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
-          <div>{{xmethod.IsPrivate?"private ":""}}method <b class="text-large">{{xmethod.Name}}()</b> (len = {{len(xmethod.Selectors)}} selectors) {</div>
+          <div>method <b class="text-large">{{xmethod.Name}}()</b> (len = {{len(xmethod.Selectors)}} selectors) {</div>
             <cm-xselector
               v-for="(item, key) in xmethod.Selectors"
               v-bind:key="key"
