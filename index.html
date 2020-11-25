@@ -1030,7 +1030,11 @@
     </script>
     <script type="text/x-template" id="cm-xselector-template">
         <div class="xselector">
-          <div class="package-indication" @click="loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version); setContext(xmodelName, xmethodName)">{{xselector.Qualifier.Path}}{{fmtv(xselector.Qualifier.Version)}}</div>
+          <div
+            class="package-indication"
+            @click="setContext(xmodelName, xmethodName); loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version)"
+            title="Click to open source view"
+          >{{xselector.Qualifier.Path}}{{fmtv(xselector.Qualifier.Version)}}</div>
           <div v-if="xselector.Kind == 'Struct'">
             <div>struct <b>{{xselector.Qualifier.TypeName}}</b> {</div>
             <div v-for="(field, fieldIndex) in xselector.Qualifier.Fields" v-bind:key="field.Name" class="ml-2">
