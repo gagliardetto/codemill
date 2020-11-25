@@ -327,7 +327,7 @@
                         <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
                         <br>
                         <span class="text-muted d-flex">
-                          Modifying&nbsp;<span class="text-monospace">model::<b>{{context.modelName}}</b></span>&nbsp;&gt;&nbsp;<span class="text-monospace">method::<b>{{context.methodName}}</b></span></span>
+                          You're currently editing&nbsp;<span class="text-monospace">model::<b>{{context.modelName}}</b></span>&nbsp;&gt;&nbsp;<span class="text-monospace">method::<b>{{context.methodName}}</b></span></span>
                     </template>
                     <b-form v-on:submit.prevent="">
                         <div>
@@ -447,54 +447,57 @@
                 if (!this.$data.currentPackage.source.Funcs) {
                     return
                 }
-                let ctx = this.getFilterCtx();
-                let path = ctx[0], version = ctx[1], modelName = ctx[2], methodName = ctx[3], selOnly = ctx[4];
+                let [path, version, modelName, methodName, selOnly] = this.getFilterCtx();
 
                 const isTrue = (element) => element == true;
  
                 return this.$data.currentPackage.source.Funcs.filter(item => {
-                    let matcher = this.elementFilterMatches(item.Signature) || this.docsOrCommentsMatch(item);
-                    if (selOnly) {
-                      let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
-                      return qualifier && qualifier.Pos.some(isTrue) && matcher
-                    }
-                    return matcher
+                  if (selOnly) {
+                    let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                    return qualifier && qualifier.Pos.some(isTrue)
+                  }
+                  return true
+                }).filter(item => {
+                    let matches = this.elementFilterMatches(item.Signature) || this.docsOrCommentsMatch(item);
+                    return matches
                 });
             },
             filteredTypeMethods() {
                 if (!this.$data.currentPackage.source.TypeMethods) {
                     return
                 }
-                let ctx = this.getFilterCtx();
-                let path = ctx[0], version = ctx[1], modelName = ctx[2], methodName = ctx[3], selOnly = ctx[4];
+                let [path, version, modelName, methodName, selOnly] = this.getFilterCtx();
 
                 const isTrue = (element) => element == true;
 
                 return this.$data.currentPackage.source.TypeMethods.filter(item => {
-                    let matcher = this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item);
-                    if (selOnly) {
-                      let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
-                      return qualifier && qualifier.Pos.some(isTrue) && matcher
-                    }
-                    return matcher
+                  if (selOnly) {
+                    let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                    return qualifier && qualifier.Pos.some(isTrue)
+                  }
+                  return true
+                }).filter(item => {
+                    let matches = this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item);
+                    return matches
                 });
             },
             filteredInterfaceMethods() {
                 if (!this.$data.currentPackage.source.InterfaceMethods) {
                     return
                 }
-                let ctx = this.getFilterCtx();
-                let path = ctx[0], version = ctx[1], modelName = ctx[2], methodName = ctx[3], selOnly = ctx[4];
+                let [path, version, modelName, methodName, selOnly] = this.getFilterCtx();
 
                 const isTrue = (element) => element == true;
 
                 return this.$data.currentPackage.source.InterfaceMethods.filter(item => {
-                    let matcher = this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item);
-                    if (selOnly) {
-                      let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
-                      return qualifier && qualifier.Pos.some(isTrue) && matcher
-                    }
-                    return matcher
+                  if (selOnly) {
+                    let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                    return qualifier && qualifier.Pos.some(isTrue)
+                  }
+                  return true
+                }).filter(item => {
+                    let matches = this.elementFilterMatches(item.Func.Signature) || this.docsOrCommentsMatch(item);
+                    return matches
                 });
             },
             filteredStructs() {
@@ -502,19 +505,19 @@
                     return
                 }
 
-                let ctx = this.getFilterCtx();
-                let path = ctx[0], version = ctx[1], modelName = ctx[2], methodName = ctx[3], selOnly = ctx[4];
-
+                let [path, version, modelName, methodName, selOnly] = this.getFilterCtx();
 
                 return this.$data.currentPackage.source.Structs.filter(item => {
-                    let matcher = this.elementFilterMatches(item.TypeName) || item.Fields.some(this.structFieldMatches) || this.docsOrCommentsMatch(item) || item.Fields.some(this.docsOrCommentsMatch);
+                  if (selOnly) {
+                    let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                    const hasAnySelectedField = (field) => field.VarName in qualifier.Fields;
+                    return qualifier && item.Fields.some(hasAnySelectedField)
+                  }
+                  return true
+                }).filter(item => {
+                    let matches = this.elementFilterMatches(item.TypeName) || item.Fields.some(this.structFieldMatches) || this.docsOrCommentsMatch(item) || item.Fields.some(this.docsOrCommentsMatch);
 
-                    if (selOnly) {
-                      let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
-                      const hasAnySelectedField = (field) => field.VarName in qualifier.Fields;
-                      return qualifier && item.Fields.some(hasAnySelectedField) && matcher
-                    }
-                    return matcher
+                    return matches
                 });
             },
         },
@@ -552,10 +555,11 @@
                 this.currentElementFilter = val;
             },
             elementFilterMatches(ident) {
-                if (!this.currentElementFilter) {
+                if (!this.currentElementFilter || this.currentElementFilter.trim() == "") {
                     return true
                 }
-                return ident.toLowerCase().includes(this.currentElementFilter.toLowerCase());
+                this.currentElementFilter = this.currentElementFilter.toLowerCase().trim();
+                return ident.toLowerCase().includes(this.currentElementFilter);
             },
             structFieldMatches(field) {
                 return this.elementFilterMatches(field.VarName) || this.elementFilterMatches(field.TypeString)
