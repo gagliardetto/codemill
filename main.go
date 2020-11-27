@@ -807,7 +807,7 @@ func (sel *XSelector) GetFuncQualifier() *FuncQualifier {
 }
 
 var (
-	globalSpec = NewXSpecWithName("DefaultModule")
+	globalSpec *XSpec
 )
 
 func TryLoadSpecFromFile(path string) (*XSpec, error) {
@@ -885,6 +885,12 @@ func main() {
 			panic(err)
 		}
 		globalSpec = spec
+	} else {
+		name := ToCamel(TrimExt(filepath.Base(specFilepath)))
+		if name == "" {
+			name = "DefaultSpec"
+		}
+		globalSpec = NewXSpecWithName(name)
 	}
 
 	onExitCallback := func() {
