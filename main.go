@@ -115,6 +115,17 @@ func (spec *XSpec) Cleanup() error {
 							)
 						}
 					}
+				case *TypeQualifier:
+					{
+						if !qual.Value {
+							// If false, then remove the selector:
+							mtd.DeleteFuncSelector(
+								basicQual.Path,
+								basicQual.Version,
+								basicQual.ID,
+							)
+						}
+					}
 				default:
 					panic(Sf("Unknown type: %T", sel.Qualifier))
 				}
@@ -183,6 +194,21 @@ func (spec *XSpec) AddMeta() error {
 						meta := CompileFuncQualifierElementsMeta(fn)
 						qual.Elements = meta
 					}
+				case *TypeQualifier:
+					{
+						source := GetCachedSource(basicQual.Path, basicQual.Version)
+						if source == nil {
+							return fmt.Errorf("Source not found: %s@%s", basicQual.Path, basicQual.Version)
+						}
+						// Find the type:
+						typ := FindTypeByID(source, basicQual.ID)
+						if typ == nil {
+							return fmt.Errorf("Type not found: %q", basicQual.ID)
+						}
+
+						qual.TypeName = typ.TypeName
+						qual.KindString = typ.KindString
+					}
 				default:
 					panic(Sf("Unknown type: %T", sel.Qualifier))
 				}
@@ -216,6 +242,13 @@ func (spec *XSpec) RemoveMeta() error {
 					{
 						// TODO
 						qual.Elements = nil
+					}
+				case *TypeQualifier:
+					{
+						// TODO
+						//qual.TypeName = ""
+						qual.KindString = ""
+						// TODO: move TypeName, KindString to a Meta struct.
 					}
 				default:
 					panic(Sf("Unknown type: %T", sel.Qualifier))
@@ -373,6 +406,12 @@ func (sel *XSelector) Validate() error {
 				return err
 			}
 		}
+	case SelectorKindType:
+		{
+			if err := sel.GetTypeQualifier().Validate(); err != nil {
+				return err
+			}
+		}
 	default:
 		return fmt.Errorf("Unknown selector kind: %s", sel.Kind)
 	}
@@ -408,6 +447,14 @@ func (sel *XSelector) UnmarshalJSON(data []byte) error {
 	case SelectorKindStruct:
 		{
 			var v StructQualifier
+			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
+				return err
+			}
+			sel.Qualifier = &v
+		}
+	case SelectorKindType:
+		{
+			var v TypeQualifier
 			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
 				return err
 			}
@@ -537,6 +584,42 @@ func (mt *XMethod) DeleteFuncSelector(
 }
 
 //
+func (mt *XMethod) GetTypeSelector(
+	path string,
+	version string,
+	funcID string,
+) *TypeQualifier {
+	for _, sel := range mt.Selectors {
+		stQual := sel.GetTypeQualifier()
+		if stQual == nil {
+			continue
+		}
+		if stQual.BasicQualifier.Is(path, version, funcID) {
+			return stQual
+		}
+	}
+	return nil
+}
+
+//
+func (mt *XMethod) DeleteTypeSelector(
+	path string,
+	version string,
+	funcID string,
+) bool {
+	for i, sel := range mt.Selectors {
+		stQual := sel.GetTypeQualifier()
+		if stQual == nil {
+			continue
+		}
+		if stQual.BasicQualifier.Is(path, version, funcID) {
+			return mt.deleteSelectorAtIndex(i)
+		}
+	}
+	return false
+}
+
+//
 func (mt *XMethod) deleteSelectorAtIndex(index int) bool {
 	for i := range mt.Selectors {
 		if i == index {
@@ -591,7 +674,8 @@ type SelectorKind string
 
 const (
 	SelectorKindStruct SelectorKind = "Struct" // Qualifier for structs.
-	SelectorKindFunc   SelectorKind = "Func"   // Qualifier for funcs, methods, interfaces.
+	SelectorKindFunc   SelectorKind = "Func"   // Qualifier for funcs, type methods, interface methods.
+	SelectorKindType   SelectorKind = "Type"   // Qualifier for types.
 )
 
 func IsValidSelectorKind(kind SelectorKind) bool {
@@ -600,6 +684,7 @@ func IsValidSelectorKind(kind SelectorKind) bool {
 		// All the valid kinds:
 		string(SelectorKindStruct),
 		string(SelectorKindFunc),
+		string(SelectorKindType),
 	)
 }
 
@@ -701,6 +786,13 @@ type FuncElementMeta struct {
 	KindString string
 }
 
+type TypeQualifier struct {
+	BasicQualifier
+	TypeName   string // Name of the type.
+	KindString string `json:",omitempty"`
+	Value      bool
+}
+
 func compileFuncElemMeta(ai int, ri int, typ *feparser.FEType) *FuncElementMeta {
 	return &FuncElementMeta{
 		AI:         ai,
@@ -794,12 +886,27 @@ func (sel *XSelector) GetBasicQualifier() *BasicQualifier {
 			return &got.BasicQualifier
 		}
 	}
+	{
+		got, ok := sel.Qualifier.(*TypeQualifier)
+		if ok {
+			return &got.BasicQualifier
+		}
+	}
 	return nil
 }
 
 //
 func (sel *XSelector) GetFuncQualifier() *FuncQualifier {
 	got, ok := sel.Qualifier.(*FuncQualifier)
+	if !ok {
+		return nil
+	}
+	return got
+}
+
+//
+func (sel *XSelector) GetTypeQualifier() *TypeQualifier {
+	got, ok := sel.Qualifier.(*TypeQualifier)
 	if !ok {
 		return nil
 	}
@@ -1204,6 +1311,100 @@ func main() {
 		c.IndentedJSON(200, globalSpec)
 	})
 
+	r.PATCH("/api/spec/types", func(c *gin.Context) {
+		// Patch a type selector:
+		var req struct {
+			Where struct {
+				Path    string
+				Version string
+				Model   string
+				Method  string
+			}
+			What struct {
+				TypeID string
+				Value  bool
+			}
+		}
+		err := c.BindJSON(&req)
+		if err != nil {
+			Q(err)
+			Abort400(c, err.Error())
+			return
+		}
+
+		source := GetCachedSource(req.Where.Path, req.Where.Version)
+		if source == nil {
+			Abort404(c, Sf("Source not found: %s@%s", req.Where.Path, req.Where.Version))
+			return
+		}
+		// Find the type:
+		typ := FindTypeByID(source, req.What.TypeID)
+		if typ == nil {
+			Abort404(c, Sf("Type not found: %q", req.What.TypeID))
+			return
+		}
+
+		err = globalSpec.ModifyModelByName(
+			req.Where.Model,
+			func(mdl *XModel) error {
+				err := mdl.ModifyMethodByName(
+					req.Where.Method,
+					func(mt *XMethod) error {
+
+						existingSel := mt.GetTypeSelector(
+							req.Where.Path,
+							req.Where.Version,
+							req.What.TypeID,
+						)
+						if existingSel == nil {
+							// Add a new selector only if the value is true:
+							if req.What.Value {
+								// If there is no existing selector,
+								// then create a new one:
+								newSel := &XSelector{
+									Kind: SelectorKindType,
+									Qualifier: &TypeQualifier{
+										BasicQualifier: BasicQualifier{
+											Path:    req.Where.Path,
+											Version: req.Where.Version,
+											ID:      req.What.TypeID,
+										},
+										TypeName:   typ.TypeName,
+										KindString: typ.KindString,
+										Value:      true,
+									},
+								}
+
+								mt.Selectors = append(mt.Selectors, newSel)
+							}
+						} else {
+							if req.What.Value == false {
+								// If false, then remove the selector:
+								mt.DeleteTypeSelector(
+									req.Where.Path,
+									req.Where.Version,
+									req.What.TypeID,
+								)
+							}
+						}
+
+						return nil
+					},
+				)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			Abort400(c, Sf("Error modifying model: %s", err))
+			return
+		}
+
+		c.IndentedJSON(200, globalSpec)
+	})
+
 	r.GET("/api/search", func(c *gin.Context) {
 		// Search packages on godoc:
 		req := request.NewRequest(httpClient)
@@ -1452,7 +1653,11 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 			Q(pkg.Module)
 		}
 		for _, pkg := range pkgs {
-			fmt.Println(pkg.ID, pkg.GoFiles)
+			Sfln(
+				"%s has %v files",
+				pkg.ID,
+				len(pkg.GoFiles),
+			)
 		}
 		return pkgs[0], nil
 	}
@@ -1648,6 +1853,14 @@ func FindFuncByID(fe *feparser.FEPackage, id string) LenInterface {
 		}
 	}
 	for _, st := range fe.InterfaceMethods {
+		if st.ID == id {
+			return st
+		}
+	}
+	return nil
+}
+func FindTypeByID(fe *feparser.FEPackage, id string) *feparser.FEType {
+	for _, st := range fe.Types {
 		if st.ID == id {
 			return st
 		}

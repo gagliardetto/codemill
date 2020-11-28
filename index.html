@@ -365,6 +365,11 @@
                                 <cm-struct-item v-for="item in filteredStructs" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
                             </b-list-group>
                         </b-tab>
+                        <b-tab :title="'Types (' + len(filteredTypes) + ')'">
+                            <b-list-group class="text-monospace float-left text-truncate">
+                                <cm-type-item v-for="item in filteredTypes" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
+                            </b-list-group>
+                        </b-tab>
                     </b-tabs>
                     <template #modal-footer>
                         <div class="w-100">
@@ -520,6 +525,24 @@
                     return matches
                 });
             },
+            filteredTypes() {
+                if (!this.$data.currentPackage.source.Types) {
+                    return
+                }
+
+                let [path, version, modelName, methodName, selOnly] = this.getFilterCtx();
+
+                return this.$data.currentPackage.source.Types.filter(item => {
+                  if (selOnly) {
+                    let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
+                    return qualifier && qualifier.Value
+                  }
+                  return true
+                }).filter(item => {
+                    let matches = this.elementFilterMatches(item.TypeName) || this.docsOrCommentsMatch(item);
+                    return matches
+                });
+            },
         },
         methods: {
             cc: cc,
@@ -651,6 +674,9 @@
                         });
                         json.Structs.forEach((item) => {
                           this.syncFieldsWithSpec(item);
+                        });
+                        json.Types.forEach((item) => {
+                          item.Checked = this.getTypeValueFromSpec(item.ID);
                         });
                         
                         this.$data.currentPackage.source = json;
@@ -896,6 +922,21 @@
               }
               return false
             },
+            getTypeValueFromSpec(typeID) {
+              // console.log("Getting type checkbox value")
+
+              let path = this.$data.currentPackage.path;
+              let version = this.$data.currentPackage.version;
+              let modelName = this.$data.context.modelName;
+              let methodName = this.$data.context.methodName;
+
+              let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, typeID);
+              if (qualifier == null) {
+                return false
+              }
+
+              return qualifier.Value
+            },
             getStructFieldValueFromSpec(struct, field) {
               // console.log("Getting struct field checkbox value")
               // console.log(struct, field)
@@ -1069,6 +1110,12 @@
               :title="elem.KindString"
               v-bind:class="{ 'selected-success': xselector.Qualifier.Pos[elem.AI] }"
               >{{elemIndex==0?"(":""}}{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Results) - 1 ?")":", "}}</div>
+          </div>
+
+          <div v-if="xselector.Kind == 'Type'">
+            <div 
+              class="text-monospace d-inline"
+              >type <b v-bind:class="{ 'selected-primary': xselector.Qualifier.Value }">{{xselector.Qualifier.TypeName}}</b>, which is {{xselector.Qualifier.KindString}}</div>
           </div>
         </div>
     </script>
@@ -1456,6 +1503,101 @@
               <b-row class="ml-1">
                   <span>}</span>
               </b-row>
+          </b-list-group-item>
+    </script>
+
+    <script type="text/javascript">
+    Vue.component('cm-type-item', {
+        computed: {
+        },
+        methods: {
+            cc: cc,
+            onChangeType(value, type) {
+              console.log("Modifying type selector ...");
+
+              console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+              console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
+              console.log(value, type.ID)
+
+
+              let rPath = this.$root.$data.currentPackage.path;
+              let rVersion = this.$root.$data.currentPackage.version;
+              let rModel = this.$root.$data.context.modelName;
+              let rMethod = this.$root.$data.context.methodName;
+
+              let payload = {
+                  "Where": {
+                    "Path": rPath,
+                    "Version": rVersion,
+                    "Model": rModel,
+                    "Method": rMethod
+                  },
+                  "What": {
+                    "TypeID": type.ID,
+                    "Value": value
+                  }
+              }
+              console.log(payload);
+
+              let url = '/api/spec/types';
+              fetch(url, {
+                      method: 'PATCH',
+                      headers: {
+                          'Content-Type': 'application/json',
+                      },
+                      body: JSON.stringify(payload),
+                  })
+                  .then(response => {
+                      if (response.ok) {
+                          return response.json()
+                      } else {
+                          throw response;
+                      }
+                  })
+                  .then(json => {
+                      this.$root.$data.xspec = json;
+                  })
+                  .catch((error) => {
+                      console.error('Error:', error);
+                      error.json().then((body) => {
+                          this.makeToast("danger", "Error", body.error);
+                      });
+                  });
+            }
+        },
+        props: ['item'],
+        template: "#cm-type-item-template"
+    });
+    </script>
+    <script type="text/x-template" id="cm-type-item-template">
+        <b-list-group-item v-bind:key="item.ID">
+              <b-row class="ml-1">
+                  <span>
+                      <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
+                      <div v-for="comment in item.Comments" class="documentation text-comment" title="This is a comment">// {{ comment }}</div>
+                  </span>
+              </b-row>
+              <table class="table-responsive table-sm table-hover">
+                  <tbody>
+                    <tr>
+                        <td class="ml-1">
+                          <span v-bind:class="{ 'selected-primary': item.Checked }">type <b>{{item.TypeName}}</b>, which is {{item.KindString}}</span>
+                        </td>
+                    </tr>
+                    <tr class="d-flex justify-content-center">
+                        <td class="ml-1">
+                            <span>
+                              <b-form-checkbox
+                                :id="cc('checkbox',item.ID)"
+                                v-model="item.Checked"
+                                switch
+                                @change="onChangeType($event, item)"
+                              ></b-form-checkbox>
+                            </span>
+                        </td>
+                    </tr>
+                  </tbody>
+              </table>
           </b-list-group-item>
     </script>
 </body>
