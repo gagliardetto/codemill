@@ -520,8 +520,8 @@
                   }
                   return true
                 }).filter(item => {
+                    // TODO: search also in KindString?
                     let matches = this.elementFilterMatches(item.TypeName) || item.Fields.some(this.structFieldMatches) || this.docsOrCommentsMatch(item) || item.Fields.some(this.docsOrCommentsMatch);
-
                     return matches
                 });
             },
@@ -539,7 +539,7 @@
                   }
                   return true
                 }).filter(item => {
-                    let matches = this.elementFilterMatches(item.TypeName) || this.docsOrCommentsMatch(item);
+                    let matches = this.elementFilterMatches(item.TypeName) || this.elementFilterMatches(item.KindString) || this.docsOrCommentsMatch(item);
                     return matches
                 });
             },
@@ -1581,7 +1581,10 @@
                   <tbody>
                     <tr>
                         <td class="ml-1">
-                          <span v-bind:class="{ 'selected-primary': item.Checked }">type <b>{{item.TypeName}}</b>, which is {{item.KindString}}</span>
+                          <span 
+                            v-bind:class="{ 'selected-primary': item.Checked }"
+                            :title="item.KindString"
+                            >type <b>{{item.TypeName}}</b>, which is {{item.KindString}}</span>
                         </td>
                     </tr>
                     <tr class="d-flex justify-content-center">
