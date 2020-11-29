@@ -987,12 +987,15 @@ func main() {
 	}
 
 	if MustFileExists(specFilepath) {
+		// If the file exists, try loading the spec:
 		spec, err := TryLoadSpecFromFile(specFilepath)
 		if err != nil {
 			panic(err)
 		}
 		globalSpec = spec
 	} else {
+		// If the file does NOT exist,
+		// create a new spec named after the filename:
 		name := ToCamel(TrimExt(filepath.Base(specFilepath)))
 		if name == "" {
 			name = "DefaultSpec"
