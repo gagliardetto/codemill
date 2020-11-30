@@ -9,14 +9,17 @@ const (
 	Kind x.ModelKind = "UntrustedFlowSource"
 )
 
-type Handler struct {
-}
+type Handler struct{}
+
+const (
+	MethodSelf = "Self"
+)
 
 //
 func (han *Handler) ScavengeMethods() []*x.XMethod {
 	return []*x.XMethod{
 		{
-			Name:      "Self",
+			Name:      MethodSelf,
 			IsSelf:    true,
 			Selectors: []*x.XSelector{},
 		},
