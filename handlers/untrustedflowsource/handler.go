@@ -24,11 +24,19 @@ func (han *Handler) ScavengeMethods() []*x.XMethod {
 }
 func (han *Handler) GenerateCodeQL(dir string, modelSpec *x.XModel) error {
 	// TODO
-	Ln("generating codeql")
+	Sfln(
+		"Generating codeql code for model %q into %q dir",
+		modelSpec.Name,
+		dir,
+	)
 	return nil
 }
 func (han *Handler) GenerateGo(dir string, modelSpec *x.XModel) error {
 	// TODO
-	Ln("generating go")
+	Sfln(
+		"Generating go for model %q into %q dir",
+		modelSpec.Name,
+		dir,
+	)
 	return nil
 }

@@ -110,6 +110,9 @@ func main() {
 		// Sort stuff for visual convenience in the generated code:
 		globalSpec.Sort()
 
+		// Create output dir if it doesn't exist:
+		MustCreateFolderIfNotExists(outDir, 0750)
+
 		for _, modelSpec := range globalSpec.Models {
 
 			// Handle generation:
@@ -638,7 +641,7 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 		// If version not specified, we'll use the latest.
 	}
 
-	Infof("Loading package %q", path+"@"+version)
+	Infof(ShakespeareBG("Loading package %q"), path+"@"+version)
 
 	isStd := search.IsStandardImportPath(path)
 	if isStd {
