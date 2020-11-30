@@ -268,7 +268,7 @@ func (spec *XSpec) ListModules() []*BasicQualifier {
 
 	// Deduplicate:
 	qualifiers = DeduplicateSlice(qualifiers, func(i int) string {
-		return qualifiers[i].Path + "@" + qualifiers[i].Version
+		return FormatPathVersion(qualifiers[i].Path, qualifiers[i].Version)
 	}).([]*BasicQualifier)
 
 	return qualifiers
@@ -885,7 +885,7 @@ func (sel *XSelector) GetBasicQualifier() *BasicQualifier {
 
 //
 func (bq *BasicQualifier) PathVersion() string {
-	return bq.Path + "@" + bq.Version
+	return FormatPathVersion(bq.Path, bq.Version)
 }
 
 //
