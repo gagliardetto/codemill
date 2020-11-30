@@ -294,7 +294,7 @@ func main() {
 
 							if len(existingSel.Fields) == 0 {
 								// If all fields are disabled, then remove the selector:
-								mt.DeleteStructSelector(
+								mt.DeleteSelector(
 									req.Where.Path,
 									req.Where.Version,
 									req.What.StructID,
@@ -401,7 +401,7 @@ func main() {
 
 							if AllFalse(existingSel.Pos...) {
 								// If all false, then remove the selector:
-								mt.DeleteFuncSelector(
+								mt.DeleteSelector(
 									req.Where.Path,
 									req.Where.Version,
 									req.What.FuncID,

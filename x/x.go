@@ -68,7 +68,7 @@ func (spec *XSpec) Cleanup() error {
 					{
 						if len(qual.Fields) == 0 {
 							// If all fields are disabled, then remove the selector:
-							mtd.DeleteStructSelector(
+							mtd.DeleteSelector(
 								basicQual.Path,
 								basicQual.Version,
 								basicQual.ID,
@@ -79,7 +79,7 @@ func (spec *XSpec) Cleanup() error {
 					{
 						if AllFalse(qual.Pos...) {
 							// If all false, then remove the selector:
-							mtd.DeleteFuncSelector(
+							mtd.DeleteSelector(
 								basicQual.Path,
 								basicQual.Version,
 								basicQual.ID,
@@ -90,7 +90,7 @@ func (spec *XSpec) Cleanup() error {
 					{
 						if !qual.Value {
 							// If false, then remove the selector:
-							mtd.DeleteFuncSelector(
+							mtd.DeleteSelector(
 								basicQual.Path,
 								basicQual.Version,
 								basicQual.ID,
@@ -518,24 +518,6 @@ func (mt *XMethod) GetStructSelector(
 }
 
 //
-func (mt *XMethod) DeleteStructSelector(
-	path string,
-	version string,
-	funcID string,
-) bool {
-	for i, sel := range mt.Selectors {
-		stQual := sel.GetStructQualifier()
-		if stQual == nil {
-			continue
-		}
-		if stQual.BasicQualifier.Is(path, version, funcID) {
-			return mt.deleteSelectorAtIndex(i)
-		}
-	}
-	return false
-}
-
-//
 func (mt *XMethod) GetFuncSelector(
 	path string,
 	version string,
@@ -554,17 +536,17 @@ func (mt *XMethod) GetFuncSelector(
 }
 
 //
-func (mt *XMethod) DeleteFuncSelector(
+func (mt *XMethod) DeleteSelector(
 	path string,
 	version string,
-	funcID string,
+	id string,
 ) bool {
 	for i, sel := range mt.Selectors {
-		stQual := sel.GetFuncQualifier()
-		if stQual == nil {
+		qual := sel.GetBasicQualifier()
+		if qual == nil {
 			continue
 		}
-		if stQual.BasicQualifier.Is(path, version, funcID) {
+		if qual.Is(path, version, id) {
 			return mt.deleteSelectorAtIndex(i)
 		}
 	}
