@@ -22,20 +22,29 @@ func (han *Handler) ScavengeMethods() []*x.XMethod {
 		},
 	}
 }
-func (han *Handler) GenerateCodeQL(dir string, modelSpec *x.XModel) error {
+func (han *Handler) Validate(mdl *x.XModel) error {
+	// TODO
+	Sfln(
+		"Validating model %q",
+		mdl.Name,
+	)
+	return nil
+}
+
+func (han *Handler) GenerateCodeQL(dir string, mdl *x.XModel) error {
 	// TODO
 	Sfln(
 		"Generating codeql code for model %q into %q dir",
-		modelSpec.Name,
+		mdl.Name,
 		dir,
 	)
 	return nil
 }
-func (han *Handler) GenerateGo(dir string, modelSpec *x.XModel) error {
+func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 	// TODO
 	Sfln(
 		"Generating go for model %q into %q dir",
-		modelSpec.Name,
+		mdl.Name,
 		dir,
 	)
 	return nil

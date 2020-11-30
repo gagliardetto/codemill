@@ -1039,34 +1039,46 @@ func (rt *ModelKindRouter) ListModelKinds() []ModelKind {
 }
 
 //
-func (rt *ModelKindRouter) Handle(kind ModelKind, modelSpec *XModel) error {
+func (rt *ModelKindRouter) Handle(kind ModelKind, mdl *XModel) error {
 	handler := rt.GetHandler(kind)
 	if handler == nil {
 		return errors.New("handler not found")
 	}
 
+	{
+		// Validate provided model:
+		err := handler.Validate(mdl)
+		if err != nil {
+			return fmt.Errorf(
+				"error while validating model %q (kind=%s): %s",
+				mdl.Name,
+				kind,
+				err,
+			)
+		}
+	}
 	dir := rt.conf.Dir
 
 	{
 		// Generate codeql:
-		err := handler.GenerateCodeQL(dir, modelSpec)
+		err := handler.GenerateCodeQL(dir, mdl)
 		if err != nil {
 			return fmt.Errorf(
-				"error while generating codeql code for ModelKind %q and model %q: %s",
+				"error while generating codeql code for model %q (kind=%s): %s",
+				mdl.Name,
 				kind,
-				modelSpec.Name,
 				err,
 			)
 		}
 	}
 	{
 		// Generate go:
-		err := handler.GenerateGo(dir, modelSpec)
+		err := handler.GenerateGo(dir, mdl)
 		if err != nil {
 			return fmt.Errorf(
-				"error while generating go code for ModelKind %q and model %q: %s",
+				"error while generating go code for model %q (kind=%s): %s",
+				mdl.Name,
 				kind,
-				modelSpec.Name,
 				err,
 			)
 		}
@@ -1076,9 +1088,22 @@ func (rt *ModelKindRouter) Handle(kind ModelKind, modelSpec *XModel) error {
 }
 
 type ModelKindHandler interface {
-	GenerateCodeQL(dir string, modelSpec *XModel) error
-	GenerateGo(dir string, modelSpec *XModel) error
+	// GenerateCodeQL generates codeql code based on the
+	// provided model; the generated code is then saved in the
+	// destination dir.
+	GenerateCodeQL(dir string, mdl *XModel) error
+
+	// GenerateGo generates go code based on the
+	// provided model; the generated code is then saved in the
+	// destination dir.
+	GenerateGo(dir string, mdl *XModel) error
+
+	// ScavengeMethods returns an array of initialized
+	// methods unique to the ModelKind.
 	ScavengeMethods() []*XMethod
+
+	// Validate validates the provided XModel.
+	Validate(mdl *XModel) error
 }
 
 type PackageLoader func(path string, version string) (*feparser.FEPackage, error)
