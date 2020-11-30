@@ -98,6 +98,7 @@ func main() {
 		defer globalSpec.Unlock()
 
 		globalSpec.RemoveMeta()
+		// TODO: cleanup before saving.
 
 		Infof("Saving spec to %q", MustAbs(specFilepath))
 		err := SaveAsJSON(globalSpec, specFilepath)
