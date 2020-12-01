@@ -209,11 +209,14 @@
     .text-large {
       font-size: large;
     }
+    [v-cloak] {
+      display: none;
+    }
     </style>
 </head>
 
 <body>
-    <div id="codemill-app">
+    <div id="codemill-app" v-cloak>
         <b-overlay :show="isBusy.loadCode" rounded="lg" no-wrap fixed opacity="0.7" z-index="2000">
             <template #overlay>
                 <div class="text-center">
