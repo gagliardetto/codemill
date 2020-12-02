@@ -42,6 +42,8 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 						metGr.Or()
 					}
 
+					// TODO:
+					// - Group qualifiers by PathVersion, and then by qualifier type.
 					switch qual := rawQual.(type) {
 					case *x.FuncQualifier:
 						{
@@ -170,7 +172,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 								{
 									// TODO: group methods per receiver.
 									metGr.Comment("Package: " + qual.PathVersion())
-									metGr.Commentf("Receiver: %s", thing.Receiver.TypeString)
+									metGr.Commentf("Interface: %s", thing.Receiver.TypeString)
 									metGr.Exists(
 										List(
 											Qual("DataFlow", "MethodCallNode").Id("call"),
@@ -242,7 +244,6 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 									st.Id("fld").Dot("hasQualifiedName").Call(Lit(qual.Path), Lit(str.TypeName), Id("fieldName"))
 
 									st.And()
-									st.Comment("The source is one of these fields reads:")
 
 									st.Id("fieldName").In().Add(StringsToSet(fieldNames...))
 									st.And()
@@ -262,6 +263,9 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 							if typ == nil {
 								Fatalf("Type not found: %q", qual.ID)
 							}
+
+							metGr.Comment("Package: " + qual.PathVersion())
+							metGr.Commentf("Type: %s", typ.TypeName)
 							metGr.Exists(
 								List(
 									Qual("DataFlow", "ReadNode").Id("read"),
