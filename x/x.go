@@ -9,6 +9,7 @@ import (
 
 	cqljen "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
+	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
 	. "github.com/gagliardetto/utilz"
 )
 
@@ -896,6 +897,16 @@ func (sel *XSelector) GetBasicQualifier() *BasicQualifier {
 
 //
 func (bq *BasicQualifier) PathVersion() string {
+	return FormatPathVersion(bq.Path, bq.Version)
+}
+
+// PathVersionClean returns Path if it belongs to standard
+// library; otherwise, it returns PathVersion.
+func (bq *BasicQualifier) PathVersionClean() string {
+	isStd := search.IsStandardImportPath(bq.Path)
+	if isStd {
+		return bq.Path
+	}
 	return FormatPathVersion(bq.Path, bq.Version)
 }
 

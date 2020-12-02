@@ -107,7 +107,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 							switch thing := fn.(type) {
 							case *feparser.FEFunc:
 								{
-									metGr.Comment("Package: " + qual.PathVersion())
+									metGr.Comment("Package: " + qual.PathVersionClean())
 									metGr.Comment("Function: " + thing.Signature)
 									metGr.Exists(
 										List(
@@ -134,7 +134,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 							case *feparser.FETypeMethod:
 								{
 									// TODO: group methods per receiver.
-									metGr.Comment("Package: " + qual.PathVersion())
+									metGr.Comment("Package: " + qual.PathVersionClean())
 									metGr.Commentf("Receiver: %s", thing.Receiver.TypeString)
 									metGr.Exists(
 										List(
@@ -171,7 +171,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 							case *feparser.FEInterfaceMethod:
 								{
 									// TODO: group methods per receiver.
-									metGr.Comment("Package: " + qual.PathVersion())
+									metGr.Comment("Package: " + qual.PathVersionClean())
 									metGr.Commentf("Interface: %s", thing.Receiver.TypeString)
 									metGr.Exists(
 										List(
@@ -233,7 +233,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 								fieldNames = append(fieldNames, fieldName)
 							}
 
-							metGr.Comment("Package: " + qual.PathVersion())
+							metGr.Comment("Package: " + qual.PathVersionClean())
 							metGr.Comment("Struct: " + str.TypeName)
 							metGr.Exists(
 								List(
@@ -264,7 +264,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 								Fatalf("Type not found: %q", qual.ID)
 							}
 
-							metGr.Comment("Package: " + qual.PathVersion())
+							metGr.Comment("Package: " + qual.PathVersionClean())
 							metGr.Commentf("Type: %s", typ.TypeName)
 							metGr.Exists(
 								List(
