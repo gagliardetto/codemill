@@ -242,10 +242,30 @@ func (spec *XSpec) Sort() {
 					basicI := mtd.Selectors[i].GetBasicQualifier()
 					basicJ := mtd.Selectors[j].GetBasicQualifier()
 
+					if basicI.PathVersion() == basicJ.PathVersion() {
+						// If same PathVersion, then sort by qualifier type:
+						qI := mtd.Selectors[i].Qualifier
+						qJ := mtd.Selectors[j].Qualifier
+						return qualifierWeightByType(qI) < qualifierWeightByType(qJ)
+					}
+
 					return basicI.PathVersion() < basicJ.PathVersion()
 				})
 			}
 		}
+	}
+}
+
+func qualifierWeightByType(qual interface{}) int {
+	switch qual.(type) {
+	case *FuncQualifier:
+		return 1
+	case *StructQualifier:
+		return 2
+	case *TypeQualifier:
+		return 3
+	default:
+		panic(Sf("Unknown type: %T", qual))
 	}
 }
 
