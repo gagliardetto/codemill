@@ -16,6 +16,7 @@ import (
 	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/handlers/untrustedflowsource"
 	"github.com/gagliardetto/codemill/x"
+	cqljen "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/get"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/modfetch"
@@ -114,18 +115,62 @@ func main() {
 		// Create output dir if it doesn't exist:
 		MustCreateFolderIfNotExists(outDir, 0750)
 
-		for _, modelSpec := range globalSpec.Models {
+		{
+			// Validate all specs:
+			for _, mdl := range globalSpec.Models {
 
-			// Handle generation:
-			err := x.Router().Handle(modelSpec.Kind, modelSpec)
-			if err != nil {
-				Fatalf(
-					"Error while handling model %q: %s",
-					modelSpec.Name,
-					err,
-				)
+				handler := x.Router().GetHandler(mdl.Kind)
+				if handler == nil {
+					Fatalf(
+						"handler not found for kind %s",
+						mdl.Kind,
+					)
+				}
+
+				{
+					// Validate provided model:
+					err := handler.Validate(mdl)
+					if err != nil {
+						Fatalf(
+							"error while validating model %q (kind=%s): %s",
+							mdl.Name,
+							mdl.Kind,
+							err,
+						)
+					}
+				}
 			}
+		}
 
+		{ // Generate codeql:
+			cqlFile := cqljen.NewFile()
+			cqlFile.HeaderDoc("This is a doc.")
+			cqlFile.HeaderDoc("Second line of doc.")
+			cqlFile.Import("go")
+			cqlFile.Import("DataFlow::PathGraph")
+
+			cqlFile.Doc("Doc about this module.")
+			cqlFile.Private().Module().Id("SomeFramework").BlockFunc(func(modGr *cqljen.Group) {
+				for _, mdl := range globalSpec.Models {
+
+					handler := x.Router().MustGetHandler(mdl.Kind)
+					{
+						// Generate codeql:
+						err := handler.GenerateCodeQL(mdl, modGr)
+						if err != nil {
+							Fatalf(
+								"error while generating codeql code for model %q (kind=%s): %s",
+								mdl.Name,
+								mdl.Kind,
+								err,
+							)
+						}
+					}
+
+				}
+
+			})
+			fmt.Printf("\n\n%#v", cqlFile)
 		}
 
 		os.Exit(0)

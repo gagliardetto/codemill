@@ -8,7 +8,7 @@ import (
 func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 	// TODO
 	Sfln(
-		"Generating go for model %q into %q dir",
+		"Generating go code for model %q into %q dir",
 		mdl.Name,
 		dir,
 	)

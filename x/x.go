@@ -7,6 +7,7 @@ import (
 	"sort"
 	"sync"
 
+	cqljen "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
 	. "github.com/gagliardetto/utilz"
 )
@@ -390,6 +391,14 @@ func (mtd *XMethod) NormalizeName() error {
 func (mtd *XMethod) Validate() error {
 	if err := mtd.NormalizeName(); err != nil {
 		return err
+	}
+
+	{ // Validate selectors:
+		for _, sel := range mtd.Selectors {
+			if err := sel.Validate(); err != nil {
+				return err
+			}
+		}
 	}
 	return nil
 }
@@ -949,6 +958,7 @@ func InitRouter(conf *ModelKindRouterConfig) (*ModelKindRouter, error) {
 // Router returns the initialized global ModelKind router.
 // Panics if the router hasn't been created yet.
 func Router() *ModelKindRouter {
+	// TODO: add once
 	if globalModelKindRouter == nil {
 		panic("model kind router not initialized; you need to call InitRouter first.")
 	}
@@ -1020,6 +1030,18 @@ func (rt *ModelKindRouter) GetHandler(kind ModelKind) ModelKindHandler {
 }
 
 //
+func (rt *ModelKindRouter) MustGetHandler(kind ModelKind) ModelKindHandler {
+	handler := rt.GetHandler(kind)
+	if handler == nil {
+		Fatalf(
+			"handler not found for kind %s",
+			kind,
+		)
+	}
+	return handler
+}
+
+//
 func (rt *ModelKindRouter) HasHandler(kind ModelKind) bool {
 	rt.mu.RLock()
 	defer rt.mu.RUnlock()
@@ -1040,11 +1062,14 @@ func (rt *ModelKindRouter) ListModelKinds() []ModelKind {
 	return kinds
 }
 
-//
-func (rt *ModelKindRouter) Handle(kind ModelKind, mdl *XModel) error {
+// TODO: remove HandleAll.
+func (rt *ModelKindRouter) HandleAll(kind ModelKind, mdl *XModel, moduleGroup *cqljen.Group) error {
 	handler := rt.GetHandler(kind)
 	if handler == nil {
-		return errors.New("handler not found")
+		return fmt.Errorf(
+			"handler not found for kind %s",
+			kind,
+		)
 	}
 
 	{
@@ -1063,7 +1088,7 @@ func (rt *ModelKindRouter) Handle(kind ModelKind, mdl *XModel) error {
 
 	{
 		// Generate codeql:
-		err := handler.GenerateCodeQL(dir, mdl)
+		err := handler.GenerateCodeQL(mdl, moduleGroup)
 		if err != nil {
 			return fmt.Errorf(
 				"error while generating codeql code for model %q (kind=%s): %s",
@@ -1093,7 +1118,7 @@ type ModelKindHandler interface {
 	// GenerateCodeQL generates codeql code based on the
 	// provided model; the generated code is then saved in the
 	// destination dir.
-	GenerateCodeQL(dir string, mdl *XModel) error
+	GenerateCodeQL(mdl *XModel, moduleGroup *cqljen.Group) error
 
 	// GenerateGo generates go code based on the
 	// provided model; the generated code is then saved in the
@@ -1258,11 +1283,12 @@ func FindFieldByName(st *feparser.FEStruct, name string) *feparser.FEField {
 	return nil
 }
 
-type LenInterface interface {
+type FuncInterface interface {
 	Len() int
+	GetRelativeElement(index int) (feparser.Element, interface{}, int, error)
 }
 
-func FindFuncByID(fe *feparser.FEPackage, id string) LenInterface {
+func FindFuncByID(fe *feparser.FEPackage, id string) FuncInterface {
 	for _, st := range fe.Funcs {
 		if st.ID == id {
 			return st
