@@ -9,7 +9,7 @@ require (
 	github.com/gagliardetto/feparser v0.0.0-20201128214458-733cb7fc6c87
 	github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814
 	github.com/gagliardetto/request v0.8.0
-	github.com/gagliardetto/utilz v0.0.0-20200824151221-3a6131a12868
+	github.com/gagliardetto/utilz v0.0.0-20201202165520-1d1c91544038
 	github.com/gin-gonic/gin v1.6.3
 	github.com/golang/protobuf v1.4.2 // indirect
 	github.com/miekg/dns v1.1.34 // indirect
