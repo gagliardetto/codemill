@@ -1,6 +1,9 @@
 package untrustedflowsource
 
 import (
+	"errors"
+	"fmt"
+
 	"github.com/gagliardetto/codemill/x"
 	. "github.com/gagliardetto/utilz"
 )
@@ -31,6 +34,15 @@ func (han *Handler) Validate(mdl *x.XModel) error {
 		"Validating model %q",
 		mdl.Name,
 	)
+	if len(mdl.Methods) != 1 {
+		return fmt.Errorf("wrong number of methods; expected 1, got %v", len(mdl.Methods))
+	}
+	if !mdl.Methods[0].IsSelf {
+		return errors.New("First method is not self")
+	}
+	if mdl.Methods[0].Name != MethodSelf {
+		return fmt.Errorf("First method is not called %s", MethodSelf)
+	}
 	return nil
 }
 
@@ -41,6 +53,47 @@ func (han *Handler) GenerateCodeQL(dir string, mdl *x.XModel) error {
 		mdl.Name,
 		dir,
 	)
+	if err := mdl.Validate(); err != nil {
+		return err
+	}
+	if err := han.Validate(mdl); err != nil {
+		return err
+	}
+
+	// Assuming the validation has already been done:
+	self := mdl.Methods[0]
+
+	if len(self.Selectors) == 0 {
+		Infof("No selectors found for %q method.", self.Name)
+		return nil
+	}
+
+	for _, selector := range self.Selectors {
+		// TODO: do validation here?
+		if err := selector.Validate(); err != nil {
+			return err
+		}
+		rawQual := selector.Qualifier
+
+		switch qual := rawQual.(type) {
+		case *x.FuncQualifier:
+			if err := qual.Validate(); err != nil {
+				return err
+			}
+		case *x.StructQualifier:
+			if err := qual.Validate(); err != nil {
+				return err
+			}
+		case *x.TypeQualifier:
+			if err := qual.Validate(); err != nil {
+				return err
+			}
+		default:
+			panic(Sf("Unknown type: %T", rawQual))
+		}
+
+	}
+
 	return nil
 }
 func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
