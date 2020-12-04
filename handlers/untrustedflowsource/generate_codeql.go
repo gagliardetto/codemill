@@ -741,6 +741,54 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 					}
 				}
 
+				b2typ, err := GroupTypeSelectors(self)
+				if err != nil {
+					Fatalf("Error while GroupFuncSelectors: %s", err)
+				}
+				if (len(b2fe) > 0 || len(b2tm) > 0 || len(b2itm) > 0 || len(b2st) > 0) && len(b2typ) > 0 {
+					metGr.Or()
+				}
+				{
+					index := 0
+					for pathVersion, typeQualifiers := range b2typ {
+						if index > 0 {
+							metGr.Or()
+						}
+						index++
+
+						metGr.Comment("Types of package: " + pathVersion)
+						metGr.Exists(
+							List(
+								Qual("DataFlow", "ReadNode").Id("read"),
+								Id("ValueEntity").Id("v"),
+							),
+							DoGroup(func(st *Group) {
+								for qualIndex, qual := range typeQualifiers {
+									if qualIndex > 0 {
+										st.Or()
+									}
+									source := x.GetCachedSource(qual.Path, qual.Version)
+									if source == nil {
+										Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+									}
+									// Find the type:
+									typ := x.FindTypeByID(source, qual.ID)
+									if typ == nil {
+										Fatalf("Type not found: %q", qual.ID)
+									}
+
+									st.Id("v").Dot("getType").Call().Dot("hasQualifiedName").Call(Lit(qual.Path), Lit(typ.TypeName))
+								}
+							}),
+							DoGroup(func(st *Group) {
+								st.Id("read").Dot("reads").Call(Id("v"))
+								st.And()
+								st.This().Eq().Id("read")
+							}),
+						)
+					}
+				}
+
 			})
 		})
 
