@@ -310,14 +310,14 @@ type (
 
 // Struct selectors:
 type (
-	// For each BasicQualifier, there is a map of StructIDs (TypeID); for each TypeID, there is an array of fields.
-	BasicToStructIDToFields map[x.BasicQualifier][]*x.StructQualifier
+	// For each PathVersionClean, there is a map of StructIDs (TypeID); for each TypeID, there is an array of fields.
+	BasicToStructIDToFields map[string][]*x.StructQualifier
 )
 
 // Type selectors:
 type (
-	// For each BasicQualifier, there is an array of types.
-	BasicToTypes map[x.BasicQualifier][]*x.TypeQualifier
+	// For each PathVersionClean, there is an array of types.
+	BasicToTypes map[string][]*x.TypeQualifier
 )
 
 func GroupFuncSelectors(mtd *x.XMethod) (b2fe BasicToFEFuncs, b2tm BasicToTypeIDToMethods, b2itm BasicToInterfaceIDToMethods, err error) {
@@ -404,11 +404,13 @@ func GroupStructSelectors(mtd *x.XMethod) (b2st BasicToStructIDToFields, err err
 			}
 		}
 		basic := *(sel.GetBasicQualifier())
-		if _, ok := b2st[basic]; !ok {
-			b2st[basic] = make([]*x.StructQualifier, 0)
+		pathVersion := basic.PathVersionClean()
+
+		if _, ok := b2st[pathVersion]; !ok {
+			b2st[pathVersion] = make([]*x.StructQualifier, 0)
 		}
 
-		b2st[basic] = append(b2st[basic], qual)
+		b2st[pathVersion] = append(b2st[pathVersion], qual)
 
 	}
 
@@ -434,11 +436,13 @@ func GroupTypeSelectors(mtd *x.XMethod) (b2typ BasicToTypes, err error) {
 			return nil, fmt.Errorf("Type not found: %q", qual.ID)
 		}
 		basic := *(sel.GetBasicQualifier())
-		if _, ok := b2typ[basic]; !ok {
-			b2typ[basic] = make([]*x.TypeQualifier, 0)
+		pathVersion := basic.PathVersionClean()
+
+		if _, ok := b2typ[pathVersion]; !ok {
+			b2typ[pathVersion] = make([]*x.TypeQualifier, 0)
 		}
 
-		b2typ[basic] = append(b2typ[basic], qual)
+		b2typ[pathVersion] = append(b2typ[pathVersion], qual)
 
 	}
 
@@ -516,7 +520,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 					}
 				}
 
-				if len(b2tm) > 0 {
+				if len(b2fe) > 0 && len(b2tm) > 0 {
 					metGr.Or()
 				}
 
@@ -599,7 +603,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 					}
 				}
 
-				if len(b2itm) > 0 {
+				if (len(b2fe) > 0 || len(b2tm) > 0) && len(b2itm) > 0 {
 					metGr.Or()
 				}
 
@@ -678,6 +682,61 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 								}
 							}),
 							nil,
+						)
+					}
+				}
+
+				b2st, err := GroupStructSelectors(self)
+				if err != nil {
+					Fatalf("Error while GroupFuncSelectors: %s", err)
+				}
+				if (len(b2fe) > 0 || len(b2tm) > 0 || len(b2itm) > 0) && len(b2st) > 0 {
+					metGr.Or()
+				}
+				{
+					index := 0
+					for pathVersion, structQualifiers := range b2st {
+						if index > 0 {
+							metGr.Or()
+						}
+						index++
+
+						metGr.Comment("Structs of package: " + pathVersion)
+						metGr.Exists(
+							List(
+								Qual("DataFlow", "Field").Id("fld"),
+							),
+							DoGroup(func(st *Group) {
+								for qualIndex, qual := range structQualifiers {
+									if qualIndex > 0 {
+										st.Or()
+									}
+									source := x.GetCachedSource(qual.Path, qual.Version)
+									if source == nil {
+										Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+									}
+									// Make sure that the struct exist:
+									str := x.FindStructByID(source, qual.ID)
+									if str == nil {
+										Fatalf("Struct not found: %q", qual.ID)
+									}
+
+									fieldNames := make([]string, 0)
+									for fieldName := range qual.Fields {
+										//fld := x.FindFieldByName(str, fieldName)
+										//if fld == nil {
+										//	Fatalf("Field not found: %q", fieldName)
+										//}
+										// TODO: add a comment on the type for each field?
+										fieldNames = append(fieldNames, fieldName)
+									}
+									st.Comment("Struct: " + str.TypeName)
+									st.Id("fld").Dot("hasQualifiedName").Call(Lit(qual.Path), Lit(str.TypeName), StringsToSetOrLit(fieldNames...))
+
+								}
+
+							}),
+							This().Eq().Id("fld").Dot("getARead").Call(),
 						)
 					}
 				}
