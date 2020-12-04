@@ -1414,6 +1414,29 @@ func GroupFuncSelectors(mtd *XMethod) (b2fe BasicToFEFuncs, b2tm BasicToTypeIDTo
 
 	}
 
+	{
+		// Sort arrays:
+		for pathVersion := range b2fe {
+			sort.Slice(b2fe[pathVersion], func(i, j int) bool {
+				return b2fe[pathVersion][i].ID < b2fe[pathVersion][j].ID
+			})
+		}
+		for pathVersion, m := range b2tm {
+			for typeID := range m {
+				sort.Slice(b2tm[pathVersion][typeID], func(i, j int) bool {
+					return b2tm[pathVersion][typeID][i].ID < b2tm[pathVersion][typeID][j].ID
+				})
+			}
+		}
+		for pathVersion, m := range b2itm {
+			for typeID := range m {
+				sort.Slice(b2itm[pathVersion][typeID], func(i, j int) bool {
+					return b2itm[pathVersion][typeID][i].ID < b2itm[pathVersion][typeID][j].ID
+				})
+			}
+		}
+	}
+
 	return
 }
 func GroupStructSelectors(mtd *XMethod) (b2st BasicToStructIDToFields, err error) {
@@ -1445,7 +1468,14 @@ func GroupStructSelectors(mtd *XMethod) (b2st BasicToStructIDToFields, err error
 		}
 
 		b2st[pathVersion] = append(b2st[pathVersion], qual)
+	}
 
+	{ // Sort arrays:
+		for pathVersion := range b2st {
+			sort.Slice(b2st[pathVersion], func(i, j int) bool {
+				return b2st[pathVersion][i].ID < b2st[pathVersion][j].ID
+			})
+		}
 	}
 
 	return
@@ -1478,6 +1508,14 @@ func GroupTypeSelectors(mtd *XMethod) (b2typ BasicToTypes, err error) {
 
 		b2typ[pathVersion] = append(b2typ[pathVersion], qual)
 
+	}
+
+	{ // Sort arrays:
+		for pathVersion := range b2typ {
+			sort.Slice(b2typ[pathVersion], func(i, j int) bool {
+				return b2typ[pathVersion][i].ID < b2typ[pathVersion][j].ID
+			})
+		}
 	}
 
 	return

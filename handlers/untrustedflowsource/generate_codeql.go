@@ -1,6 +1,8 @@
 package untrustedflowsource
 
 import (
+	"sort"
+
 	"github.com/gagliardetto/codemill/x"
 	. "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
@@ -328,7 +330,16 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 
 				{
 					index := 0
-					for pathVersion, cont := range b2fe {
+					keys := func(v x.BasicToFEFuncs) []string {
+						res := make([]string, 0)
+						for key := range v {
+							res = append(res, key)
+						}
+						sort.Strings(res)
+						return res
+					}(b2fe)
+					for _, pathVersion := range keys {
+						cont := b2fe[pathVersion]
 						if index > 0 {
 							metGr.Or()
 						}
@@ -372,7 +383,16 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 
 				{
 					index := 0
-					for pathVersion, cont := range b2tm {
+					keys := func(v x.BasicToTypeIDToMethods) []string {
+						res := make([]string, 0)
+						for key := range v {
+							res = append(res, key)
+						}
+						sort.Strings(res)
+						return res
+					}(b2tm)
+					for _, pathVersion := range keys {
+						cont := b2tm[pathVersion]
 						if index > 0 {
 							metGr.Or()
 						}
@@ -386,7 +406,16 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 							),
 							DoGroup(func(st *Group) {
 								typeIndex := 0
-								for receiverTypeID, methodQualifiers := range cont {
+								keys := func(v map[string][]*x.FuncQualifier) []string {
+									res := make([]string, 0)
+									for key := range v {
+										res = append(res, key)
+									}
+									sort.Strings(res)
+									return res
+								}(cont)
+								for _, receiverTypeID := range keys {
+									methodQualifiers := cont[receiverTypeID]
 									if typeIndex > 0 {
 										st.Or()
 									}
@@ -455,7 +484,16 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 
 				{
 					index := 0
-					for pathVersion, cont := range b2itm {
+					keys := func(v x.BasicToInterfaceIDToMethods) []string {
+						res := make([]string, 0)
+						for key := range v {
+							res = append(res, key)
+						}
+						sort.Strings(res)
+						return res
+					}(b2itm)
+					for _, pathVersion := range keys {
+						cont := b2itm[pathVersion]
 						if index > 0 {
 							metGr.Or()
 						}
@@ -469,7 +507,16 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 							),
 							DoGroup(func(st *Group) {
 								typeIndex := 0
-								for receiverTypeID, methodQualifiers := range cont {
+								keys := func(v map[string][]*x.FuncQualifier) []string {
+									res := make([]string, 0)
+									for key := range v {
+										res = append(res, key)
+									}
+									sort.Strings(res)
+									return res
+								}(cont)
+								for _, receiverTypeID := range keys {
+									methodQualifiers := cont[receiverTypeID]
 									if typeIndex > 0 {
 										st.Or()
 									}
@@ -541,7 +588,16 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 				}
 				{
 					index := 0
-					for pathVersion, structQualifiers := range b2st {
+					keys := func(v x.BasicToStructIDToFields) []string {
+						res := make([]string, 0)
+						for key := range v {
+							res = append(res, key)
+						}
+						sort.Strings(res)
+						return res
+					}(b2st)
+					for _, pathVersion := range keys {
+						structQualifiers := b2st[pathVersion]
 						if index > 0 {
 							metGr.Or()
 						}
@@ -596,7 +652,16 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 				}
 				{
 					index := 0
-					for pathVersion, typeQualifiers := range b2typ {
+					keys := func(v x.BasicToTypes) []string {
+						res := make([]string, 0)
+						for key := range v {
+							res = append(res, key)
+						}
+						sort.Strings(res)
+						return res
+					}(b2typ)
+					for _, pathVersion := range keys {
+						typeQualifiers := b2typ[pathVersion]
 						if index > 0 {
 							metGr.Or()
 						}
