@@ -732,6 +732,10 @@ func (qual *BasicQualifier) Is(path string, version string, id string) bool {
 	return true
 }
 
+func (qual *BasicQualifier) IsEqual(q *BasicQualifier) bool {
+	return qual.Is(q.Path, q.Version, q.ID)
+}
+
 // Validate validates a FuncQualifier.
 func (qual *FuncQualifier) Validate() error {
 	if err := qual.BasicQualifier.Validate(); err != nil {
