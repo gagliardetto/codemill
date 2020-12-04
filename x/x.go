@@ -1077,58 +1077,6 @@ func (rt *ModelKindRouter) ListModelKinds() []ModelKind {
 	return kinds
 }
 
-// TODO: remove HandleAll.
-func (rt *ModelKindRouter) HandleAll(kind ModelKind, mdl *XModel, moduleGroup *cqljen.Group) error {
-	handler := rt.GetHandler(kind)
-	if handler == nil {
-		return fmt.Errorf(
-			"handler not found for kind %s",
-			kind,
-		)
-	}
-
-	{
-		// Validate provided model:
-		err := handler.Validate(mdl)
-		if err != nil {
-			return fmt.Errorf(
-				"error while validating model %q (kind=%s): %s",
-				mdl.Name,
-				kind,
-				err,
-			)
-		}
-	}
-	dir := rt.conf.Dir
-
-	{
-		// Generate codeql:
-		err := handler.GenerateCodeQL(mdl, moduleGroup)
-		if err != nil {
-			return fmt.Errorf(
-				"error while generating codeql code for model %q (kind=%s): %s",
-				mdl.Name,
-				kind,
-				err,
-			)
-		}
-	}
-	{
-		// Generate go:
-		err := handler.GenerateGo(dir, mdl)
-		if err != nil {
-			return fmt.Errorf(
-				"error while generating go code for model %q (kind=%s): %s",
-				mdl.Name,
-				kind,
-				err,
-			)
-		}
-	}
-
-	return nil
-}
-
 type ModelKindHandler interface {
 	// GenerateCodeQL generates codeql code based on the
 	// provided model; the generated code is then saved in the
