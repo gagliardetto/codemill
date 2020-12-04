@@ -11,7 +11,6 @@ import (
 
 func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 	return han.GenerateGroupedCodeQL(mdl, moduleGroup)
-	// TODO
 	Sfln(
 		"Generating codeql code for model %q",
 		mdl.Name,
@@ -297,7 +296,6 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 }
 
 func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) error {
-	// TODO
 	Sfln(
 		"Generating grouped codeql code for model %q",
 		mdl.Name,
