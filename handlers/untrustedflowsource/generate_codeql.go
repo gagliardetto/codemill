@@ -1,8 +1,6 @@
 package untrustedflowsource
 
 import (
-	"fmt"
-
 	"github.com/gagliardetto/codemill/x"
 	. "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
@@ -296,158 +294,6 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 	return nil
 }
 
-// Func selectors:
-type (
-	// For each PathVersionClean, there is an array of FEFunc.
-	BasicToFEFuncs map[string][]*x.FuncQualifier
-
-	// For each PathVersionClean, there is a map of TypeIDs; for each TypeID, there is an array of methods.
-	BasicToTypeIDToMethods map[string]map[string][]*x.FuncQualifier
-
-	// For each PathVersionClean, there is a map of InterfaceIDs (TypeID); for each TypeID, there is an array of methods.
-	BasicToInterfaceIDToMethods map[string]map[string][]*x.FuncQualifier
-)
-
-// Struct selectors:
-type (
-	// For each PathVersionClean, there is a map of StructIDs (TypeID); for each TypeID, there is an array of fields.
-	BasicToStructIDToFields map[string][]*x.StructQualifier
-)
-
-// Type selectors:
-type (
-	// For each PathVersionClean, there is an array of types.
-	BasicToTypes map[string][]*x.TypeQualifier
-)
-
-func GroupFuncSelectors(mtd *x.XMethod) (b2fe BasicToFEFuncs, b2tm BasicToTypeIDToMethods, b2itm BasicToInterfaceIDToMethods, err error) {
-
-	b2fe = make(BasicToFEFuncs)
-	b2tm = make(BasicToTypeIDToMethods)
-	b2itm = make(BasicToInterfaceIDToMethods)
-
-	for _, sel := range mtd.Selectors {
-		qual := sel.GetFuncQualifier()
-		if qual == nil {
-			continue
-		}
-
-		source := x.GetCachedSource(qual.Path, qual.Version)
-		if source == nil {
-			return nil, nil, nil, fmt.Errorf("Source not found: %s@%s", qual.Path, qual.Version)
-		}
-		// Find the func/type-method/interface-method:
-		fn := x.FindFuncByID(source, qual.ID)
-		if fn == nil {
-			return nil, nil, nil, fmt.Errorf("Func not found: %q", qual.ID)
-		}
-		basic := *(sel.GetBasicQualifier())
-		pathVersion := basic.PathVersionClean()
-
-		switch thing := fn.(type) {
-		case *feparser.FEFunc:
-			{
-				if _, ok := b2fe[pathVersion]; !ok {
-					b2fe[pathVersion] = make([]*x.FuncQualifier, 0)
-				}
-				b2fe[pathVersion] = append(b2fe[pathVersion], qual)
-			}
-		case *feparser.FETypeMethod:
-			{
-				if _, ok := b2tm[pathVersion]; !ok {
-					b2tm[pathVersion] = make(map[string][]*x.FuncQualifier)
-				}
-				typeID := thing.Receiver.ID
-				if _, ok := b2tm[pathVersion][typeID]; !ok {
-					b2tm[pathVersion][typeID] = make([]*x.FuncQualifier, 0)
-				}
-				b2tm[pathVersion][typeID] = append(b2tm[pathVersion][typeID], qual)
-			}
-		case *feparser.FEInterfaceMethod:
-			{
-				if _, ok := b2itm[pathVersion]; !ok {
-					b2itm[pathVersion] = make(map[string][]*x.FuncQualifier)
-				}
-				interfaceID := thing.Receiver.ID
-				if _, ok := b2itm[pathVersion][interfaceID]; !ok {
-					b2itm[pathVersion][interfaceID] = make([]*x.FuncQualifier, 0)
-				}
-				b2itm[pathVersion][interfaceID] = append(b2itm[pathVersion][interfaceID], qual)
-			}
-		default:
-			panic(Sf("Unknown type: %T", fn))
-		}
-
-	}
-
-	return
-}
-func GroupStructSelectors(mtd *x.XMethod) (b2st BasicToStructIDToFields, err error) {
-
-	b2st = make(BasicToStructIDToFields)
-
-	for _, sel := range mtd.Selectors {
-		qual := sel.GetStructQualifier()
-		if qual == nil {
-			continue
-		}
-
-		{ // TODO: is this useful?
-			source := x.GetCachedSource(qual.Path, qual.Version)
-			if source == nil {
-				return nil, fmt.Errorf("Source not found: %s@%s", qual.Path, qual.Version)
-			}
-			// Find the struct:
-			st := x.FindStructByID(source, qual.ID)
-			if st == nil {
-				return nil, fmt.Errorf("Struct not found: %q", qual.ID)
-			}
-		}
-		basic := *(sel.GetBasicQualifier())
-		pathVersion := basic.PathVersionClean()
-
-		if _, ok := b2st[pathVersion]; !ok {
-			b2st[pathVersion] = make([]*x.StructQualifier, 0)
-		}
-
-		b2st[pathVersion] = append(b2st[pathVersion], qual)
-
-	}
-
-	return
-}
-func GroupTypeSelectors(mtd *x.XMethod) (b2typ BasicToTypes, err error) {
-
-	b2typ = make(BasicToTypes)
-
-	for _, sel := range mtd.Selectors {
-		qual := sel.GetTypeQualifier()
-		if qual == nil {
-			continue
-		}
-
-		source := x.GetCachedSource(qual.Path, qual.Version)
-		if source == nil {
-			return nil, fmt.Errorf("Source not found: %s@%s", qual.Path, qual.Version)
-		}
-		// Find the type:
-		typ := x.FindTypeByID(source, qual.ID)
-		if typ == nil {
-			return nil, fmt.Errorf("Type not found: %q", qual.ID)
-		}
-		basic := *(sel.GetBasicQualifier())
-		pathVersion := basic.PathVersionClean()
-
-		if _, ok := b2typ[pathVersion]; !ok {
-			b2typ[pathVersion] = make([]*x.TypeQualifier, 0)
-		}
-
-		b2typ[pathVersion] = append(b2typ[pathVersion], qual)
-
-	}
-
-	return
-}
 func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 	// TODO
 	Sfln(
@@ -475,7 +321,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 	moduleGroup.Private().Class().Id(className).Extends().List(Qual("UntrustedFlowSource", "Range")).
 		BlockFunc(func(classGr *Group) {
 			classGr.Id(className).Call().BlockFunc(func(metGr *Group) {
-				b2fe, b2tm, b2itm, err := GroupFuncSelectors(self)
+				b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(self)
 				if err != nil {
 					Fatalf("Error while GroupFuncSelectors: %s", err)
 				}
@@ -500,7 +346,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 										st.Or()
 									}
 
-									fn, codeElements := getFuncQualifierCodeElements(funcQual)
+									fn, codeElements := GetFuncQualifierCodeElements(funcQual)
 									thing := fn.(*feparser.FEFunc)
 									st.Comment("Function: " + thing.Signature)
 									st.Id("fn").Dot("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name)).
@@ -572,7 +418,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 													parMethods.Or()
 												}
 
-												fn, codeElements := getFuncQualifierCodeElements(methodQual)
+												fn, codeElements := GetFuncQualifierCodeElements(methodQual)
 												thing := fn.(*feparser.FETypeMethod)
 
 												parMethods.ParensFunc(
@@ -655,7 +501,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 													parMethods.Or()
 												}
 
-												fn, codeElements := getFuncQualifierCodeElements(methodQual)
+												fn, codeElements := GetFuncQualifierCodeElements(methodQual)
 												thing := fn.(*feparser.FEInterfaceMethod)
 
 												parMethods.ParensFunc(
@@ -686,7 +532,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 					}
 				}
 
-				b2st, err := GroupStructSelectors(self)
+				b2st, err := x.GroupStructSelectors(self)
 				if err != nil {
 					Fatalf("Error while GroupFuncSelectors: %s", err)
 				}
@@ -741,7 +587,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 					}
 				}
 
-				b2typ, err := GroupTypeSelectors(self)
+				b2typ, err := x.GroupTypeSelectors(self)
 				if err != nil {
 					Fatalf("Error while GroupFuncSelectors: %s", err)
 				}
@@ -794,7 +640,7 @@ func (han *Handler) GenerateGroupedCodeQL(mdl *x.XModel, moduleGroup *Group) err
 
 	return nil
 }
-func getFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Code) {
+func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Code) {
 
 	source := x.GetCachedSource(qual.Path, qual.Version)
 	if source == nil {
