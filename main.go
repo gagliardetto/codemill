@@ -55,7 +55,7 @@ func main() {
 	if specFilepath == "" {
 		// specFilepath is ALWAYS necessary,
 		// either for knowing from where to load a spec,
-		// or where to save a created one.
+		// or where to save a new created one.
 		panic("--spec flag not provided")
 	}
 
@@ -69,10 +69,12 @@ func main() {
 			Dir: outDir,
 		})
 		if err != nil {
-			panic(fmt.Errorf("error while intializing ModelKind router: %s", err))
+			panic(fmt.Errorf("error while initializing ModelKind router: %s", err))
 		}
+
+		// Register ModelKind handlers:
 		{
-			// Register ModelKind handlers:
+			// untrustedflowsource handler:
 			rt.RegisterHandler(untrustedflowsource.Kind, &untrustedflowsource.Handler{})
 		}
 	}
