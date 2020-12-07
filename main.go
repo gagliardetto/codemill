@@ -148,17 +148,21 @@ func main() {
 			cqlFile := cqljen.NewFile()
 			cqlFile.HeaderDoc("This is a doc.")
 			cqlFile.HeaderDoc("Second line of doc.")
+
+			// TODO: allow handlers to add imports.
 			cqlFile.Import("go")
 			cqlFile.Import("DataFlow::PathGraph")
 
 			cqlFile.Doc("Doc about this module.")
-			cqlFile.Private().Module().Id("SomeFramework").BlockFunc(func(modGr *cqljen.Group) {
+			cqlFile.Private().Module().Id(feparser.FormatCodeQlName(globalSpec.Name)).BlockFunc(func(moduleGroup *cqljen.Group) {
 				for _, mdl := range globalSpec.Models {
 
 					handler := x.Router().MustGetHandler(mdl.Kind)
 					{
-						// Generate codeql:
-						err := handler.GenerateCodeQL(mdl, modGr)
+						// Generate codeql with the handler of the ModelKind;
+						// the handler might generate predicates, classes, etc.
+						// all within the module block.
+						err := handler.GenerateCodeQL(mdl, moduleGroup)
 						if err != nil {
 							Fatalf(
 								"error while generating codeql code for model %q (kind=%s): %s",
