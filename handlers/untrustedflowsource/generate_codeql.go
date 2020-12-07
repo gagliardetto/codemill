@@ -31,7 +31,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 
 	className := mdl.Name
 
-	moduleGroup.Doc("Doc about class")
+	moduleGroup.Doc("Doc about class.")
 	moduleGroup.Private().Class().Id(className).Extends().List(Qual("UntrustedFlowSource", "Range")).
 		BlockFunc(func(classGr *Group) {
 			classGr.Id(className).Call().BlockFunc(func(metGr *Group) {
