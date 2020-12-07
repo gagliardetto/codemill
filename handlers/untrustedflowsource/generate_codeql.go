@@ -61,8 +61,11 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 						metGr.Exists(
 							List(
 								Id("Function").Id("fn"),
-								Qual("DataFlow", "CallNode").Id("call"),
+								Id("FunctionOutput").Id("outp"),
 							),
+							DoGroup(func(st *Group) {
+								st.This().Eq().Id("outp").Dot("getExitNode").Call(Id("fn").Dot("getACall").Call())
+							}),
 							DoGroup(func(st *Group) {
 								for i, funcQual := range cont {
 									if i > 0 {
@@ -81,9 +84,6 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 											),
 										)
 								}
-							}),
-							DoGroup(func(st *Group) {
-								st.Id("call").Eq().Id("fn").Dot("getACall").Call()
 							}),
 						)
 					}
@@ -113,9 +113,13 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 						metGr.Comment("Methods on types of package: " + pathVersion)
 						metGr.Exists(
 							List(
-								Qual("DataFlow", "MethodCallNode").Id("call"),
 								String().Id("methodName"),
+								Id("Method").Id("mtd"),
+								Id("FunctionOutput").Id("outp"),
 							),
+							DoGroup(func(st *Group) {
+								st.This().Eq().Id("outp").Dot("getExitNode").Call(Id("mtd").Dot("getACall").Call())
+							}),
 							DoGroup(func(st *Group) {
 								typeIndex := 0
 								keys := func(v map[string][]*x.FuncQualifier) []string {
@@ -145,7 +149,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 									}
 
 									st.Commentf("Receiver: %s", typ.TypeString)
-									st.Id("call").Dot("getTarget").Call().Dot("hasQualifiedName").Call(
+									st.Id("mtd").Dot("hasQualifiedName").Call(
 										Lit(methodQualifiers[0].Path),
 										Lit(typ.TypeName),
 										Id("methodName"),
@@ -185,7 +189,6 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 									)
 								}
 							}),
-							nil,
 						)
 					}
 				}
@@ -214,9 +217,13 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 						metGr.Comment("Interfaces of package: " + pathVersion)
 						metGr.Exists(
 							List(
-								Qual("DataFlow", "MethodCallNode").Id("call"),
 								String().Id("methodName"),
+								Id("Method").Id("mtd"),
+								Id("FunctionOutput").Id("outp"),
 							),
+							DoGroup(func(st *Group) {
+								st.This().Eq().Id("outp").Dot("getExitNode").Call(Id("mtd").Dot("getACall").Call())
+							}),
 							DoGroup(func(st *Group) {
 								typeIndex := 0
 								keys := func(v map[string][]*x.FuncQualifier) []string {
@@ -246,7 +253,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 									}
 
 									st.Commentf("Interface: %s", typ.TypeString)
-									st.Id("call").Dot("getTarget").Call().Dot("implements").Call(
+									st.Id("mtd").Dot("implements").Call(
 										Lit(methodQualifiers[0].Path),
 										Lit(typ.TypeName),
 										Id("methodName"),
@@ -286,14 +293,13 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 									)
 								}
 							}),
-							nil,
 						)
 					}
 				}
 
 				b2st, err := x.GroupStructSelectors(self)
 				if err != nil {
-					Fatalf("Error while GroupFuncSelectors: %s", err)
+					Fatalf("Error while GroupStructSelectors: %s", err)
 				}
 				if (len(b2fe) > 0 || len(b2tm) > 0 || len(b2itm) > 0) && len(b2st) > 0 {
 					metGr.Or()
@@ -357,7 +363,7 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 
 				b2typ, err := x.GroupTypeSelectors(self)
 				if err != nil {
-					Fatalf("Error while GroupFuncSelectors: %s", err)
+					Fatalf("Error while GroupTypeSelectors: %s", err)
 				}
 				if (len(b2fe) > 0 || len(b2tm) > 0 || len(b2itm) > 0 || len(b2st) > 0) && len(b2typ) > 0 {
 					metGr.Or()
@@ -447,7 +453,7 @@ PosLoop:
 		case feparser.ElementReceiver:
 			{
 				codeElements = append(codeElements,
-					This().Eq().Id("call").Dot("getReceiver").Call(),
+					Id("outp").Dot("isReceiver").Call(),
 				)
 			}
 		case feparser.ElementParameter:
@@ -467,15 +473,45 @@ PosLoop:
 		}
 	}
 
+	_, lenParams, lenResults := fn.Lengths()
+
 	if len(parameterIndexes) > 0 {
-		codeElements = append(codeElements,
-			This().Eq().Qual("FunctionOutput", "parameter").Call(IntsToSetOrLit(parameterIndexes...)).Dot("getExitNode").Call(Id("call")),
-		)
+		// If all parameters are selected,
+		// and there is more than one possible parameters,
+		// then use a `_`:
+		if lenParams == len(parameterIndexes) && lenParams > 1 {
+			codeElements = append(codeElements,
+				Id("outp").Dot("isParameter").Call(DontCare()),
+			)
+		} else {
+			// If multiple parameters are selected (but not all)
+			// then use a set, or just the index.
+			// If there is only one possible parameter and it is selected,
+			// then `isParameter(0)` is used.
+			codeElements = append(codeElements,
+				Id("outp").Dot("isParameter").Call(IntsToSetOrLit(parameterIndexes...)),
+			)
+		}
 	}
 	if len(resultIndexes) > 0 {
-		codeElements = append(codeElements,
-			This().Eq().Id("call").Dot("getResult").Call(IntsToSetOrLit(resultIndexes...)),
-		)
+		if lenResults == len(resultIndexes) {
+			if lenResults == 1 {
+				// If there is only one result possible, then use a `isResult()`:
+				codeElements = append(codeElements,
+					Id("outp").Dot("isResult").Call(),
+				)
+			} else {
+				// If there are more than one results,
+				// and all results are selected, then use a `_`:
+				codeElements = append(codeElements,
+					Id("outp").Dot("isResult").Call(DontCare()),
+				)
+			}
+		} else {
+			codeElements = append(codeElements,
+				Id("outp").Dot("isResult").Call(IntsToSetOrLit(resultIndexes...)),
+			)
+		}
 	}
 
 	return fn, codeElements

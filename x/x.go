@@ -1247,7 +1247,12 @@ func FindFieldByName(st *feparser.FEStruct, name string) *feparser.FEField {
 }
 
 type FuncInterface interface {
+	// Len returns the total length of the function
+	// (summing receiver if present, parameters, and results).
 	Len() int
+	// Lengths returns the lengths of the function, i.e.
+	// receiver (1 or 0), parameters, and results.
+	Lengths() (int, int, int)
 	GetRelativeElement(index int) (feparser.Element, interface{}, int, error)
 }
 
