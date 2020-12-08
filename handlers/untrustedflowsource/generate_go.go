@@ -222,13 +222,28 @@ PosLoop:
 
 				// Decide parameter names, and declare variables that will be passed as those parameters:
 				if len(parameterIndexes) > 0 {
-					for i := range paramZeroVals {
-						isConsidered := IntSliceContains(parameterIndexes, i)
-						if isConsidered {
-							varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
-							fe.Parameters[i].VarName = varName
-							gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), false)
+					if len(parameterIndexes) == 1 {
+						// If only one parameter is considered, the use a single var declaration:
+						i := parameterIndexes[0]
+						varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
+						fe.Parameters[i].VarName = varName
+						gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), fe.GetOriginal().Variadic)
+					} else {
+						// If multiple parameters are considered, the use a group var declaration:
+						varTypes := make([]*VarNameAndType, 0)
+						for i := range paramZeroVals {
+							isConsidered := IntSliceContains(parameterIndexes, i)
+							if isConsidered {
+								varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
+								fe.Parameters[i].VarName = varName
+
+								varTypes = append(varTypes, &VarNameAndType{
+									Name: varName,
+									Type: fe.Parameters[i].GetOriginal().GetType(),
+								})
+							}
 						}
+						ComposeGroupVarDeclaration(file, groupCase, varTypes, fe.GetOriginal().Variadic)
 					}
 				}
 
@@ -300,4 +315,33 @@ PosLoop:
 	)
 
 	return fn, codeElements
+}
+
+type VarNameAndType struct {
+	Name string
+	Type types.Type
+}
+
+// declare:
+// `var (
+//		name1 Type1
+//		name2 Type2
+// 	)`
+func ComposeGroupVarDeclaration(file *File, group *Group, decs []*VarNameAndType, isVariadic bool) {
+
+	stat := newStatement()
+
+	for _, dec := range decs {
+		if isVariadic {
+			gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), dec.Type.(*types.Slice).Elem())
+		} else {
+			gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), dec.Type)
+		}
+		stat.Line()
+	}
+
+	group.Var().Parens(stat)
+}
+func newStatement() *Statement {
+	return &Statement{}
 }
