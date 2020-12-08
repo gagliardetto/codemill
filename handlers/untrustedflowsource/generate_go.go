@@ -4,11 +4,14 @@ import (
 	"fmt"
 	"go/types"
 	"sort"
+	"strings"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gagliardetto/codebox/gogentools"
+	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/x"
 	"github.com/gagliardetto/feparser"
+	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
 	. "github.com/gagliardetto/utilz"
 )
 
@@ -96,29 +99,30 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 		}
 		return res
 	}()
-	_ = allPathVersions
 
 	pathVersionToNames := make(map[string][]string)
-	{
+	for _, pathVersion := range allPathVersions {
+		file := NewTestFile(true)
+		codez := make([]Code, 0)
+
 		b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(self)
 		if err != nil {
 			Fatalf("Error while GroupFuncSelectors: %s", err)
 		}
 
+		b2st, err := x.GroupStructSelectors(self)
+		if err != nil {
+			Fatalf("Error while GroupStructSelectors: %s", err)
+		}
+
+		b2typ, err := x.GroupTypeSelectors(self)
+		if err != nil {
+			Fatalf("Error while GroupTypeSelectors: %s", err)
+		}
+
 		{
-			keys := func(v x.BasicToFEFuncs) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(b2fe)
-			for _, pathVersion := range keys {
-				cont := b2fe[pathVersion]
-
-				file := NewTestFile(true)
-
+			cont, ok := b2fe[pathVersion]
+			if ok {
 				code := BlockFunc(
 					func(groupCase *Group) {
 
@@ -135,24 +139,17 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 
 						}
 					})
-
-				file.Func().Id("main").Params().Add(code)
-				fmt.Printf("%#v", file)
+				codez = append(codez,
+					Comment("Untrusted flow sources from functions.").
+						Line().
+						Add(code),
+				)
 			}
 		}
-
 		{
-			keys := func(v x.BasicToTypeIDToMethods) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(b2tm)
-			for _, pathVersion := range keys {
-				cont := b2tm[pathVersion]
-
+			cont, ok := b2tm[pathVersion]
+			if ok {
+				codezTypeMethods := make([]Code, 0)
 				keys := func(v map[string][]*x.FuncQualifier) []string {
 					res := make([]string, 0)
 					for key := range v {
@@ -178,7 +175,6 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 						Fatalf("Type not found: %q", qual.ID)
 					}
 
-					file := NewTestFile(true)
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
 					pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
 
@@ -195,25 +191,24 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 
 							}
 						})
-
-					file.Func().Id("main").Params().Add(code)
-					fmt.Printf("%#v", file)
+					codezTypeMethods = append(codezTypeMethods,
+						Commentf("Untrusted flow sources from method calls on %s.", typ.QualifiedName).
+							Line().
+							Add(code),
+					)
 				}
+				codez = append(codez,
+					Comment("Untrusted flow sources from method calls.").
+						Line().
+						Block(codezTypeMethods...),
+				)
 			}
 		}
 
 		{
-			keys := func(v x.BasicToInterfaceIDToMethods) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(b2itm)
-			for _, pathVersion := range keys {
-				cont := b2itm[pathVersion]
-
+			cont, ok := b2itm[pathVersion]
+			if ok {
+				codezIfaceMethods := make([]Code, 0)
 				keys := func(v map[string][]*x.FuncQualifier) []string {
 					res := make([]string, 0)
 					for key := range v {
@@ -256,133 +251,135 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 
 							}
 						})
-
-					file.Func().Id("main").Params().Add(code)
-					fmt.Printf("%#v", file)
+					codezIfaceMethods = append(codezIfaceMethods,
+						Commentf("Untrusted flow sources from method calls on %s interface.", typ.QualifiedName).
+							Line().
+							Add(code),
+					)
 				}
+
+				codez = append(codez,
+					Comment("Untrusted flow sources from interface method calls.").
+						Line().
+						Block(codezIfaceMethods...),
+				)
 			}
 		}
 
 		{
-			b2st, err := x.GroupStructSelectors(self)
-			if err != nil {
-				Fatalf("Error while GroupStructSelectors: %s", err)
-			}
-			{
-				keys := func(v x.BasicToStructIDToFields) []string {
-					res := make([]string, 0)
-					for key := range v {
-						res = append(res, key)
-					}
-					sort.Strings(res)
-					return res
-				}(b2st)
-				for _, pathVersion := range keys {
-					structQualifiers := b2st[pathVersion]
+			structQualifiers, ok := b2st[pathVersion]
+			if ok {
+				code := BlockFunc(
+					func(groupCase *Group) {
 
-					file := NewTestFile(true)
+						for _, qual := range structQualifiers {
+							source := x.GetCachedSource(qual.Path, qual.Version)
+							if source == nil {
+								Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+							}
+							// Make sure that the struct exist:
+							str := x.FindStructByID(source, qual.ID)
+							if str == nil {
+								Fatalf("Struct not found: %q", qual.ID)
+							}
+							gogentools.ImportPackage(file, str.PkgPath, str.PkgName)
+							pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], str.TypeName)
 
-					code := BlockFunc(
-						func(groupCase *Group) {
+							fieldNames := make([]string, 0)
+							for fieldName := range qual.Fields {
+								fieldNames = append(fieldNames, fieldName)
+							}
 
-							for _, qual := range structQualifiers {
-								source := x.GetCachedSource(qual.Path, qual.Version)
-								if source == nil {
-									Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-								}
-								// Make sure that the struct exist:
-								str := x.FindStructByID(source, qual.ID)
-								if str == nil {
-									Fatalf("Struct not found: %q", qual.ID)
-								}
-								gogentools.ImportPackage(file, str.PkgPath, str.PkgName)
-								pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], str.TypeName)
+							groupCase.Commentf("Untrusted flow sources from %s struct fields.", str.QualifiedName)
+							groupCase.BlockFunc(
+								func(subGroup *Group) {
+									structVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("struct", str.TypeName))
+									subGroup.Id(structVarName).Op(":=").New(Qual(str.PkgPath, str.TypeName))
 
-								fieldNames := make([]string, 0)
-								for fieldName := range qual.Fields {
-									fieldNames = append(fieldNames, fieldName)
-								}
-
-								groupCase.BlockFunc(
-									func(subGroup *Group) {
-										structVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("struct", str.TypeName))
-										subGroup.Id(structVarName).Op(":=").New(Qual(str.PkgPath, str.TypeName))
-
-										if len(fieldNames) > 0 {
-											if len(fieldNames) == 1 {
-												fieldName := fieldNames[0]
-												subGroup.Id("sink").Call(Id(structVarName).Dot(fieldName))
-											} else {
-												codeParamIDs := make([]Code, 0)
-												for _, fieldName := range fieldNames {
-													codeParamIDs = append(codeParamIDs, Id(structVarName).Dot(fieldName).Op(",").Line())
-												}
-												subGroup.Id("sink").Call(Line().Add(codeParamIDs...).Line())
+									if len(fieldNames) > 0 {
+										if len(fieldNames) == 1 {
+											fieldName := fieldNames[0]
+											subGroup.Id("sink").Call(Id(structVarName).Dot(fieldName))
+										} else {
+											codeParamIDs := make([]Code, 0)
+											for _, fieldName := range fieldNames {
+												codeParamIDs = append(codeParamIDs, Id(structVarName).Dot(fieldName).Op(",").Line())
 											}
+											subGroup.Id("sink").Call(Line().Add(codeParamIDs...).Line())
 										}
-									})
+									}
+								})
 
-							}
-						})
+						}
+					})
 
-					file.Func().Id("main").Params().Add(code)
-					fmt.Printf("%#v", file)
-				}
+				codez = append(codez,
+					Comment("Untrusted flow sources from struct fields.").
+						Line().
+						Add(code),
+				)
 			}
 		}
 
 		{
-			b2typ, err := x.GroupTypeSelectors(self)
-			if err != nil {
-				Fatalf("Error while GroupTypeSelectors: %s", err)
-			}
-			{
-				keys := func(v x.BasicToTypes) []string {
-					res := make([]string, 0)
-					for key := range v {
-						res = append(res, key)
-					}
-					sort.Strings(res)
-					return res
-				}(b2typ)
-				for _, pathVersion := range keys {
-					typeQualifiers := b2typ[pathVersion]
-
-					file := NewTestFile(true)
-					code := BlockFunc(
-						func(groupCase *Group) {
-							for _, qual := range typeQualifiers {
-								source := x.GetCachedSource(qual.Path, qual.Version)
-								if source == nil {
-									Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-								}
-								// Find the type:
-								typ := x.FindTypeByID(source, qual.ID)
-								if typ == nil {
-									Fatalf("Type not found: %q", qual.ID)
-								}
-								gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-								pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
-
-								typeVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("type", typ.TypeName))
-
-								groupCase.BlockFunc(
-									func(subGroup *Group) {
-										subGroup.Var().Id(typeVarName).Qual(typ.PkgPath, typ.TypeName)
-										subGroup.Id("sink").Call(Id(typeVarName))
-									})
+			typeQualifiers, ok := b2typ[pathVersion]
+			if ok {
+				code := BlockFunc(
+					func(groupCase *Group) {
+						for _, qual := range typeQualifiers {
+							source := x.GetCachedSource(qual.Path, qual.Version)
+							if source == nil {
+								Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
 							}
-						})
-					file.Func().Id("main").Params().Add(code)
-					fmt.Printf("%#v", file)
-				}
+							// Find the type:
+							typ := x.FindTypeByID(source, qual.ID)
+							if typ == nil {
+								Fatalf("Type not found: %q", qual.ID)
+							}
+							gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+							pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
+
+							typeVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("type", typ.TypeName))
+
+							groupCase.BlockFunc(
+								func(subGroup *Group) {
+									subGroup.Var().Id(typeVarName).Qual(typ.PkgPath, typ.TypeName)
+									subGroup.Id("sink").Call(Id(typeVarName))
+								})
+						}
+					})
+				codez = append(codez,
+					Comment("Untrusted flow sources from types.").
+						Line().
+						Add(code),
+				)
 			}
 		}
+
+		{
+			path, _ := scanner.SplitPathVersion(pathVersion)
+			isStd := search.IsStandardImportPath(path)
+			if !isStd {
+				// If path is NOT part of standard library, then add the depstubber generation comment.
+				file.Comment(generateDepstubberComment(path, pathVersionToNames[pathVersion])).Line()
+			}
+
+			file.Comment("Untrusted flow sources from package: " + pathVersion)
+		}
+		file.Func().Id("main").Params().Block(codez...)
+		fmt.Printf("%#v", file)
 	}
 
-	// TODO: use to stub dependencies?
 	Q(pathVersionToNames)
 	return nil
+}
+
+func generateDepstubberComment(path string, names []string) string {
+	return Sf(
+		"//go:generate depstubber -vendor %s %s",
+		path,
+		strings.Join(names, ","),
+	)
 }
 
 // Comments adds comments to a Group (if enabled), and returns the group.
@@ -478,7 +475,7 @@ PosLoop:
 					fe.Parameters[i].VarName = varName
 					gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), fe.GetOriginal().Variadic)
 				} else {
-					// If multiple parameters are considered, the use a group var declaration:
+					// If multiple parameters are considered, then use a group var declaration:
 					varTypes := make([]*VarNameAndType, 0)
 					for i := range paramZeroVals {
 						isConsidered := IntSliceContains(parameterIndexes, i)
