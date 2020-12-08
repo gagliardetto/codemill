@@ -88,6 +88,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 		return nil
 	}
 
+	pathVersionToNames := make(map[string][]string)
 	{
 		b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(self)
 		if err != nil {
@@ -116,6 +117,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 							thing := fn.(*feparser.FEFunc)
 
 							gogentools.ImportPackage(file, thing.PkgPath, thing.PkgName)
+							pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], thing.Name)
 
 							groupCase.Comment(thing.Signature)
 							_, codeElements := GoGetFuncQualifierCodeElements(file, funcQual)
@@ -167,6 +169,8 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 					}
 
 					file := NewTestFile(true)
+					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+					pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -174,8 +178,6 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 							for _, methodQual := range methodQualifiers {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FETypeMethod)
-
-								gogentools.ImportPackage(file, thing.Receiver.PkgPath, thing.Receiver.PkgName)
 
 								groupCase.Comment(thing.Func.Signature)
 								_, codeElements := GoGetFuncQualifierCodeElements(file, methodQual)
@@ -228,6 +230,8 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 					}
 
 					file := NewTestFile(true)
+					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+					pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -235,8 +239,6 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 							for _, methodQual := range methodQualifiers {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FEInterfaceMethod)
-
-								gogentools.ImportPackage(file, thing.Receiver.PkgPath, thing.Receiver.PkgName)
 
 								groupCase.Comment(thing.Func.Signature)
 								_, codeElements := GoGetFuncQualifierCodeElements(file, methodQual)
@@ -284,14 +286,10 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 									Fatalf("Struct not found: %q", qual.ID)
 								}
 								gogentools.ImportPackage(file, str.PkgPath, str.PkgName)
+								pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], str.TypeName)
 
 								fieldNames := make([]string, 0)
 								for fieldName := range qual.Fields {
-									//fld := x.FindFieldByName(str, fieldName)
-									//if fld == nil {
-									//	Fatalf("Field not found: %q", fieldName)
-									//}
-									// TODO: add a comment on the type for each field?
 									fieldNames = append(fieldNames, fieldName)
 								}
 
@@ -354,6 +352,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 									Fatalf("Type not found: %q", qual.ID)
 								}
 								gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+								pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
 
 								typeVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("type", typ.TypeName))
 
@@ -371,6 +370,8 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 		}
 	}
 
+	// TODO: use to stub dependencies?
+	Q(pathVersionToNames)
 	return nil
 }
 
