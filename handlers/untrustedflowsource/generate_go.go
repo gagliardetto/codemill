@@ -89,7 +89,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 	}
 
 	{
-		b2fe, _, _, err := x.GroupFuncSelectors(self)
+		b2fe, b2tm, _, err := x.GroupFuncSelectors(self)
 		if err != nil {
 			Fatalf("Error while GroupFuncSelectors: %s", err)
 		}
@@ -129,6 +129,69 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 			}
 		}
 
+		{
+			keys := func(v x.BasicToTypeIDToMethods) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(b2tm)
+			for _, pathVersion := range keys {
+				cont := b2tm[pathVersion]
+
+				keys := func(v map[string][]*x.FuncQualifier) []string {
+					res := make([]string, 0)
+					for key := range v {
+						res = append(res, key)
+					}
+					sort.Strings(res)
+					return res
+				}(cont)
+				for _, receiverTypeID := range keys {
+					methodQualifiers := cont[receiverTypeID]
+					if len(methodQualifiers) == 0 {
+						continue
+					}
+
+					qual := methodQualifiers[0]
+					source := x.GetCachedSource(qual.Path, qual.Version)
+					if source == nil {
+						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+					}
+					// Find receiver type:
+					typ := x.FindTypeByID(source, receiverTypeID)
+					if typ == nil {
+						Fatalf("Type not found: %q", qual.ID)
+					}
+
+					file := NewTestFile(true)
+
+					code := BlockFunc(
+						func(groupCase *Group) {
+
+							for _, methodQual := range methodQualifiers {
+								fn := x.GetFuncQualifier(methodQual)
+								thing := fn.(*feparser.FETypeMethod)
+
+								gogentools.ImportPackage(file, thing.Receiver.PkgPath, thing.Receiver.PkgName)
+
+								groupCase.Comment(thing.Func.Signature)
+								_, codeElements := GoGetFuncQualifierCodeElements(file, methodQual)
+								groupCase.Add(codeElements...)
+
+							}
+						})
+
+					file.Func().Id("main").Params().Add(code)
+					fmt.Printf("%#v", file)
+
+				}
+
+			}
+		}
+
 	}
 
 	return nil
@@ -158,13 +221,14 @@ func GoGetFuncQualifierCodeElements(file *File, qual *x.FuncQualifier) (x.FuncIn
 	codeElements := make([]Code, 0)
 	parameterIndexes := make([]int, 0)
 	resultIndexes := make([]int, 0)
+	considerReceiver := false
 PosLoop:
 	for pos, ok := range qual.Pos {
 		if !ok {
 			continue PosLoop
 		}
 
-		elTyp, el, relIndex, err := fn.GetRelativeElement(pos)
+		elTyp, _, relIndex, err := fn.GetRelativeElement(pos)
 		if err != nil {
 			Fatalf("Error while GetRelativeElement: %s", err)
 		}
@@ -172,17 +236,7 @@ PosLoop:
 		switch elTyp {
 		case feparser.ElementReceiver:
 			{
-				code := BlockFunc(
-					func(groupCase *Group) {
-						source := el.(*feparser.FEReceiver)
-						varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("source", source.TypeName))
-
-						gogentools.ComposeVarDeclaration(file, groupCase, varName, source.GetOriginal(), false)
-					})
-
-				codeElements = append(codeElements,
-					code,
-				)
+				considerReceiver = true
 			}
 		case feparser.ElementParameter:
 			{
@@ -201,11 +255,29 @@ PosLoop:
 		}
 	}
 
-	fe := fn.(*feparser.FEFunc)
-	tpFun := fe.GetOriginal().GetType().(*types.Signature)
-
 	lenReceiver, _, _ := fn.Lengths()
 	hasReceiver := lenReceiver == 1
+
+	var fe *feparser.FEFunc
+	var tpFun *types.Signature
+	var receiver *feparser.FEReceiver
+	if hasReceiver {
+
+		switch thing := fn.(type) {
+		case *feparser.FETypeMethod:
+			fe = thing.Func
+			tpFun = fe.GetOriginal().GetType().(*types.Signature)
+			receiver = thing.Receiver
+		case *feparser.FEInterfaceMethod:
+			fe = thing.Func
+			tpFun = fe.GetOriginal().GetType().(*types.Signature)
+			receiver = thing.Receiver
+		}
+
+	} else {
+		fe = fn.(*feparser.FEFunc)
+		tpFun = fe.GetOriginal().GetType().(*types.Signature)
+	}
 
 	// Compile array of the zero values of the function parameters:
 	paramZeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.GetOriginal().IsVariadic())
@@ -216,97 +288,107 @@ PosLoop:
 	code := BlockFunc(
 		func(groupCase *Group) {
 
+			codeCallFunc := Null()
 			if hasReceiver {
-				// TODO
+				varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("receiver", receiver.TypeName))
+				receiver.VarName = varName
+				gogentools.ComposeVarDeclaration(file, groupCase, varName, receiver.GetOriginal(), fe.GetOriginal().Variadic)
+				codeCallFunc = Id(varName).Dot(fe.Name)
 			} else {
+				codeCallFunc = Qual(fe.PkgPath, fe.Name)
+			}
 
-				// Decide parameter names, and declare variables that will be passed as those parameters:
-				if len(parameterIndexes) > 0 {
-					if len(parameterIndexes) == 1 {
-						// If only one parameter is considered, the use a single var declaration:
-						i := parameterIndexes[0]
-						varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
-						fe.Parameters[i].VarName = varName
-						gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), fe.GetOriginal().Variadic)
-					} else {
-						// If multiple parameters are considered, the use a group var declaration:
-						varTypes := make([]*VarNameAndType, 0)
-						for i := range paramZeroVals {
-							isConsidered := IntSliceContains(parameterIndexes, i)
-							if isConsidered {
-								varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
-								fe.Parameters[i].VarName = varName
-
-								varTypes = append(varTypes, &VarNameAndType{
-									Name: varName,
-									Type: fe.Parameters[i].GetOriginal().GetType(),
-								})
-							}
-						}
-						ComposeGroupVarDeclaration(file, groupCase, varTypes, fe.GetOriginal().Variadic)
-					}
-				}
-
-				codeResultList := Null()
-				if len(resultIndexes) > 0 {
-					for i := range resultZeroVals {
-						isConsidered := IntSliceContains(resultIndexes, i)
-						if isConsidered {
-							varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("result", fe.Results[i].VarName))
-							fe.Results[i].VarName = varName
-						}
-					}
-
-					codeResultList = ListFunc(func(resGroup *Group) {
-						for i, v := range fe.Results {
-							isConsidered := IntSliceContains(resultIndexes, i)
-							if isConsidered {
-								resGroup.Id(v.VarName)
-							} else {
-								resGroup.Id("_")
-							}
-						}
-					}).Op(":=")
-				}
-
-				// Call the function, passing the considered parameters:
-				groupCase.Add(codeResultList).Qual(fe.PkgPath, fe.Name).CallFunc(
-					func(call *Group) {
-						for i, zero := range paramZeroVals {
-							isConsidered := IntSliceContains(parameterIndexes, i)
-							if isConsidered {
-								call.Id(fe.Parameters[i].VarName)
-							} else {
-								call.Add(zero)
-							}
-						}
-					},
-				)
-
-				// Sink the parameters:
-				if len(parameterIndexes) > 0 {
-					codeParamIDs := make([]Code, 0)
+			// Decide parameter names, and declare variables that will be passed as those parameters:
+			if len(parameterIndexes) > 0 {
+				if len(parameterIndexes) == 1 {
+					// If only one parameter is considered, the use a single var declaration:
+					i := parameterIndexes[0]
+					varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
+					fe.Parameters[i].VarName = varName
+					gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), fe.GetOriginal().Variadic)
+				} else {
+					// If multiple parameters are considered, the use a group var declaration:
+					varTypes := make([]*VarNameAndType, 0)
 					for i := range paramZeroVals {
 						isConsidered := IntSliceContains(parameterIndexes, i)
 						if isConsidered {
-							codeParamIDs = append(codeParamIDs, Id(fe.Parameters[i].VarName).Op(",").Line())
+							varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
+							fe.Parameters[i].VarName = varName
+
+							varTypes = append(varTypes, &VarNameAndType{
+								Name: varName,
+								Type: fe.Parameters[i].GetOriginal().GetType(),
+							})
 						}
 					}
-					groupCase.Comment("Sink parameters:")
-					groupCase.Id("sink").Call(Line().Add(codeParamIDs...).Line())
+					ComposeGroupVarDeclaration(file, groupCase, varTypes, fe.GetOriginal().Variadic)
 				}
-				// Sink the results:
-				if len(resultIndexes) > 0 {
-					codeResultIDs := make([]Code, 0)
-					for i := range resultZeroVals {
+			}
+
+			codeResultList := Null()
+			if len(resultIndexes) > 0 {
+				for i := range resultZeroVals {
+					isConsidered := IntSliceContains(resultIndexes, i)
+					if isConsidered {
+						varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("result", fe.Results[i].VarName))
+						fe.Results[i].VarName = varName
+					}
+				}
+
+				codeResultList = ListFunc(func(resGroup *Group) {
+					for i, v := range fe.Results {
 						isConsidered := IntSliceContains(resultIndexes, i)
 						if isConsidered {
-							codeResultIDs = append(codeResultIDs, Id(fe.Results[i].VarName).Op(",").Line())
+							resGroup.Id(v.VarName)
+						} else {
+							resGroup.Id("_")
 						}
 					}
-					groupCase.Comment("Sink results:")
-					groupCase.Id("sink").Call(Line().Add(codeResultIDs...).Line())
+				}).Op(":=")
+			}
+
+			// Call the function, passing the considered parameters:
+			groupCase.Add(codeResultList).Add(codeCallFunc).CallFunc(
+				func(call *Group) {
+					for i, zero := range paramZeroVals {
+						isConsidered := IntSliceContains(parameterIndexes, i)
+						if isConsidered {
+							call.Id(fe.Parameters[i].VarName)
+						} else {
+							call.Add(zero)
+						}
+					}
+				},
+			)
+
+			// Sink the parameters:
+			if len(parameterIndexes) > 0 {
+				codeParamIDs := make([]Code, 0)
+				for i := range paramZeroVals {
+					isConsidered := IntSliceContains(parameterIndexes, i)
+					if isConsidered {
+						codeParamIDs = append(codeParamIDs, Id(fe.Parameters[i].VarName).Op(",").Line())
+					}
 				}
+				groupCase.Comment("Sink parameters:")
+				groupCase.Id("sink").Call(Line().Add(codeParamIDs...).Line())
+			}
+			// Sink the results:
+			if len(resultIndexes) > 0 {
+				codeResultIDs := make([]Code, 0)
+				for i := range resultZeroVals {
+					isConsidered := IntSliceContains(resultIndexes, i)
+					if isConsidered {
+						codeResultIDs = append(codeResultIDs, Id(fe.Results[i].VarName).Op(",").Line())
+					}
+				}
+				groupCase.Comment("Sink results:")
+				groupCase.Id("sink").Call(Line().Add(codeResultIDs...).Line())
+			}
+			// Sink the receiver:
+			if considerReceiver {
+				groupCase.Comment("Sink the receiver:")
+				groupCase.Id("sink").Call(Id(receiver.VarName))
 			}
 		})
 
