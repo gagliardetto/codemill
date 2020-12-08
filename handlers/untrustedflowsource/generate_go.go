@@ -273,10 +273,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 					code := BlockFunc(
 						func(groupCase *Group) {
 
-							for structIndex, qual := range structQualifiers {
-								if structIndex > 0 {
-									groupCase.Line()
-								}
+							for _, qual := range structQualifiers {
 								source := x.GetCachedSource(qual.Path, qual.Version)
 								if source == nil {
 									Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
@@ -346,10 +343,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 					file := NewTestFile(true)
 					code := BlockFunc(
 						func(groupCase *Group) {
-							for qualIndex, qual := range typeQualifiers {
-								if qualIndex > 0 {
-									groupCase.Line()
-								}
+							for _, qual := range typeQualifiers {
 								source := x.GetCachedSource(qual.Path, qual.Version)
 								if source == nil {
 									Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
@@ -375,7 +369,6 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 				}
 			}
 		}
-
 	}
 
 	return nil
