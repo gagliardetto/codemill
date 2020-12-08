@@ -89,7 +89,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 	}
 
 	{
-		b2fe, b2tm, _, err := x.GroupFuncSelectors(self)
+		b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(self)
 		if err != nil {
 			Fatalf("Error while GroupFuncSelectors: %s", err)
 		}
@@ -186,9 +186,68 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 
 					file.Func().Id("main").Params().Add(code)
 					fmt.Printf("%#v", file)
-
 				}
+			}
+		}
 
+		{
+			keys := func(v x.BasicToInterfaceIDToMethods) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(b2itm)
+			for _, pathVersion := range keys {
+				cont := b2itm[pathVersion]
+
+				keys := func(v map[string][]*x.FuncQualifier) []string {
+					res := make([]string, 0)
+					for key := range v {
+						res = append(res, key)
+					}
+					sort.Strings(res)
+					return res
+				}(cont)
+				for _, receiverTypeID := range keys {
+					methodQualifiers := cont[receiverTypeID]
+					if len(methodQualifiers) == 0 {
+						continue
+					}
+
+					qual := methodQualifiers[0]
+					source := x.GetCachedSource(qual.Path, qual.Version)
+					if source == nil {
+						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+					}
+					// Find receiver type:
+					typ := x.FindTypeByID(source, receiverTypeID)
+					if typ == nil {
+						Fatalf("Type not found: %q", qual.ID)
+					}
+
+					file := NewTestFile(true)
+
+					code := BlockFunc(
+						func(groupCase *Group) {
+
+							for _, methodQual := range methodQualifiers {
+								fn := x.GetFuncQualifier(methodQual)
+								thing := fn.(*feparser.FEInterfaceMethod)
+
+								gogentools.ImportPackage(file, thing.Receiver.PkgPath, thing.Receiver.PkgName)
+
+								groupCase.Comment(thing.Func.Signature)
+								_, codeElements := GoGetFuncQualifierCodeElements(file, methodQual)
+								groupCase.Add(codeElements...)
+
+							}
+						})
+
+					file.Func().Id("main").Params().Add(code)
+					fmt.Printf("%#v", file)
+				}
 			}
 		}
 
@@ -258,26 +317,9 @@ PosLoop:
 	lenReceiver, _, _ := fn.Lengths()
 	hasReceiver := lenReceiver == 1
 
-	var fe *feparser.FEFunc
-	var tpFun *types.Signature
-	var receiver *feparser.FEReceiver
-	if hasReceiver {
-
-		switch thing := fn.(type) {
-		case *feparser.FETypeMethod:
-			fe = thing.Func
-			tpFun = fe.GetOriginal().GetType().(*types.Signature)
-			receiver = thing.Receiver
-		case *feparser.FEInterfaceMethod:
-			fe = thing.Func
-			tpFun = fe.GetOriginal().GetType().(*types.Signature)
-			receiver = thing.Receiver
-		}
-
-	} else {
-		fe = fn.(*feparser.FEFunc)
-		tpFun = fe.GetOriginal().GetType().(*types.Signature)
-	}
+	fe := fn.GetFunc()
+	tpFun := fe.GetOriginal().GetType().(*types.Signature)
+	receiver := fn.GetReceiver()
 
 	// Compile array of the zero values of the function parameters:
 	paramZeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.GetOriginal().IsVariadic())
@@ -363,31 +405,41 @@ PosLoop:
 
 			// Sink the parameters:
 			if len(parameterIndexes) > 0 {
-				codeParamIDs := make([]Code, 0)
-				for i := range paramZeroVals {
-					isConsidered := IntSliceContains(parameterIndexes, i)
-					if isConsidered {
-						codeParamIDs = append(codeParamIDs, Id(fe.Parameters[i].VarName).Op(",").Line())
+				//groupCase.Comment("Sink parameters:")
+				if len(parameterIndexes) == 1 {
+					i := parameterIndexes[0]
+					groupCase.Id("sink").Call(Id(fe.Parameters[i].VarName))
+				} else {
+					codeParamIDs := make([]Code, 0)
+					for i := range paramZeroVals {
+						isConsidered := IntSliceContains(parameterIndexes, i)
+						if isConsidered {
+							codeParamIDs = append(codeParamIDs, Id(fe.Parameters[i].VarName).Op(",").Line())
+						}
 					}
+					groupCase.Id("sink").Call(Line().Add(codeParamIDs...).Line())
 				}
-				groupCase.Comment("Sink parameters:")
-				groupCase.Id("sink").Call(Line().Add(codeParamIDs...).Line())
 			}
 			// Sink the results:
 			if len(resultIndexes) > 0 {
-				codeResultIDs := make([]Code, 0)
-				for i := range resultZeroVals {
-					isConsidered := IntSliceContains(resultIndexes, i)
-					if isConsidered {
-						codeResultIDs = append(codeResultIDs, Id(fe.Results[i].VarName).Op(",").Line())
+				//groupCase.Comment("Sink results:")
+				if len(resultIndexes) == 1 {
+					i := resultIndexes[0]
+					groupCase.Id("sink").Call(Id(fe.Results[i].VarName))
+				} else {
+					codeResultIDs := make([]Code, 0)
+					for i := range resultZeroVals {
+						isConsidered := IntSliceContains(resultIndexes, i)
+						if isConsidered {
+							codeResultIDs = append(codeResultIDs, Id(fe.Results[i].VarName).Op(",").Line())
+						}
 					}
+					groupCase.Id("sink").Call(Line().Add(codeResultIDs...).Line())
 				}
-				groupCase.Comment("Sink results:")
-				groupCase.Id("sink").Call(Line().Add(codeResultIDs...).Line())
 			}
 			// Sink the receiver:
 			if considerReceiver {
-				groupCase.Comment("Sink the receiver:")
+				//groupCase.Comment("Sink the receiver:")
 				groupCase.Id("sink").Call(Id(receiver.VarName))
 			}
 		})

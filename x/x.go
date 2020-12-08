@@ -1290,6 +1290,9 @@ type FuncInterface interface {
 	// receiver (1 or 0), parameters, and results.
 	Lengths() (int, int, int)
 	GetRelativeElement(index int) (feparser.Element, interface{}, int, error)
+
+	GetFunc() *feparser.FEFunc
+	GetReceiver() *feparser.FEReceiver
 }
 
 func FindFuncByID(fe *feparser.FEPackage, id string) FuncInterface {

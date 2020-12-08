@@ -71,6 +71,8 @@ github.com/gagliardetto/feparser v0.0.0-20201208153658-178b7135ef4f h1:UGuh69/zE
 github.com/gagliardetto/feparser v0.0.0-20201208153658-178b7135ef4f/go.mod h1:w6kwmLt6AZ5GbvBgUl7VteYO/LdPEB+MF20XLZWlkkE=
 github.com/gagliardetto/feparser v0.0.0-20201208154012-edd6ee714e38 h1:XRp5DiSoKcEi8r3VOVjtvmDy6+u5WqvtiD5pm+xwsKA=
 github.com/gagliardetto/feparser v0.0.0-20201208154012-edd6ee714e38/go.mod h1:w6kwmLt6AZ5GbvBgUl7VteYO/LdPEB+MF20XLZWlkkE=
+github.com/gagliardetto/feparser v0.0.0-20201208200312-ac95c642775b h1:SrvV7HPLqFMqGQ5g2bhrAQDxxhpS6vubWvqw5S6taaw=
+github.com/gagliardetto/feparser v0.0.0-20201208200312-ac95c642775b/go.mod h1:w6kwmLt6AZ5GbvBgUl7VteYO/LdPEB+MF20XLZWlkkE=
 github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814 h1:4YMGFsBLNFgdj78/H4ItwQb5f5+RAZcnwf/IfWjXryc=
 github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814/go.mod h1:q1shG4u1Y4/sCCDTmRCkaDqNwD1wCDdmhvAcou8ZmPA=
 github.com/gagliardetto/request v0.8.0 h1:WiKvZFJNbYZR1awzRdH5ABaO/SoKzK+Hfn/rVJUo3EM=
