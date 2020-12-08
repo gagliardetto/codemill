@@ -251,6 +251,77 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 			}
 		}
 
+		{
+			b2st, err := x.GroupStructSelectors(self)
+			if err != nil {
+				Fatalf("Error while GroupStructSelectors: %s", err)
+			}
+			{
+				keys := func(v x.BasicToStructIDToFields) []string {
+					res := make([]string, 0)
+					for key := range v {
+						res = append(res, key)
+					}
+					sort.Strings(res)
+					return res
+				}(b2st)
+				for _, pathVersion := range keys {
+					structQualifiers := b2st[pathVersion]
+
+					file := NewTestFile(true)
+
+					code := BlockFunc(
+						func(groupCase *Group) {
+
+							for structIndex, qual := range structQualifiers {
+								if structIndex > 0 {
+									groupCase.Line()
+								}
+								source := x.GetCachedSource(qual.Path, qual.Version)
+								if source == nil {
+									Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+								}
+								// Make sure that the struct exist:
+								str := x.FindStructByID(source, qual.ID)
+								if str == nil {
+									Fatalf("Struct not found: %q", qual.ID)
+								}
+
+								fieldNames := make([]string, 0)
+								for fieldName := range qual.Fields {
+									//fld := x.FindFieldByName(str, fieldName)
+									//if fld == nil {
+									//	Fatalf("Field not found: %q", fieldName)
+									//}
+									// TODO: add a comment on the type for each field?
+									fieldNames = append(fieldNames, fieldName)
+								}
+
+								structVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("struct", str.TypeName))
+								groupCase.Id(structVarName).Op(":=").New(Qual(str.PkgPath, str.TypeName))
+
+								if len(fieldNames) > 0 {
+									if len(fieldNames) == 1 {
+										fieldName := fieldNames[0]
+										groupCase.Id("sink").Call(Id(structVarName).Dot(fieldName))
+									} else {
+										codeParamIDs := make([]Code, 0)
+										for _, fieldName := range fieldNames {
+											codeParamIDs = append(codeParamIDs, Id(structVarName).Dot(fieldName).Op(",").Line())
+										}
+										groupCase.Id("sink").Call(Line().Add(codeParamIDs...).Line())
+									}
+								}
+
+							}
+						})
+
+					file.Func().Id("main").Params().Add(code)
+					fmt.Printf("%#v", file)
+				}
+			}
+		}
+
 	}
 
 	return nil
