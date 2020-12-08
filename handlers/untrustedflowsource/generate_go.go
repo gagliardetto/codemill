@@ -100,7 +100,8 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 		return res
 	}()
 
-	pathVersionToNames := make(map[string][]string)
+	pathVersionToTypeNames := make(map[string][]string)
+	pathVersionToFuncAndVarNames := make(map[string][]string)
 	for _, pathVersion := range allPathVersions {
 		file := NewTestFile(true)
 		codez := make([]Code, 0)
@@ -131,7 +132,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 							thing := fn.(*feparser.FEFunc)
 
 							gogentools.ImportPackage(file, thing.PkgPath, thing.PkgName)
-							pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], thing.Name)
+							pathVersionToFuncAndVarNames[pathVersion] = append(pathVersionToFuncAndVarNames[pathVersion], thing.Name)
 
 							groupCase.Comment(thing.Signature)
 							_, codeElements := GoGetFuncQualifierCodeElements(file, funcQual)
@@ -176,7 +177,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 					}
 
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
+					pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -236,7 +237,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 
 					file := NewTestFile(true)
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
+					pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -283,7 +284,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 								Fatalf("Struct not found: %q", qual.ID)
 							}
 							gogentools.ImportPackage(file, str.PkgPath, str.PkgName)
-							pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], str.TypeName)
+							pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], str.TypeName)
 
 							fieldNames := make([]string, 0)
 							for fieldName := range qual.Fields {
@@ -337,7 +338,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 								Fatalf("Type not found: %q", qual.ID)
 							}
 							gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-							pathVersionToNames[pathVersion] = append(pathVersionToNames[pathVersion], typ.TypeName)
+							pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], typ.TypeName)
 
 							typeVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("type", typ.TypeName))
 
@@ -361,7 +362,8 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 			isStd := search.IsStandardImportPath(path)
 			if !isStd {
 				// If path is NOT part of standard library, then add the depstubber generation comment.
-				file.Comment(generateDepstubberComment(path, pathVersionToNames[pathVersion])).Line()
+				file.Comment(generateDepstubberComment(path, pathVersionToTypeNames[pathVersion], pathVersionToFuncAndVarNames[pathVersion]))
+				file.Comment("//go:generate depstubber -write_module_txt").Line()
 			}
 
 			file.Comment("Untrusted flow sources from package: " + pathVersion)
@@ -370,15 +372,17 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 		fmt.Printf("%#v", file)
 	}
 
-	Q(pathVersionToNames)
+	Q(pathVersionToFuncAndVarNames)
+	Q(pathVersionToTypeNames)
 	return nil
 }
 
-func generateDepstubberComment(path string, names []string) string {
+func generateDepstubberComment(path string, typeNames []string, funcAndVarNames []string) string {
 	return Sf(
-		"//go:generate depstubber -vendor %s %s",
+		"//go:generate depstubber -vendor %s %s %s",
 		path,
-		strings.Join(names, ","),
+		strings.Join(typeNames, ","),
+		strings.Join(funcAndVarNames, ","),
 	)
 }
 

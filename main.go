@@ -783,7 +783,8 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 		if err != nil {
 			return nil, err
 		}
-		//defer os.RemoveAll(tmpDir)
+		// TODO: remove tmpDir or not?
+		defer os.RemoveAll(tmpDir)
 		tmpDir = MustAbs(tmpDir)
 		//Q(tmpDir)
 
