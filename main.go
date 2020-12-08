@@ -48,8 +48,10 @@ func main() {
 
 	var specFilepath string
 	var outDir string
+	var runServer bool
 	flag.StringVar(&specFilepath, "spec", "", "Path to spec file; file will be created if not already existing.")
 	flag.StringVar(&outDir, "dir", "", "Path to dir where to save generated files.")
+	flag.BoolVar(&runServer, "http", true, "Run http server.")
 	flag.Parse()
 
 	if specFilepath == "" {
@@ -177,6 +179,25 @@ func main() {
 
 			})
 			fmt.Printf("\n\n%#v", cqlFile)
+		}
+		{
+			// Generate Go code:
+			for _, mdl := range globalSpec.Models {
+
+				handler := x.Router().MustGetHandler(mdl.Kind)
+				{
+					err := handler.GenerateGo(outDir, mdl)
+					if err != nil {
+						Fatalf(
+							"error while generating Go code for model %q (kind=%s): %s",
+							mdl.Name,
+							mdl.Kind,
+							err,
+						)
+					}
+				}
+
+			}
 		}
 
 		os.Exit(0)
@@ -681,7 +702,9 @@ func main() {
 
 	})
 
-	r.Run("0.0.0.0:8070")
+	if runServer {
+		r.Run("0.0.0.0:8070")
+	}
 }
 
 func LoadPackage(path string, version string) (*feparser.FEPackage, error) {

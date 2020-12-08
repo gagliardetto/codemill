@@ -276,16 +276,7 @@ func (spec *XSpec) ListModules() []*BasicQualifier {
 	qualifiers := make([]*BasicQualifier, 0)
 
 	for _, mdl := range spec.Models {
-		for _, mtd := range mdl.Methods {
-			for _, sel := range mtd.Selectors {
-
-				qual := sel.GetBasicQualifier()
-				if qual != nil {
-					qualifiers = append(qualifiers, qual)
-				}
-
-			}
-		}
+		qualifiers = append(qualifiers, mdl.ListModules()...)
 	}
 
 	// Deduplicate:
@@ -378,6 +369,45 @@ func (mdl *XModel) Validate() error {
 	}
 
 	return nil
+}
+
+// HasMultiversion returns true if the provided array
+// of BasicQualifiers contains multiple qualifiers
+// with the same path.
+func HasMultiversion(pks []*BasicQualifier) bool {
+	paths := make([]string, 0)
+
+	for _, pk := range pks {
+		if SliceContains(paths, pk.Path) {
+			return true
+		}
+		paths = append(paths, pk.Path)
+	}
+
+	return false
+}
+
+// ListModules lists all the modules (unique) used inside the model.
+func (mdl *XModel) ListModules() []*BasicQualifier {
+	qualifiers := make([]*BasicQualifier, 0)
+
+	for _, mtd := range mdl.Methods {
+		for _, sel := range mtd.Selectors {
+
+			qual := sel.GetBasicQualifier()
+			if qual != nil {
+				qualifiers = append(qualifiers, qual)
+			}
+
+		}
+	}
+
+	// Deduplicate:
+	qualifiers = DeduplicateSlice(qualifiers, func(i int) string {
+		return FormatPathVersion(qualifiers[i].Path, qualifiers[i].Version)
+	}).([]*BasicQualifier)
+
+	return qualifiers
 }
 
 func (mtd *XMethod) NormalizeName() error {
@@ -1196,27 +1226,33 @@ func cleanupFEPackage(pkg *feparser.FEPackage) {
 		v.CodeQL = nil
 		for _, param := range v.Parameters {
 			param.Identity = nil
+			param.Is = nil
 		}
 		for _, res := range v.Results {
 			res.Identity = nil
+			res.Is = nil
 		}
 	}
 	for _, v := range pkg.TypeMethods {
 		v.CodeQL = nil
 		for _, param := range v.Func.Parameters {
 			param.Identity = nil
+			param.Is = nil
 		}
 		for _, res := range v.Func.Results {
 			res.Identity = nil
+			res.Is = nil
 		}
 	}
 	for _, v := range pkg.InterfaceMethods {
 		v.CodeQL = nil
 		for _, param := range v.Func.Parameters {
 			param.Identity = nil
+			param.Is = nil
 		}
 		for _, res := range v.Func.Results {
 			res.Identity = nil
+			res.Is = nil
 		}
 	}
 }
@@ -1472,4 +1508,17 @@ func GroupTypeSelectors(mtd *XMethod) (b2typ BasicToTypes, err error) {
 	}
 
 	return
+}
+
+func GetFuncQualifier(qual *FuncQualifier) FuncInterface {
+	source := GetCachedSource(qual.Path, qual.Version)
+	if source == nil {
+		Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+	}
+	// Find the func/type-method/interface-method:
+	fn := FindFuncByID(source, qual.ID)
+	if fn == nil {
+		Fatalf("Func not found: %q", qual.ID)
+	}
+	return fn
 }

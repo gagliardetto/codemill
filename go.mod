@@ -5,9 +5,10 @@ go 1.14
 require (
 	github.com/bitly/go-simplejson v0.5.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
-	github.com/gagliardetto/codebox v0.0.0-20201128201122-76830507a93b
+	github.com/dave/jennifer v1.4.1
+	github.com/gagliardetto/codebox v0.0.0-20201208154901-96c01e6d204a
 	github.com/gagliardetto/cqlgen v0.0.0-20201202210918-a8a454d2bb96
-	github.com/gagliardetto/feparser v0.0.0-20201207154652-afe5cb9d930a
+	github.com/gagliardetto/feparser v0.0.0-20201208154012-edd6ee714e38
 	github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814
 	github.com/gagliardetto/request v0.8.0
 	github.com/gagliardetto/utilz v0.0.0-20201202165520-1d1c91544038
