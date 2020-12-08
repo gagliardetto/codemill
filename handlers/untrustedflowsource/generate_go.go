@@ -88,6 +88,16 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 		return nil
 	}
 
+	allPathVersions := func() []string {
+		res := make([]string, 0)
+		mods := mdl.ListModules()
+		for _, mod := range mods {
+			res = append(res, mod.PathVersionClean())
+		}
+		return res
+	}()
+	_ = allPathVersions
+
 	pathVersionToNames := make(map[string][]string)
 	{
 		b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(self)
