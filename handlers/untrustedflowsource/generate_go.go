@@ -286,6 +286,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 								if str == nil {
 									Fatalf("Struct not found: %q", qual.ID)
 								}
+								gogentools.ImportPackage(file, str.PkgPath, str.PkgName)
 
 								fieldNames := make([]string, 0)
 								for fieldName := range qual.Fields {
@@ -297,25 +298,78 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 									fieldNames = append(fieldNames, fieldName)
 								}
 
-								structVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("struct", str.TypeName))
-								groupCase.Id(structVarName).Op(":=").New(Qual(str.PkgPath, str.TypeName))
+								groupCase.BlockFunc(
+									func(subGroup *Group) {
+										structVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("struct", str.TypeName))
+										subGroup.Id(structVarName).Op(":=").New(Qual(str.PkgPath, str.TypeName))
 
-								if len(fieldNames) > 0 {
-									if len(fieldNames) == 1 {
-										fieldName := fieldNames[0]
-										groupCase.Id("sink").Call(Id(structVarName).Dot(fieldName))
-									} else {
-										codeParamIDs := make([]Code, 0)
-										for _, fieldName := range fieldNames {
-											codeParamIDs = append(codeParamIDs, Id(structVarName).Dot(fieldName).Op(",").Line())
+										if len(fieldNames) > 0 {
+											if len(fieldNames) == 1 {
+												fieldName := fieldNames[0]
+												subGroup.Id("sink").Call(Id(structVarName).Dot(fieldName))
+											} else {
+												codeParamIDs := make([]Code, 0)
+												for _, fieldName := range fieldNames {
+													codeParamIDs = append(codeParamIDs, Id(structVarName).Dot(fieldName).Op(",").Line())
+												}
+												subGroup.Id("sink").Call(Line().Add(codeParamIDs...).Line())
+											}
 										}
-										groupCase.Id("sink").Call(Line().Add(codeParamIDs...).Line())
-									}
-								}
+									})
 
 							}
 						})
 
+					file.Func().Id("main").Params().Add(code)
+					fmt.Printf("%#v", file)
+				}
+			}
+		}
+
+		{
+			b2typ, err := x.GroupTypeSelectors(self)
+			if err != nil {
+				Fatalf("Error while GroupTypeSelectors: %s", err)
+			}
+			{
+				keys := func(v x.BasicToTypes) []string {
+					res := make([]string, 0)
+					for key := range v {
+						res = append(res, key)
+					}
+					sort.Strings(res)
+					return res
+				}(b2typ)
+				for _, pathVersion := range keys {
+					typeQualifiers := b2typ[pathVersion]
+
+					file := NewTestFile(true)
+					code := BlockFunc(
+						func(groupCase *Group) {
+							for qualIndex, qual := range typeQualifiers {
+								if qualIndex > 0 {
+									groupCase.Line()
+								}
+								source := x.GetCachedSource(qual.Path, qual.Version)
+								if source == nil {
+									Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+								}
+								// Find the type:
+								typ := x.FindTypeByID(source, qual.ID)
+								if typ == nil {
+									Fatalf("Type not found: %q", qual.ID)
+								}
+								gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+
+								typeVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("type", typ.TypeName))
+
+								groupCase.BlockFunc(
+									func(subGroup *Group) {
+										subGroup.Var().Id(typeVarName).Qual(typ.PkgPath, typ.TypeName)
+										subGroup.Id("sink").Call(Id(typeVarName))
+									})
+							}
+						})
 					file.Func().Id("main").Params().Add(code)
 					fmt.Printf("%#v", file)
 				}
