@@ -364,6 +364,10 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 				// If path is NOT part of standard library, then add the depstubber generation comment.
 				file.Comment(generateDepstubberComment(path, pathVersionToTypeNames[pathVersion], pathVersionToFuncAndVarNames[pathVersion]))
 				file.Comment("//go:generate depstubber -write_module_txt").Line()
+				// TODO:
+				// - go mod tidy # required to generate go.sum
+				// - depstubber -write_module_txt
+				// - depstubber -vendor github.com/my/package Type1,Type2 SomeFunc,SomeVariable
 			}
 
 			file.Comment("Untrusted flow sources from package: " + pathVersion)
