@@ -151,6 +151,7 @@ func main() {
 			cqlFile.HeaderDoc("This is a doc.")
 			cqlFile.HeaderDoc("Second line of doc.")
 
+			// `go` is always imported:
 			cqlFile.Import("go")
 
 			cqlFile.Doc("Doc about this module.")

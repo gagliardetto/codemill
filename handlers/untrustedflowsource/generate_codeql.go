@@ -150,7 +150,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									// Find receiver type:
 									typ := x.FindTypeByID(source, receiverTypeID)
 									if typ == nil {
-										Fatalf("Type not found: %q", qual.ID)
+										Fatalf("Type not found: %q", receiverTypeID)
 									}
 
 									st.Commentf("Receiver: %s", typ.TypeString)
@@ -251,10 +251,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									if source == nil {
 										Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
 									}
+									Q(qual)
 									// Find interface type:
 									typ := x.FindTypeByID(source, receiverTypeID)
 									if typ == nil {
-										Fatalf("Type not found: %q", qual.ID)
+										Fatalf("Type not found: %q", receiverTypeID)
 									}
 
 									st.Commentf("Interface: %s", typ.TypeString)
@@ -488,13 +489,46 @@ PosLoop:
 			codeElements = append(codeElements,
 				Id("outp").Dot("isParameter").Call(DontCare()),
 			)
+
 		} else {
 			// If multiple parameters are selected (but not all)
 			// then use a set, or just the index.
 			// If there is only one possible parameter and it is selected,
 			// then `isParameter(0)` is used.
 			codeElements = append(codeElements,
-				Id("outp").Dot("isParameter").Call(IntsToSetOrLit(parameterIndexes...)),
+				Id("outp").Dot("isParameter").Call(
+					DoGroup(func(callGroup *Group) {
+						if fn.GetFunc().GetOriginal().Variadic {
+
+							lits := make([]Code, 0)
+							if len(parameterIndexes) == 1 && parameterIndexes[0] == 0 {
+								lits = append(lits, DontCare())
+							} else {
+								for _, index := range parameterIndexes {
+									isLast := index == lenParams-1
+									if isLast {
+										lits = append(lits, Any(
+											Add(Int(), Id("i")),
+											Add(Id("i").Gte().Lit(index)),
+											nil,
+										))
+									} else {
+										lits = append(lits, Lit(index))
+									}
+								}
+							}
+
+							if len(parameterIndexes) == 1 {
+								callGroup.Add(lits...)
+							} else {
+								callGroup.Add(Set(lits...))
+							}
+
+						} else {
+							callGroup.Add(IntsToSetOrLit(parameterIndexes...))
+						}
+					}),
+				),
 			)
 		}
 	}

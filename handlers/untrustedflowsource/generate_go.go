@@ -173,7 +173,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 					// Find receiver type:
 					typ := x.FindTypeByID(source, receiverTypeID)
 					if typ == nil {
-						Fatalf("Type not found: %q", qual.ID)
+						Fatalf("Type not found: %q", receiverTypeID)
 					}
 
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
@@ -232,7 +232,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 					// Find receiver type:
 					typ := x.FindTypeByID(source, receiverTypeID)
 					if typ == nil {
-						Fatalf("Type not found: %q", qual.ID)
+						Fatalf("Type not found: %q", receiverTypeID)
 					}
 
 					file := NewTestFile(true)
@@ -448,7 +448,7 @@ PosLoop:
 		}
 	}
 
-	lenReceiver, _, _ := fn.Lengths()
+	lenReceiver, lenParams, _ := fn.Lengths()
 	hasReceiver := lenReceiver == 1
 
 	fe := fn.GetFunc()
@@ -468,7 +468,7 @@ PosLoop:
 			if hasReceiver {
 				varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("receiver", receiver.TypeName))
 				receiver.VarName = varName
-				gogentools.ComposeVarDeclaration(file, groupCase, varName, receiver.GetOriginal(), fe.GetOriginal().Variadic)
+				gogentools.ComposeVarDeclaration(file, groupCase, varName, receiver.GetOriginal(), false)
 				codeCallFunc = Id(varName).Dot(fe.Name)
 			} else {
 				codeCallFunc = Qual(fe.PkgPath, fe.Name)
@@ -479,9 +479,13 @@ PosLoop:
 				if len(parameterIndexes) == 1 {
 					// If only one parameter is considered, the use a single var declaration:
 					i := parameterIndexes[0]
+
+					isLast := i == lenParams-1
+					isVariadicParam := isLast && fe.GetOriginal().Variadic
+
 					varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
 					fe.Parameters[i].VarName = varName
-					gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), fe.GetOriginal().Variadic)
+					gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), isVariadicParam)
 				} else {
 					// If multiple parameters are considered, then use a group var declaration:
 					varTypes := make([]*VarNameAndType, 0)
@@ -491,13 +495,17 @@ PosLoop:
 							varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
 							fe.Parameters[i].VarName = varName
 
+							isLast := i == lenParams-1
+							isVariadicParam := isLast && fe.GetOriginal().Variadic
+
 							varTypes = append(varTypes, &VarNameAndType{
-								Name: varName,
-								Type: fe.Parameters[i].GetOriginal().GetType(),
+								Name:       varName,
+								Type:       fe.Parameters[i].GetOriginal().GetType(),
+								IsVariadic: isVariadicParam,
 							})
 						}
 					}
-					ComposeGroupVarDeclaration(file, groupCase, varTypes, fe.GetOriginal().Variadic)
+					ComposeGroupVarDeclaration(file, groupCase, varTypes)
 				}
 			}
 
@@ -586,8 +594,9 @@ PosLoop:
 }
 
 type VarNameAndType struct {
-	Name string
-	Type types.Type
+	Name       string
+	Type       types.Type
+	IsVariadic bool
 }
 
 // declare:
@@ -595,19 +604,21 @@ type VarNameAndType struct {
 //		name1 Type1
 //		name2 Type2
 // 	)`
-func ComposeGroupVarDeclaration(file *File, group *Group, decs []*VarNameAndType, isVariadic bool) {
-
+func ComposeGroupVarDeclaration(file *File, group *Group, decs []*VarNameAndType) {
 	stat := newStatement()
 
 	for _, dec := range decs {
-		if isVariadic {
-			gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), dec.Type.(*types.Slice).Elem())
+		if dec.IsVariadic {
+			if slice, ok := dec.Type.(*types.Slice); ok {
+				gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), slice.Elem())
+			} else {
+				gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), dec.Type)
+			}
 		} else {
 			gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), dec.Type)
 		}
 		stat.Line()
 	}
-
 	group.Var().Parens(stat)
 }
 func newStatement() *Statement {
