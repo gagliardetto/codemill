@@ -9,7 +9,7 @@ import (
 	. "github.com/gagliardetto/utilz"
 )
 
-func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
+func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, moduleGroup *Group) error {
 	Sfln(
 		"Generating grouped codeql code for model %q",
 		mdl.Name,
@@ -27,6 +27,11 @@ func (han *Handler) GenerateCodeQL(mdl *x.XModel, moduleGroup *Group) error {
 	if len(self.Selectors) == 0 {
 		Infof("No selectors found for %q method.", self.Name)
 		return nil
+	}
+
+	{
+		// Add imports:
+		impAdder.Import("DataFlow::PathGraph")
 	}
 
 	className := mdl.Name

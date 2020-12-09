@@ -1107,11 +1107,17 @@ func (rt *ModelKindRouter) ListModelKinds() []ModelKind {
 	return kinds
 }
 
+// ImportAdder can be used to add imports to a codeql file.
+type ImportAdder interface {
+	Import(path string)
+	ImportAs(path string, as string)
+}
+
 type ModelKindHandler interface {
 	// GenerateCodeQL generates codeql code based on the
 	// provided model; the generated code is then saved in the
 	// destination dir.
-	GenerateCodeQL(mdl *XModel, moduleGroup *cqljen.Group) error
+	GenerateCodeQL(impAdder ImportAdder, mdl *XModel, moduleGroup *cqljen.Group) error
 
 	// GenerateGo generates go code based on the
 	// provided model; the generated code is then saved in the
