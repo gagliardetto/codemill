@@ -9,7 +9,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.9 // indirect
 	github.com/gagliardetto/codebox v0.0.0-20201209224058-b32c0fb18cd6
 	github.com/gagliardetto/cqlgen v0.0.0-20201202210918-a8a454d2bb96
-	github.com/gagliardetto/feparser v0.0.0-20201209222932-d64b39a45dd0
+	github.com/gagliardetto/feparser v0.0.0-20201209231327-22979b5f16c3
 	github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814
 	github.com/gagliardetto/request v0.8.0
 	github.com/gagliardetto/utilz v0.0.0-20201209165803-d0fa82bb4fd6

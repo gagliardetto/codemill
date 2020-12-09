@@ -4,7 +4,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"go/types"
 	"io/ioutil"
 	"net/http"
 	"net/url"
@@ -875,40 +874,6 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 
 	x.SetCachedSource(path, version, fePackage)
 	return fePackage, nil
-}
-
-// Interfaces returns a map of interfaces which are declared in the package.
-func Interfaces(pkg *types.Package) map[string]*types.Interface {
-	ifs := map[string]*types.Interface{}
-
-	for _, name := range pkg.Scope().Names() {
-		o := pkg.Scope().Lookup(name)
-		if o != nil {
-			i, ok := o.Type().Underlying().(*types.Interface)
-			if ok {
-				ifs[name] = i
-			}
-		}
-	}
-
-	return ifs
-}
-
-// Structs returns a map of structs which are declared in the package.
-func Structs(pkg *types.Package) map[string]*types.Struct {
-	structs := map[string]*types.Struct{}
-
-	for _, name := range pkg.Scope().Names() {
-		o := pkg.Scope().Lookup(name)
-		if o != nil {
-			s, ok := o.Type().Underlying().(*types.Struct)
-			if ok {
-				structs[name] = s
-			}
-		}
-	}
-
-	return structs
 }
 
 func Abort400(c *gin.Context, errorString string) {

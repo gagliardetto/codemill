@@ -251,7 +251,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									if source == nil {
 										Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
 									}
-									Q(qual)
+
 									// Find interface type:
 									typ := x.FindTypeByID(source, receiverTypeID)
 									if typ == nil {

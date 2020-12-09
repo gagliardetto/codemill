@@ -1470,6 +1470,23 @@
               </b-row>
               <table class="table-responsive table-sm table-hover">
                   <tbody>
+                      <template v-for="(embedded, fieldIndex) in item.Embedded">
+                          <tr v-for="doc in embedded.Docs" title="This is a doc">
+                              <td colspan="3" class="comment-cell">
+                                  <span class="documentation pl-4">// {{ doc }}</span>
+                              </td>
+                          </tr>
+                          <tr>
+                              <td class="pt-1 pb-1" :title="'Embedded type: '+embedded.KindString">
+                                  <span class="pl-4" style="color: rgb(0, 125, 156);font-weight: bold;">
+                                      {{embedded.TypeString}}
+                                  </span>
+                              </td>
+                              <td class="pt-1 pb-1">
+                                  <span v-for="comment in embedded.Comments" class="text-comment documentation" title="This is a comment">// {{ comment }}</span>
+                              </td>
+                          </tr>
+                      </template>
                       <template v-for="(field, fieldIndex) in item.Fields">
                           <tr v-for="doc in field.Docs" title="This is a doc">
                               <td colspan="3" class="comment-cell">
