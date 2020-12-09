@@ -8,9 +8,11 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"path/filepath"
 	"sort"
 	"sync"
+	"time"
 
 	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/handlers/untrustedflowsource"
@@ -116,7 +118,18 @@ func main() {
 		globalSpec.Sort()
 
 		// Create output dir if it doesn't exist:
-		MustCreateFolderIfNotExists(outDir, 0750)
+		MustCreateFolderIfNotExists(outDir, os.ModePerm)
+
+		ts := time.Now()
+		// Create subfolder for package for generated assets:
+		packageAssetFolderName := feparser.FormatCodeQlName(globalSpec.Name)
+		packageAssetFolderPath := path.Join(outDir, packageAssetFolderName)
+		MustCreateFolderIfNotExists(packageAssetFolderPath, os.ModePerm)
+		// Create folder for assets generated during this run:
+		thisRunAssetFolderName := feparser.FormatCodeQlName(globalSpec.Name) + "_" + ts.Format(FilenameTimeFormat)
+		thisRunAssetFolderPath := path.Join(packageAssetFolderPath, thisRunAssetFolderName)
+		// Create a new assets folder inside the main assets folder:
+		MustCreateFolderIfNotExists(thisRunAssetFolderPath, os.ModePerm)
 
 		{
 			// Validate all specs:
@@ -176,7 +189,27 @@ func main() {
 				}
 
 			})
+			// TODO: remove debug print:
 			fmt.Printf("\n\n%#v", cqlFile)
+			{
+				// Save codeql assets:
+				assetFileName := feparser.FormatCodeQlName(globalSpec.Name) + ".qll"
+				assetFilepath := path.Join(thisRunAssetFolderPath, assetFileName)
+
+				// Create file codeql file:
+				codeqlFile, err := os.Create(assetFilepath)
+				if err != nil {
+					panic(err)
+				}
+				defer codeqlFile.Close()
+
+				// Write generated codeql to file:
+				Infof("Saving codeql assets to %q", MustAbs(assetFilepath))
+				err = cqlFile.Render(codeqlFile)
+				if err != nil {
+					panic(err)
+				}
+			}
 		}
 		{
 			// Generate Go code:
@@ -184,7 +217,7 @@ func main() {
 
 				handler := x.Router().MustGetHandler(mdl.Kind)
 				{
-					err := handler.GenerateGo(outDir, mdl)
+					err := handler.GenerateGo(thisRunAssetFolderPath, mdl)
 					if err != nil {
 						Fatalf(
 							"error while generating Go code for model %q (kind=%s): %s",
