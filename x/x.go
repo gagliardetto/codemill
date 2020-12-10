@@ -55,6 +55,24 @@ func (spec *XSpec) NormalizeName() error {
 	return nil
 }
 
+type SelectorKind string
+
+const (
+	SelectorKindStruct SelectorKind = "Struct" // Qualifier for structs.
+	SelectorKindFunc   SelectorKind = "Func"   // Qualifier for funcs, type methods, interface methods.
+	SelectorKindType   SelectorKind = "Type"   // Qualifier for types.
+)
+
+func IsValidSelectorKind(kind SelectorKind) bool {
+	return IsAnyOf(
+		string(kind),
+		// All the valid kinds:
+		string(SelectorKindStruct),
+		string(SelectorKindFunc),
+		string(SelectorKindType),
+	)
+}
+
 // Cleanup cleans up a spec..
 func (spec *XSpec) Cleanup() error {
 	// Remove empty selectors:
@@ -233,6 +251,122 @@ func (spec *XSpec) RemoveMeta() error {
 
 	return nil
 }
+func qualifierWeightByType(qual interface{}) int {
+	switch qual.(type) {
+	case *FuncQualifier:
+		return 1
+	case *StructQualifier:
+		return 2
+	case *TypeQualifier:
+		return 3
+	default:
+		panic(Sf("Unknown type: %T", qual))
+	}
+}
+
+// Validate validates a selector.
+func (sel *XSelector) Validate() error {
+	isValid := IsValidSelectorKind(sel.Kind)
+	if !isValid {
+		return fmt.Errorf("selector kind not valid: %q", sel.Kind)
+	}
+
+	switch sel.Kind {
+	case SelectorKindFunc:
+		{
+			if err := sel.GetFuncQualifier().Validate(); err != nil {
+				return err
+			}
+		}
+	case SelectorKindStruct:
+		{
+			if err := sel.GetStructQualifier().Validate(); err != nil {
+				return err
+			}
+		}
+	case SelectorKindType:
+		{
+			if err := sel.GetTypeQualifier().Validate(); err != nil {
+				return err
+			}
+		}
+	default:
+		return fmt.Errorf("Unknown selector kind: %s", sel.Kind)
+	}
+
+	return nil
+}
+
+func (sel *XSelector) UnmarshalJSON(data []byte) error {
+
+	var temp struct {
+		Kind      SelectorKind
+		Qualifier interface{}
+	}
+	if err := json.Unmarshal(data, &temp); err != nil {
+		return err
+	}
+
+	if !IsValidSelectorKind(temp.Kind) {
+		return fmt.Errorf("selector kind not valid: %q", sel.Kind)
+	}
+
+	sel.Kind = temp.Kind
+
+	switch sel.Kind {
+	case SelectorKindFunc:
+		{
+			var v FuncQualifier
+			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
+				return err
+			}
+			sel.Qualifier = &v
+		}
+	case SelectorKindStruct:
+		{
+			var v StructQualifier
+			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
+				return err
+			}
+			sel.Qualifier = &v
+		}
+	case SelectorKindType:
+		{
+			var v TypeQualifier
+			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
+				return err
+			}
+			sel.Qualifier = &v
+		}
+	default:
+		return fmt.Errorf("Unknown selector kind: %s", sel.Kind)
+	}
+
+	return nil
+}
+
+//
+func (sel *XSelector) GetBasicQualifier() *BasicQualifier {
+	{
+		got, ok := sel.Qualifier.(*FuncQualifier)
+		if ok {
+			return &got.BasicQualifier
+		}
+	}
+	{
+		got, ok := sel.Qualifier.(*StructQualifier)
+		if ok {
+			return &got.BasicQualifier
+		}
+	}
+	{
+		got, ok := sel.Qualifier.(*TypeQualifier)
+		if ok {
+			return &got.BasicQualifier
+		}
+	}
+	return nil
+}
 
 // Sort sorts things inside the spec.
 func (spec *XSpec) Sort() {
@@ -255,19 +389,6 @@ func (spec *XSpec) Sort() {
 				})
 			}
 		}
-	}
-}
-
-func qualifierWeightByType(qual interface{}) int {
-	switch qual.(type) {
-	case *FuncQualifier:
-		return 1
-	case *StructQualifier:
-		return 2
-	case *TypeQualifier:
-		return 3
-	default:
-		panic(Sf("Unknown type: %T", qual))
 	}
 }
 
@@ -431,87 +552,6 @@ func (mtd *XMethod) Validate() error {
 			}
 		}
 	}
-	return nil
-}
-
-// Validate validates a selector.
-func (sel *XSelector) Validate() error {
-	isValid := IsValidSelectorKind(sel.Kind)
-	if !isValid {
-		return fmt.Errorf("selector kind not valid: %q", sel.Kind)
-	}
-
-	switch sel.Kind {
-	case SelectorKindFunc:
-		{
-			if err := sel.GetFuncQualifier().Validate(); err != nil {
-				return err
-			}
-		}
-	case SelectorKindStruct:
-		{
-			if err := sel.GetStructQualifier().Validate(); err != nil {
-				return err
-			}
-		}
-	case SelectorKindType:
-		{
-			if err := sel.GetTypeQualifier().Validate(); err != nil {
-				return err
-			}
-		}
-	default:
-		return fmt.Errorf("Unknown selector kind: %s", sel.Kind)
-	}
-
-	return nil
-}
-
-func (sel *XSelector) UnmarshalJSON(data []byte) error {
-
-	var temp struct {
-		Kind      SelectorKind
-		Qualifier interface{}
-	}
-	if err := json.Unmarshal(data, &temp); err != nil {
-		return err
-	}
-
-	if !IsValidSelectorKind(temp.Kind) {
-		return fmt.Errorf("selector kind not valid: %q", sel.Kind)
-	}
-
-	sel.Kind = temp.Kind
-
-	switch sel.Kind {
-	case SelectorKindFunc:
-		{
-			var v FuncQualifier
-			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
-				return err
-			}
-			sel.Qualifier = &v
-		}
-	case SelectorKindStruct:
-		{
-			var v StructQualifier
-			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
-				return err
-			}
-			sel.Qualifier = &v
-		}
-	case SelectorKindType:
-		{
-			var v TypeQualifier
-			if err := TranscodeJSON(temp.Qualifier, &v); err != nil {
-				return err
-			}
-			sel.Qualifier = &v
-		}
-	default:
-		return fmt.Errorf("Unknown selector kind: %s", sel.Kind)
-	}
-
 	return nil
 }
 
@@ -700,24 +740,6 @@ type XMethod struct {
 	Selectors []*XSelector
 }
 
-type SelectorKind string
-
-const (
-	SelectorKindStruct SelectorKind = "Struct" // Qualifier for structs.
-	SelectorKindFunc   SelectorKind = "Func"   // Qualifier for funcs, type methods, interface methods.
-	SelectorKindType   SelectorKind = "Type"   // Qualifier for types.
-)
-
-func IsValidSelectorKind(kind SelectorKind) bool {
-	return IsAnyOf(
-		string(kind),
-		// All the valid kinds:
-		string(SelectorKindStruct),
-		string(SelectorKindFunc),
-		string(SelectorKindType),
-	)
-}
-
 type XSelector struct {
 	Kind      SelectorKind
 	Qualifier interface{}
@@ -904,29 +926,6 @@ func GetFuncName(raw interface{}) string {
 	default:
 		panic(Sf("Unknown type: %T", raw))
 	}
-}
-
-//
-func (sel *XSelector) GetBasicQualifier() *BasicQualifier {
-	{
-		got, ok := sel.Qualifier.(*FuncQualifier)
-		if ok {
-			return &got.BasicQualifier
-		}
-	}
-	{
-		got, ok := sel.Qualifier.(*StructQualifier)
-		if ok {
-			return &got.BasicQualifier
-		}
-	}
-	{
-		got, ok := sel.Qualifier.(*TypeQualifier)
-		if ok {
-			return &got.BasicQualifier
-		}
-	}
-	return nil
 }
 
 //
