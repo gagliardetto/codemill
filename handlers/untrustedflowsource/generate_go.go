@@ -41,23 +41,6 @@ func NewTestFile(includeBoilerplace bool) *File {
 				Block()
 			file.Add(code.Line())
 		}
-		{
-			// link function (Used in tests to transmit taint from param 0 into param 1):
-			code := Func().
-				Id("link").
-				Params(Id("from").Interface(), Id("into").Interface()).
-				Block()
-			file.Add(code.Line())
-		}
-		{
-			// source function returns a new tainted thing:
-			code := Func().
-				Id("source").
-				Params(Id("id").Int()).
-				Interface().
-				Block(Return(Nil()))
-			file.Add(code.Line())
-		}
 	}
 	return file
 }
