@@ -49,13 +49,20 @@ var (
 	IncludeCommentsInGeneratedGo bool
 )
 
-func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
+func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	// TODO
 	Sfln(
-		"Generating go code for model %q into %q dir",
+		"Generating go code for model %q into %q parentDir",
 		mdl.Name,
-		dir,
+		parentDir,
 	)
+
+	if err := mdl.Validate(); err != nil {
+		return err
+	}
+	if err := han.Validate(mdl); err != nil {
+		return err
+	}
 
 	// Check if there are multiple versions of a same package:
 	mods := mdl.ListModules()
@@ -66,12 +73,9 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 	// that means we can save all the code to one file.
 	allInOneFile := !x.HasMultiversion(mods)
 
-	if err := mdl.Validate(); err != nil {
-		return err
-	}
-	if err := han.Validate(mdl); err != nil {
-		return err
-	}
+	// Create the directory for the tests for this model:
+	outDir := filepath.Join(parentDir, feparser.NewCodeQlName(mdl.Name))
+	MustCreateFolderIfNotExists(outDir, os.ModePerm)
 
 	// Assuming the validation has already been done:
 	self := mdl.Methods[0]
@@ -371,7 +375,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 			// TODO: remove debug print.
 			fmt.Printf("%#v", file)
 
-			pkgDstDirpath := filepath.Join(dir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
+			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
 			MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
 			assetFileName := feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)) + ".go"
@@ -389,7 +393,7 @@ func (han *Handler) GenerateGo(dir string, mdl *x.XModel) error {
 		// TODO: remove debug print.
 		fmt.Printf("%#v", file)
 
-		pkgDstDirpath := dir
+		pkgDstDirpath := outDir
 		MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
 		assetFileName := feparser.FormatID("Model", mdl.Name) + ".go"
