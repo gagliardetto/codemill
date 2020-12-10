@@ -984,14 +984,14 @@ var (
 	globalModelKindRouter *ModelKindRouter
 )
 
-// InitRouter intializes and returns a new ModelKindRouter.
-// InitRouter can be called only once; after the first call,
+// initRouter intializes and returns a new ModelKindRouter.
+// initRouter can be called only once; after the first call,
 // you can subsequently access the router by calling Router().
-func InitRouter(conf *ModelKindRouterConfig) (*ModelKindRouter, error) {
+func initRouter() (*ModelKindRouter, error) {
 	if globalModelKindRouter != nil {
 		return nil, errors.New("model kind router already initialized")
 	}
-	rt, err := NewModelKindRouter(conf)
+	rt, err := NewModelKindRouter()
 	if err != nil {
 		return nil, err
 	}
@@ -1000,10 +1000,17 @@ func InitRouter(conf *ModelKindRouterConfig) (*ModelKindRouter, error) {
 	return globalModelKindRouter, nil
 }
 
+var routerOnce sync.Once
+
 // Router returns the initialized global ModelKind router.
 // Panics if the router hasn't been created yet.
 func Router() *ModelKindRouter {
-	// TODO: add once
+	routerOnce.Do(func() {
+		_, err := initRouter()
+		if err != nil {
+			Fatalf("erro while initializing the router: %s", err)
+		}
+	})
 	if globalModelKindRouter == nil {
 		panic("model kind router not initialized; you need to call InitRouter first.")
 	}
@@ -1015,30 +1022,12 @@ func Router() *ModelKindRouter {
 type ModelKindRouter struct {
 	handlers map[ModelKind]ModelKindHandler
 	mu       *sync.RWMutex
-	conf     *ModelKindRouterConfig
 }
 
-type ModelKindRouterConfig struct {
-	Dir string // Dir is the folder where the generated code will be saved to.
-}
-
-// Validate validates ModelKindRouterConfig
-func (conf *ModelKindRouterConfig) Validate() error {
-	if conf.Dir == "" {
-		return errors.New("Dir is empty")
-	}
-	return nil
-}
-
-func NewModelKindRouter(conf *ModelKindRouterConfig) (*ModelKindRouter, error) {
-	if err := conf.Validate(); err != nil {
-		return nil, fmt.Errorf("error while validating configuration: %s", err)
-	}
-
+func NewModelKindRouter() (*ModelKindRouter, error) {
 	rt := &ModelKindRouter{
 		handlers: make(map[ModelKind]ModelKindHandler),
 		mu:       &sync.RWMutex{},
-		conf:     conf,
 	}
 	return rt, nil
 }

@@ -67,18 +67,14 @@ func main() {
 	}
 
 	{
-		// Initialize ModelKind router:
-		rt, err := x.InitRouter(&x.ModelKindRouterConfig{
-			Dir: outDir,
-		})
-		if err != nil {
-			panic(fmt.Errorf("error while initializing ModelKind router: %s", err))
-		}
-
-		// Register ModelKind handlers:
+		rt := x.Router()
+		// Register ModelKind handlers in the router:
 		{
 			// untrustedflowsource handler:
-			rt.RegisterHandler(untrustedflowsource.Kind, &untrustedflowsource.Handler{})
+			err := rt.RegisterHandler(untrustedflowsource.Kind, &untrustedflowsource.Handler{})
+			if err != nil {
+				Fatalf("error while registering handler: %s", err)
+			}
 		}
 	}
 
