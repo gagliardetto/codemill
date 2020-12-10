@@ -212,12 +212,15 @@ func main() {
 			}
 		}
 		{
+			goTestsFolderPath := path.Join(thisRunAssetFolderPath, "tests")
+			// Create a folder for Go code:
+			MustCreateFolderIfNotExists(goTestsFolderPath, os.ModePerm)
 			// Generate Go code:
 			for _, mdl := range globalSpec.Models {
 
 				handler := x.Router().MustGetHandler(mdl.Kind)
 				{
-					err := handler.GenerateGo(thisRunAssetFolderPath, mdl)
+					err := handler.GenerateGo(goTestsFolderPath, mdl)
 					if err != nil {
 						Fatalf(
 							"error while generating Go code for model %q (kind=%s): %s",
