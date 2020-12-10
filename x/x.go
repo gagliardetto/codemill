@@ -97,7 +97,7 @@ func (spec *XSpec) Cleanup() error {
 					}
 				case *FuncQualifier:
 					{
-						if AllFalse(qual.Pos...) {
+						if AllFalse(qual.Pos...) && qual.Flows == nil {
 							// If all false, then remove the selector:
 							mtd.DeleteSelector(
 								basicQual.Path,
@@ -184,6 +184,7 @@ func (spec *XSpec) AddMeta() error {
 
 						meta := CompileFuncQualifierElementsMeta(fn)
 						qual.Elements = meta
+						//qual.Name = fn.GetFunc().Name
 					}
 				case *TypeQualifier:
 					{
@@ -347,25 +348,20 @@ func (sel *XSelector) UnmarshalJSON(data []byte) error {
 
 //
 func (sel *XSelector) GetBasicQualifier() *BasicQualifier {
-	{
-		got, ok := sel.Qualifier.(*FuncQualifier)
-		if ok {
-			return &got.BasicQualifier
-		}
+	switch got := sel.Qualifier.(type) {
+
+	case *FuncQualifier:
+		return &got.BasicQualifier
+
+	case *StructQualifier:
+		return &got.BasicQualifier
+
+	case *TypeQualifier:
+		return &got.BasicQualifier
+
+	default:
+		panic(Sf("Unknown type: %T", sel.Qualifier))
 	}
-	{
-		got, ok := sel.Qualifier.(*StructQualifier)
-		if ok {
-			return &got.BasicQualifier
-		}
-	}
-	{
-		got, ok := sel.Qualifier.(*TypeQualifier)
-		if ok {
-			return &got.BasicQualifier
-		}
-	}
-	return nil
 }
 
 // Sort sorts things inside the spec.
@@ -756,6 +752,78 @@ type StructQualifier struct {
 	Total    int `json:",omitempty"`
 	Left     int `json:",omitempty"`
 }
+type FuncQualifier struct {
+	BasicQualifier
+
+	Pos   []bool    // Pos is used depending on the ModelKind.
+	Flows *FlowSpec // The FuncQualifier can either be in Pos mode, or Flow mode; it depends on the ModelKind.
+
+	Name     string                     // Name of the func.
+	Elements *FuncQualifierElementsMeta `json:",omitempty"`
+}
+type TypeQualifier struct {
+	BasicQualifier
+	TypeName   string // Name of the type.
+	KindString string `json:",omitempty"`
+	Value      bool
+}
+
+type FlowSpec struct {
+	Blocks  []*FlowBlock
+	Enabled bool
+}
+type FlowBlock struct {
+	Inp []bool
+	Out []bool
+}
+
+//
+func (fls *FlowSpec) Validate() error {
+	if err := ValidateFlowBlocks(fls.Blocks...); err != nil {
+		return fmt.Errorf(
+			"error validating block: %s", err,
+		)
+	}
+	return nil
+}
+
+// ValidateFlowBlocks tells whether the blocks can be used (i.e. they have enough correct information.)
+func ValidateFlowBlocks(blocks ...*FlowBlock) error {
+	if len(blocks) == 0 {
+		return errors.New("no blocks provided")
+	}
+	for blockIndex, block := range blocks {
+		if len(block.Inp) != len(block.Out) {
+			return fmt.Errorf(
+				"error: block %v has different lengths for Inp (%v) and Out (%v)",
+				blockIndex,
+				len(block.Inp),
+				len(block.Out),
+			)
+		}
+		if AllFalse(block.Inp...) {
+			return fmt.Errorf("error: Inp of block %v is all false", blockIndex)
+		}
+		if AllFalse(block.Out...) {
+			return fmt.Errorf("error: Out of block %v is all false", blockIndex)
+		}
+	}
+	return nil
+}
+
+// HasValidFlowBlocks returns true if any of the provided blocks
+// is a valid block, i.e. it has at least one `Inp` and one `Out` set to true.
+func HasValidFlowBlocks(blocks ...*FlowBlock) bool {
+	if len(blocks) == 0 {
+		return false
+	}
+	for _, block := range blocks {
+		if !AllFalse(block.Inp...) && !AllFalse(block.Out...) {
+			return true
+		}
+	}
+	return false
+}
 
 // Validate validates a BasicQualifier.
 func (qual *BasicQualifier) Validate() error {
@@ -793,6 +861,12 @@ func (qual *FuncQualifier) Validate() error {
 	if err := qual.BasicQualifier.Validate(); err != nil {
 		return fmt.Errorf("error while validating BasicQualifier: %s", err)
 	}
+
+	if qual.Flows != nil {
+		if err := qual.Flows.Validate(); err != nil {
+			return fmt.Errorf("error while validating Flows: %s", err)
+		}
+	}
 	// TODO
 	return nil
 }
@@ -812,22 +886,6 @@ type FieldMeta struct {
 	KindString string `json:",omitempty"`
 }
 
-//
-func (sel *XSelector) GetStructQualifier() *StructQualifier {
-	got, ok := sel.Qualifier.(*StructQualifier)
-	if !ok {
-		return nil
-	}
-	return got
-}
-
-type FuncQualifier struct {
-	BasicQualifier
-	Pos      []bool
-	Name     string                     // Name of the func.
-	Elements *FuncQualifierElementsMeta `json:",omitempty"`
-}
-
 type FuncQualifierElementsMeta struct {
 	Receiver   *FuncElementMeta
 	Parameters []*FuncElementMeta
@@ -840,13 +898,6 @@ type FuncElementMeta struct {
 	Name       string // The VarName
 	TypeString string
 	KindString string
-}
-
-type TypeQualifier struct {
-	BasicQualifier
-	TypeName   string // Name of the type.
-	KindString string `json:",omitempty"`
-	Value      bool
 }
 
 func compileFuncElemMeta(ai int, ri int, typ *feparser.FEType) *FuncElementMeta {
@@ -941,6 +992,15 @@ func (bq *BasicQualifier) PathVersionClean() string {
 		return bq.Path
 	}
 	return FormatPathVersion(bq.Path, bq.Version)
+}
+
+//
+func (sel *XSelector) GetStructQualifier() *StructQualifier {
+	got, ok := sel.Qualifier.(*StructQualifier)
+	if !ok {
+		return nil
+	}
+	return got
 }
 
 //
