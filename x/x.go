@@ -756,7 +756,7 @@ type FuncQualifier struct {
 	BasicQualifier
 
 	Pos   []bool    // Pos is used depending on the ModelKind.
-	Flows *FlowSpec // The FuncQualifier can either be in Pos mode, or Flow mode; it depends on the ModelKind.
+	Flows *FlowSpec // The FuncQualifier can either be in Pos mode, or Flow mode; it depends on the ModelKind that will handle it.
 
 	Name     string                     // Name of the func.
 	Elements *FuncQualifierElementsMeta `json:",omitempty"`

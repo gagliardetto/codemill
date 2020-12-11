@@ -15,6 +15,7 @@ import (
 	"time"
 
 	"github.com/gagliardetto/codebox/scanner"
+	"github.com/gagliardetto/codemill/handlers/tainttracking"
 	"github.com/gagliardetto/codemill/handlers/untrustedflowsource"
 	"github.com/gagliardetto/codemill/x"
 	cqljen "github.com/gagliardetto/cqlgen/jen"
@@ -72,6 +73,11 @@ func main() {
 		{
 			// untrustedflowsource handler:
 			err := rt.RegisterHandler(untrustedflowsource.Kind, &untrustedflowsource.Handler{})
+			if err != nil {
+				Fatalf("error while registering handler: %s", err)
+			}
+			// tainttracking handler:
+			err = rt.RegisterHandler(tainttracking.Kind, &tainttracking.Handler{})
 			if err != nil {
 				Fatalf("error while registering handler: %s", err)
 			}
@@ -424,6 +430,20 @@ func main() {
 
 	r.PATCH("/api/spec/funcs", func(c *gin.Context) {
 		// Patch a func (func/type-method/interface-method), i.e. select/unselect its components:
+
+		const FlowKeyInp = "Inp"
+		const FlowKeyOut = "Out"
+		validFlowKeys := []string{FlowKeyInp, FlowKeyOut}
+		type FlowValueSet struct {
+			BlockIndex int
+			Key        string // Either Inp out Out.
+			Index      int    // Index on the Func total length.
+			Value      bool
+		}
+		type PosValueSet struct {
+			Index int
+			Value bool
+		}
 		var req struct {
 			Where struct {
 				Path    string
@@ -433,9 +453,10 @@ func main() {
 			}
 			What struct {
 				FuncID string
-				Index  int
-				Value  bool
 			}
+
+			Pos  *PosValueSet
+			Flow *FlowValueSet
 		}
 		err := c.BindJSON(&req)
 		if err != nil {
@@ -456,62 +477,181 @@ func main() {
 			return
 		}
 
-		if req.What.Index >= fn.Len() {
-			Abort400(c, Sf("Index out of bounds: index=%v, but v.Len() = %v", req.What.Index, fn.Len()))
+		if req.Pos != nil && req.Flow != nil {
+			Abort400(c, "Non-valid request: req.Pos and req.Flow are both set.")
 			return
+		}
+
+		if req.Pos != nil {
+			if req.Pos.Index < 0 || req.Pos.Index >= fn.Len() {
+				Abort400(c, Sf("req.Pos.Index out of bounds: index=%v, but v.Len() = %v", req.Pos.Index, fn.Len()))
+				return
+			}
+		}
+
+		if req.Flow != nil {
+			// - validate Key
+			isValidFlowKey := SliceContains(validFlowKeys, req.Flow.Key)
+			if !isValidFlowKey {
+				Abort400(c, Sf("Provided req.Flow.Key is not valid: %q", req.Flow.Key))
+				return
+			}
+			// - validate Index
+			if req.Flow.Index < 0 || req.Flow.Index >= fn.Len() {
+				Abort400(c, Sf("req.Flow.Index out of bounds: index=%v, but v.Len() = %v", req.Flow.Index, fn.Len()))
+				return
+			}
+			// TODO: validate BlockIndex
 		}
 
 		err = globalSpec.ModifyModelByName(
 			req.Where.Model,
 			func(mdl *x.XModel) error {
+				// Currently, only the tainttracking.Handler is the only handler
+				// that supports flow handling.
+				if req.Flow != nil && mdl.Kind != tainttracking.Kind {
+					return errors.New("This model does not support func flow qualifiers.")
+				}
 				err := mdl.ModifyMethodByName(
 					req.Where.Method,
 					func(mt *x.XMethod) error {
 
+						meta := x.CompileFuncQualifierElementsMeta(fn)
 						existingSel := mt.GetFuncSelector(
 							req.Where.Path,
 							req.Where.Version,
 							req.What.FuncID,
 						)
-						meta := x.CompileFuncQualifierElementsMeta(fn)
-						if existingSel == nil {
-							// Add a new selector only if the value is true:
-							if req.What.Value {
-								pos := make([]bool, fn.Len())
-								pos[req.What.Index] = req.What.Value
 
-								// If there is no existing selector,
-								// then create a new one:
-								newSel := &x.XSelector{
-									Kind: x.SelectorKindFunc,
-									Qualifier: &x.FuncQualifier{
-										BasicQualifier: x.BasicQualifier{
-											Path:    req.Where.Path,
-											Version: req.Where.Version,
-											ID:      req.What.FuncID,
+						// Handle Pos:
+						if req.Pos != nil {
+							if existingSel == nil {
+								// Add a new selector only if the value is true:
+								if req.Pos.Value {
+									pos := make([]bool, fn.Len())
+									pos[req.Pos.Index] = req.Pos.Value
+
+									// If there is no existing selector,
+									// then create a new one:
+									newSel := &x.XSelector{
+										Kind: x.SelectorKindFunc,
+										Qualifier: &x.FuncQualifier{
+											BasicQualifier: x.BasicQualifier{
+												Path:    req.Where.Path,
+												Version: req.Where.Version,
+												ID:      req.What.FuncID,
+											},
+											Pos:      pos,
+											Name:     x.GetFuncName(fn),
+											Elements: meta,
 										},
-										Pos:      pos,
-										Name:     x.GetFuncName(fn),
-										Elements: meta,
-									},
+									}
+
+									mt.Selectors = append(mt.Selectors, newSel)
 								}
+							} else {
+								existingSel.Pos[req.Pos.Index] = req.Pos.Value
+								existingSel.Elements = meta
 
-								mt.Selectors = append(mt.Selectors, newSel)
+								if AllFalse(existingSel.Pos...) {
+									// If all false, then remove the selector:
+									mt.DeleteSelector(
+										req.Where.Path,
+										req.Where.Version,
+										req.What.FuncID,
+									)
+								}
 							}
-						} else {
-							existingSel.Pos[req.What.Index] = req.What.Value
-							existingSel.Elements = meta
-
-							if AllFalse(existingSel.Pos...) {
-								// If all false, then remove the selector:
-								mt.DeleteSelector(
-									req.Where.Path,
-									req.Where.Version,
-									req.What.FuncID,
-								)
-							}
+							return nil
 						}
 
+						// Handle Flow:
+						if req.Flow != nil {
+							// TODO:
+							if existingSel == nil {
+								// Add a new selector only if the value is true:
+								if req.Flow.Value {
+
+									// If there is no existing selector,
+									// then create a new one:
+
+									// If the selector did not exist before,
+									// then the BlockIndex must be = 0.
+									if req.Flow.BlockIndex != 0 {
+										return errors.New("req.Flow.BlockIndex must be zero when first creating.")
+									}
+
+									// Create a new FlowSpec:
+									flSpec := &x.FlowSpec{
+										Enabled: true,
+										Blocks:  make([]*x.FlowBlock, 0),
+									}
+									// Create a new block:
+									newBlock := &x.FlowBlock{
+										Inp: make([]bool, fn.Len()),
+										Out: make([]bool, fn.Len()),
+									}
+
+									// Set value:
+									switch req.Flow.Key {
+									case FlowKeyInp:
+										newBlock.Inp[req.Flow.Index] = req.Flow.Value
+									case FlowKeyOut:
+										newBlock.Out[req.Flow.Index] = req.Flow.Value
+									}
+									flSpec.Blocks = append(flSpec.Blocks, newBlock)
+
+									newSel := &x.XSelector{
+										Kind: x.SelectorKindFunc,
+										Qualifier: &x.FuncQualifier{
+											BasicQualifier: x.BasicQualifier{
+												Path:    req.Where.Path,
+												Version: req.Where.Version,
+												ID:      req.What.FuncID,
+											},
+											Flows:    flSpec,
+											Name:     x.GetFuncName(fn),
+											Elements: meta,
+										},
+									}
+
+									// Save selector:
+									mt.Selectors = append(mt.Selectors, newSel)
+								}
+							} else {
+								if existingSel.Flows == nil {
+									// TODO: what to do in this case?
+									return errors.New("Found sel.Flows is nil")
+								}
+
+								if req.Flow.BlockIndex < 0 || req.Flow.BlockIndex >= len(existingSel.Flows.Blocks) {
+									return fmt.Errorf(
+										"req.Flow.BlockIndex is out of bounds: index=%v, but blocks.Len() = %v",
+										req.Flow.Index,
+										len(existingSel.Flows.Blocks),
+									)
+								}
+
+								// Set value:
+								switch req.Flow.Key {
+								case FlowKeyInp:
+									existingSel.Flows.Blocks[req.Flow.BlockIndex].Inp[req.Flow.Index] = req.Flow.Value
+								case FlowKeyOut:
+									existingSel.Flows.Blocks[req.Flow.BlockIndex].Out[req.Flow.Index] = req.Flow.Value
+								}
+								existingSel.Elements = meta
+
+								if !x.HasValidFlowBlocks(existingSel.Flows.Blocks...) {
+									// If there are NO valid blocks, then remove the selector:
+									mt.DeleteSelector(
+										req.Where.Path,
+										req.Where.Version,
+										req.What.FuncID,
+									)
+								}
+							}
+							return nil
+						}
 						return nil
 					},
 				)

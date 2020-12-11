@@ -52,7 +52,8 @@ var (
 func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	// TODO
 	Sfln(
-		"Generating go code for model %q into %q parentDir",
+		"%s: Generating go code for model %q into %q parentDir",
+		Kind,
 		mdl.Name,
 		parentDir,
 	)

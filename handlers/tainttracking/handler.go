@@ -1,4 +1,4 @@
-package untrustedflowsource
+package tainttracking
 
 import (
 	"errors"
@@ -9,7 +9,7 @@ import (
 )
 
 const (
-	Kind x.ModelKind = "UntrustedFlowSource"
+	Kind x.ModelKind = "TaintTracking"
 )
 
 type Handler struct{}
@@ -31,8 +31,7 @@ func (han *Handler) ScavengeMethods() []*x.XMethod {
 func (han *Handler) Validate(mdl *x.XModel) error {
 	// TODO
 	Sfln(
-		"%s: Validating model %q",
-		Kind,
+		"Validating model %q",
 		mdl.Name,
 	)
 	if len(mdl.Methods) != 1 {
