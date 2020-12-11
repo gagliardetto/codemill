@@ -1199,22 +1199,19 @@
     Vue.component('cm-func-item', {
         props: ['item', 'func'],
         template: "#cm-func-item-template",
-        computed: {
- 
-        },
+        computed: {},
         methods: {
             cc: cc,
             len: len,
-            onChangeFunc(value, index, item) {
-                // TODO:
+            onChangeFuncPos(item, index, value) {
                 // - Send the update to the API
                 // - Save the response in this.$root.$data.xspec
-                // - The UI is bind to this.$root.$data.xspec (scoped by package)
-                console.log("Modifying func selectors ...");
+                // - The UI is bind to this.$root.$data.xspec
+                console.log("Modifying func Pos selectors ...");
                 
                 console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
                 console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-                console.log(value, index, item.ID)
+                console.log(item.ID, index, value)
 
 
                 let rPath = this.$root.$data.currentPackage.path;
@@ -1233,6 +1230,65 @@
                       "FuncID": item.ID
                     },
                     "Pos": {
+                      "Index": index,
+                      "Value": value
+                    }
+                }
+                console.log(payload);
+
+                let url = '/api/spec/funcs';
+                fetch(url, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.$root.$data.xspec = json;
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
+            },
+            onChangeFuncFlow(item, blockIndex, key, index, value) {
+                // - Send the update to the API
+                // - Save the response in this.$root.$data.xspec
+                // - The UI is bind to this.$root.$data.xspec
+                console.log("Modifying func Flow selectors ...");
+                
+                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
+                console.log(item.ID, blockIndex, key, index, value)
+
+                let rPath = this.$root.$data.currentPackage.path;
+                let rVersion = this.$root.$data.currentPackage.version;
+                let rModel = this.$root.$data.context.modelName;
+                let rMethod = this.$root.$data.context.methodName;
+
+                let payload = {
+                    "Where": {
+                      "Path": rPath,
+                      "Version": rVersion,
+                      "Model": rModel,
+                      "Method": rMethod
+                    },
+                    "What": {
+                      "FuncID": item.ID
+                    },
+                    "Flow": {
+                      "BlockIndex": blockIndex,
+                      "Key": key,
                       "Index": index,
                       "Value": value
                     }
@@ -1313,7 +1369,7 @@
                         <td v-if="item.Receiver" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center checkbox-warning"
-                            @change="onChangeFunc($event, 0, item)"
+                            @change="onChangeFuncPos(item, 0, $event)"
                             v-model="item.Receiver.Checked"
                             switch
                           ></b-form-checkbox>
@@ -1322,7 +1378,7 @@
                         <td v-for="(param, index) in func.Parameters" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center"
-                            @change="onChangeFunc($event, item.Receiver?1+index:index, item)"
+                            @change="onChangeFuncPos(item, item.Receiver?1+index:index, $event)"
                             v-model="param.Checked"
                             switch
                           ></b-form-checkbox>
@@ -1330,7 +1386,7 @@
                         <td v-for="(res, index) in func.Results" class="pl-0 pr-0">
                           <b-form-checkbox 
                             class="d-flex justify-content-center checkbox-success"
-                            @change="onChangeFunc($event, item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, item)"
+                            @change="onChangeFuncPos(item, item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, $event)"
                             v-model="res.Checked"
                             switch
                           ></b-form-checkbox>
