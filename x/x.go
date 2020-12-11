@@ -825,6 +825,20 @@ func HasValidFlowBlocks(blocks ...*FlowBlock) bool {
 	return false
 }
 
+// AllBlocksEmpty returns true if all blocks have all false values for
+// both Inp and Out.
+func AllBlocksEmpty(blocks ...*FlowBlock) bool {
+	if len(blocks) == 0 {
+		return true
+	}
+	for _, block := range blocks {
+		if !AllFalse(block.Inp...) || !AllFalse(block.Out...) {
+			return false
+		}
+	}
+	return true
+}
+
 // Validate validates a BasicQualifier.
 func (qual *BasicQualifier) Validate() error {
 	if qual.Path == "" {

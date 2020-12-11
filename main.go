@@ -624,12 +624,31 @@ func main() {
 									return errors.New("Found sel.Flows is nil")
 								}
 
-								if req.Flow.BlockIndex < 0 || req.Flow.BlockIndex >= len(existingSel.Flows.Blocks) {
+								if req.Flow.BlockIndex < 0 || req.Flow.BlockIndex > len(existingSel.Flows.Blocks) /* Block is beyond len+1 */ {
 									return fmt.Errorf(
 										"req.Flow.BlockIndex is out of bounds: index=%v, but blocks.Len() = %v",
 										req.Flow.Index,
 										len(existingSel.Flows.Blocks),
 									)
+								}
+
+								// TODO:
+								// - we are len(blocks)+(n>1): error.
+								// - we are within the existing blocks: modify block.
+								// - we are len(blocks)+1: create a new block and modify it.
+
+								if req.Flow.BlockIndex == len(existingSel.Flows.Blocks) {
+									// If the BlockIndex is for a not-yet existing block,
+									// the add one new block.
+
+									// This can be done ONLY if it's just one block incremental difference,
+									// i.e. we cannot edit the 4th block if we have 2 blocks,
+									// but we can edit the 3rd block if we have 2 blocks (the 3rd block will be created here).
+									newBlock := &x.FlowBlock{
+										Inp: make([]bool, fn.Len()),
+										Out: make([]bool, fn.Len()),
+									}
+									existingSel.Flows.Blocks = append(existingSel.Flows.Blocks, newBlock)
 								}
 
 								// Set value:
@@ -641,8 +660,8 @@ func main() {
 								}
 								existingSel.Elements = meta
 
-								if !x.HasValidFlowBlocks(existingSel.Flows.Blocks...) {
-									// If there are NO valid blocks, then remove the selector:
+								if x.AllBlocksEmpty(existingSel.Flows.Blocks...) {
+									// If all blocks are empty, then remove the selector:
 									mt.DeleteSelector(
 										req.Where.Path,
 										req.Where.Version,
