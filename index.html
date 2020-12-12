@@ -349,27 +349,53 @@
                         <!-- and will be un-mounted when hidden -->
                         <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" active>
                             <b-list-group>
-                                <cm-func-item v-for="item in filteredFuncs" v-bind:key="item.ID" v-bind:item="item" v-bind:func="item.Func || item"></cm-func-item>
+                                <cm-func-item
+                                  v-for="item in filteredFuncs"
+                                  v-bind:key="item.ID"
+                                  v-bind:item="item"
+                                  v-bind:func="item.Func || item"
+                                  v-bind:isFlow="context.isFlow"
+                                ></cm-func-item>
                             </b-list-group>
                         </b-tab>
                         <b-tab :title="'Methods (' + len(filteredTypeMethods) + ')'">
                             <b-list-group>
-                                <cm-func-item v-for="item in filteredTypeMethods" v-bind:key="item.ID" v-bind:item="item" v-bind:func="item.Func || item"></cm-func-item>
+                                <cm-func-item
+                                  v-for="item in filteredTypeMethods"
+                                  v-bind:key="item.ID"
+                                  v-bind:item="item"
+                                  v-bind:func="item.Func || item"
+                                  v-bind:isFlow="context.isFlow"
+                                ></cm-func-item>
                             </b-list-group>
                         </b-tab>
                         <b-tab :title="'Interfaces (' + len(filteredInterfaceMethods) + ')'">
                             <b-list-group>
-                                <cm-func-item v-for="item in filteredInterfaceMethods" v-bind:key="item.ID" v-bind:item="item" v-bind:func="item.Func || item"></cm-func-item>
+                                <cm-func-item
+                                  v-for="item in filteredInterfaceMethods"
+                                  v-bind:key="item.ID"
+                                  v-bind:item="item"
+                                  v-bind:func="item.Func || item"
+                                  v-bind:isFlow="context.isFlow"
+                                ></cm-func-item>
                             </b-list-group>
                         </b-tab>
                         <b-tab :title="'Structs (' + len(filteredStructs) + ')'">
                             <b-list-group class="text-monospace float-left text-truncate">
-                                <cm-struct-item v-for="item in filteredStructs" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
+                                <cm-struct-item
+                                  v-for="item in filteredStructs"
+                                  v-bind:key="item.ID"
+                                  v-bind:item="item"
+                                ></cm-struct-item>
                             </b-list-group>
                         </b-tab>
                         <b-tab :title="'Types (' + len(filteredTypes) + ')'">
                             <b-list-group class="text-monospace float-left text-truncate">
-                                <cm-type-item v-for="item in filteredTypes" v-bind:key="item.ID" v-bind:item="item"></cm-struct-item>
+                                <cm-type-item
+                                  v-for="item in filteredTypes"
+                                  v-bind:key="item.ID"
+                                  v-bind:item="item"
+                                ></cm-struct-item>
                             </b-list-group>
                         </b-tab>
                     </b-tabs>
@@ -407,7 +433,8 @@
         data: {
             context: {
               modelName: "",
-              methodName: ""
+              methodName: "",
+              isFlow: false
             },
             cacheModules: [],
             modelKinds: [],
@@ -702,15 +729,19 @@
                         });
                     });
             },
-            setContext(xmodelName, xmethodName) {
+            setContext(xmodelName, xmethodName, isFlow) {
               // Set current context:
               this.$data.context.modelName = xmodelName;
               this.$data.context.methodName = xmethodName;
+              this.$data.context.isFlow = isFlow;
             },
             openSearchView(xmodel, xmethod) {
               console.log(xmodel, xmethod);
               
-              this.setContext(xmodel.Name, xmethod.Name);
+              // TODO: if other model kinds need flow, add them here:
+              let isFlow = xmodel.Kind == 'TaintTracking';
+
+              this.setContext(xmodel.Name, xmethod.Name, isFlow);
 
               // Open the modal that list packages (search/recent):
               this.$bvModal.show('modal-list-remote-packages');
@@ -1062,8 +1093,8 @@
             fmtv: function(version) {
               return this.$root.fmtv(version);
             },
-            setContext(xmodelName, xmethodName) {
-                this.$root.setContext(xmodelName, xmethodName);
+            setContext(xmodelName, xmethodName, isFlow) {
+                this.$root.setContext(xmodelName, xmethodName, isFlow);
             }
         },
         props: ['xselector', 'xmodelName', 'xmethodName'],
@@ -1074,7 +1105,7 @@
         <div class="xselector">
           <div
             class="package-indication"
-            @click="setContext(xmodelName, xmethodName); loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version)"
+            @click="setContext(xmodelName, xmethodName, 'Flows' in xselector.Qualifier); loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version)"
             title="Click to open source view"
           >{{xselector.Qualifier.Path}}{{fmtv(xselector.Qualifier.Version)}}</div>
           <div v-if="xselector.Kind == 'Struct'">
@@ -1197,8 +1228,37 @@
     </script>
     <script type="text/javascript">
     Vue.component('cm-func-item', {
-        props: ['item', 'func'],
+        props: ['item', 'func', 'isflow'],
         template: "#cm-func-item-template",
+        computed: {},
+        methods: {
+            cc: cc,
+            len: len,
+        }
+    });
+    </script>
+    <script type="text/x-template" id="cm-func-item-template">
+        <div>
+          <cm-func-item-pos
+            v-if="!isflow"
+            v-bind:key="item.ID"
+            v-bind:item="item"
+            v-bind:func="func"
+          ></cm-func-item-pos>
+
+          <cm-func-item-flow
+            v-if="isflow"
+            v-bind:key="item.ID"
+            v-bind:item="item"
+            v-bind:func="func"
+          ></cm-func-item-flow>
+        </div>
+    </script>
+
+    <script type="text/javascript">
+    Vue.component('cm-func-item-pos', {
+        props: ['item', 'func'],
+        template: "#cm-func-item-pos-template",
         computed: {},
         methods: {
             cc: cc,
@@ -1261,70 +1321,10 @@
                         });
                     });
             },
-            onChangeFuncFlow(item, blockIndex, key, index, value) {
-                // - Send the update to the API
-                // - Save the response in this.$root.$data.xspec
-                // - The UI is bind to this.$root.$data.xspec
-                console.log("Modifying func Flow selectors ...");
-                
-                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
-                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-                console.log(item.ID, blockIndex, key, index, value)
-
-                let rPath = this.$root.$data.currentPackage.path;
-                let rVersion = this.$root.$data.currentPackage.version;
-                let rModel = this.$root.$data.context.modelName;
-                let rMethod = this.$root.$data.context.methodName;
-
-                let payload = {
-                    "Where": {
-                      "Path": rPath,
-                      "Version": rVersion,
-                      "Model": rModel,
-                      "Method": rMethod
-                    },
-                    "What": {
-                      "FuncID": item.ID
-                    },
-                    "Flow": {
-                      "BlockIndex": blockIndex,
-                      "Key": key,
-                      "Index": index,
-                      "Value": value
-                    }
-                }
-                console.log(payload);
-
-                let url = '/api/spec/funcs';
-                fetch(url, {
-                        method: 'PATCH',
-                        headers: {
-                            'Content-Type': 'application/json',
-                        },
-                        body: JSON.stringify(payload),
-                    })
-                    .then(response => {
-                        if (response.ok) {
-                            return response.json()
-                        } else {
-                            throw response;
-                        }
-                    })
-                    .then(json => {
-                        this.$root.$data.xspec = json;
-                    })
-                    .catch((error) => {
-                        console.error('Error:', error);
-                        error.json().then((body) => {
-                            this.makeToast("danger", "Error", body.error);
-                        });
-                    });
-            },
-
         }
     });
     </script>
-    <script type="text/x-template" id="cm-func-item-template">
+    <script type="text/x-template" id="cm-func-item-pos-template">
         <b-list-group-item v-bind:key="item.ID">
           <b-row class="mr-1">
               <b-col align-self="start">
@@ -1398,6 +1398,153 @@
           </b-row>
       </b-list-group-item>
     </script>
+
+    <script type="text/javascript">
+    Vue.component('cm-func-item-flow', {
+        props: ['item', 'func'],
+        template: "#cm-func-item-flow-template",
+        computed: {},
+        methods: {
+            cc: cc,
+            len: len,
+            onChangeFuncFlow(item, blockIndex, key, index, value) {
+                // - Send the update to the API
+                // - Save the response in this.$root.$data.xspec
+                // - The UI is bind to this.$root.$data.xspec
+                console.log("Modifying func Flow selectors ...");
+                
+                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
+                console.log(item.ID, blockIndex, key, index, value)
+
+                let rPath = this.$root.$data.currentPackage.path;
+                let rVersion = this.$root.$data.currentPackage.version;
+                let rModel = this.$root.$data.context.modelName;
+                let rMethod = this.$root.$data.context.methodName;
+
+                let payload = {
+                    "Where": {
+                      "Path": rPath,
+                      "Version": rVersion,
+                      "Model": rModel,
+                      "Method": rMethod
+                    },
+                    "What": {
+                      "FuncID": item.ID
+                    },
+                    "Flow": {
+                      "BlockIndex": blockIndex,
+                      "Key": key,
+                      "Index": index,
+                      "Value": value
+                    }
+                }
+                console.log(payload);
+
+                let url = '/api/spec/funcs';
+                fetch(url, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.$root.$data.xspec = json;
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
+            },
+
+        }
+    });
+    </script>
+    <script type="text/x-template" id="cm-func-item-flow-template">
+        <b-list-group-item v-bind:key="item.ID">
+          <b-row class="mr-1">
+              <b-col align-self="start">
+                  <b-row class="ml-0">
+                      <span>
+                          <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
+                      </span>
+                  </b-row>
+              <table class="table-responsive table-sm">
+                  <tbody>
+                      <tr>
+                          <td v-if="item.Receiver" class="pl-0 pr-0">func (<b :title="item.Receiver.KindString" v-bind:class="{ 'selected-warning': item.Receiver.Checked }">{{ item.Receiver.TypeString }}</b>).<b :title="func.Signature">{{ func.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
+                          <td v-if="!item.Receiver" class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
+                          <td class="pl-0 pr-0"
+                            v-for="(param, index) in func.Parameters"
+                            >
+                            <cm-type
+                              v-bind:elem="param"
+                              v-bind:index="index"
+                              v-bind:key="item.ID + 'param' + index"
+                              v-bind:total="len(func.Parameters)"
+                              v-bind:class="{ 'selected-primary': param.Checked }"
+                              ></cm-type>
+                          </td>
+                            
+                          <td class="pl-0 pr-0"
+                            v-for="(res, index) in func.Results"
+                            >
+                            <cm-type
+                              v-bind:elem="res"
+                              v-bind:index="index"
+                              v-bind:key="item.ID + 'result' + index"
+                              v-bind:total="len(func.Results)"
+                              v-bind:class="{ 'selected-success': res.Checked }"
+                              ></cm-type>
+                          </td>
+                          <td>
+                            <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
+                          </td>
+                      </tr>
+                      <tr>
+                        <td v-if="item.Receiver" class="pl-0 pr-0">
+                          <b-form-checkbox 
+                            class="d-flex justify-content-center checkbox-warning"
+                            @change="onChangeFuncFlow(item, 0, $event)"
+                            v-model="item.Receiver.Checked"
+                            switch
+                          ></b-form-checkbox>
+                        </td>
+                        <td v-if="!item.Receiver" class="pl-0 pr-0">&nbsp;</td>
+                        <td v-for="(param, index) in func.Parameters" class="pl-0 pr-0">
+                          <b-form-checkbox 
+                            class="d-flex justify-content-center"
+                            @change="onChangeFuncFlow(item, item.Receiver?1+index:index, $event)"
+                            v-model="param.Checked"
+                            switch
+                          ></b-form-checkbox>
+                        </td>
+                        <td v-for="(res, index) in func.Results" class="pl-0 pr-0">
+                          <b-form-checkbox 
+                            class="d-flex justify-content-center checkbox-success"
+                            @change="onChangeFuncFlow(item, item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, $event)"
+                            v-model="res.Checked"
+                            switch
+                          ></b-form-checkbox>
+                        </td>
+                      </tr>
+                  </tbody>
+                  </table>
+              </b-col>
+          </b-row>
+      </b-list-group-item>
+    </script>
+
     <script type="text/javascript">
     Vue.component('cm-type', {
         methods: {
