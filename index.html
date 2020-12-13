@@ -480,72 +480,6 @@
         }
     }
 
-    function drawAnArrow(idFrom, idInto, idArrowLeft, idArrowRight) {
-        console.log(idFrom, idInto, idArrowLeft, idArrowRight);
-
-        if (idFrom == "" || idInto == "") {
-            return
-        }
-        var divFrom = document.getElementById(idFrom);
-        var divInto = document.getElementById(idInto);
-        var arrowLeft = document.getElementById(idArrowLeft);
-        var arrowRight = document.getElementById(idArrowRight);
-
-        if (divFrom == null || divInto == null) {
-            return
-        }
-        if (divFrom.offsetParent == null || divInto.offsetParent == null) {
-            return
-        }
-        let rectFrom = divFrom.getBoundingClientRect();
-        let rectInto = divInto.getBoundingClientRect();
-
-        var drawConnector = function() {
-            var posnALeft = {
-                x: divFrom.offsetLeft - 8,
-                y: divFrom.offsetTop + divFrom.offsetHeight / 2
-            };
-            var posnBLeft = {
-                x: divInto.offsetLeft - 8,
-                y: divInto.offsetTop + divInto.offsetHeight / 2
-            };
-
-            console.log(posnALeft);
-            console.log(posnBLeft);
-
-            var posnFrom = {
-                x: rectFrom.right - rectFrom.width / 2,
-                y: rectFrom.bottom - rectFrom.height
-            };
-            var posnInto = {
-                x: rectInto.right - rectInto.width / 2,
-                y: rectInto.bottom - rectInto.height
-            };
-            console.log(posnFrom);
-            console.log(posnInto);
-
-            let horizOffset = 0;
-            if (divInto.offsetLeft > divFrom.offsetLeft) {
-                horizOffset = divInto.offsetLeft - divFrom.offsetLeft
-            } else {
-                horizOffset = divFrom.offsetLeft - divInto.offsetLeft
-            }
-
-            horizOffset = horizOffset + rectFrom.width + rectInto.width
-
-            var dStrLeft =
-                "M" +
-                (divFrom.offsetLeft + rectFrom.width / 2) + "," + (divInto.offsetParent.offsetHeight + 7) + " " +
-                "C " +
-                (posnALeft.x + rectInto.width / 2) + "," + (divInto.offsetParent.offsetHeight + 7) + " " +
-                (Math.abs(horizOffset)) + "," + (divFrom.offsetParent.offsetHeight - 60) + " " +
-                (divInto.offsetLeft + rectInto.width / 2) + "," + (divInto.offsetParent.offsetHeight) + " "
-            arrowLeft.setAttribute("d", dStrLeft);
-        };
-
-        drawConnector();
-    }
-
     window.app = new Vue({
         el: '#codemill-app',
         data: {
@@ -1218,20 +1152,18 @@
                   field.Checked = this.getStructFieldValueFromSpec(item, field);
               });
             },
-            drawArrowsFor: function(blockIndex, fn) {
+            drawArrowsForSourceView: function(blockIndex, fn) {
                 // Remove any existing arrows:
                 let parentID = cc(fn.ID, "block", blockIndex, 'arrows');
                 remChildren(parentID);
 
                 let block = fn.Flows.Blocks[blockIndex];
-                block.Inp.forEach(function(itemInp, indexInp) {
+                block.Inp.forEach((itemInp, indexInp) => {
 
-                    block.Out.forEach(function(itemOutp, indexOutp) {
+                    block.Out.forEach((itemOutp, indexOutp) => {
                         if (!itemInp || !itemOutp) {
                             return
                         }
-                        console.log(itemOutp, indexOutp);
-                        console.log(itemInp, indexInp);
 
                         let leftArrowID = cc(fn.ID, "block", blockIndex, "arrow", "left", "from", indexInp, "to", indexOutp);
                         let rigthArrowID = cc(fn.ID, "block", blockIndex, "arrow", "right", "from", indexInp, "to", indexOutp);
@@ -1240,9 +1172,9 @@
 
                         let idFrom = cc(fn.ID, "block", blockIndex, "bl", indexInp)
                         let idInto = cc(fn.ID, "block", blockIndex, "bl", indexOutp)
+                        let idSvg = cc("svg", fn.ID, "block", blockIndex)
 
-                        drawAnArrow(idFrom, idInto, leftArrowID, rigthArrowID);
-
+                        this.DrawArrow(idFrom, idInto, leftArrowID, rigthArrowID, idSvg);
                     });
                 });
             },
@@ -1252,7 +1184,7 @@
                 this.$root.$data.currentPackage.source.Funcs.forEach(function(element, elementIndex) {
                   if (element.Flows !== null) {
                     element.Flows.Blocks.forEach(function(block, blockIndex) {
-                        self.drawArrowsFor(blockIndex, element)
+                        self.drawArrowsForSourceView(blockIndex, element)
                     });
                   }
                 });
@@ -1263,7 +1195,7 @@
                 this.$root.$data.currentPackage.source.TypeMethods.forEach(function(element, elementIndex) {
                   if (element.Flows !== null) {
                     element.Flows.Blocks.forEach(function(block, blockIndex) {
-                        self.drawArrowsFor(blockIndex, element)
+                        self.drawArrowsForSourceView(blockIndex, element)
                     });
                   }
                 });
@@ -1274,7 +1206,7 @@
                 this.$root.$data.currentPackage.source.InterfaceMethods.forEach(function(element, elementIndex) {
                   if (element.Flows !== null) {
                     element.Flows.Blocks.forEach(function(block, blockIndex) {
-                        self.drawArrowsFor(blockIndex, element)
+                        self.drawArrowsForSourceView(blockIndex, element)
                     });
                   }
                 });
@@ -1300,9 +1232,9 @@
             sleep: function(ms) {
               return new Promise(resolve => setTimeout(resolve, ms));
             },
-            drawArrowsForSpec: function(blockIndex, fn) {
+            drawArrowsForSpecView: function(blockIndex, fn) {
                 // Remove any existing arrows:
-                let parentID = cc(fn.ID+'_flow', "block", blockIndex, 'arrows');
+                let parentID = cc(fn.ID+'_specViewFlow', "block", blockIndex, 'arrows');
                 remChildren(parentID);
 
                 let block = fn.Flows.Blocks[blockIndex];
@@ -1312,26 +1244,21 @@
                         if (!itemInp || !itemOutp) {
                             return
                         }
-                        console.log(itemOutp, indexOutp);
-                        console.log(itemInp, indexInp);
 
-                        let leftArrowID = cc(fn.ID+'_flow', "block", blockIndex, "arrow", "left", "from", indexInp, "to", indexOutp);
-                        let rigthArrowID = cc(fn.ID+'_flow', "block", blockIndex, "arrow", "right", "from", indexInp, "to", indexOutp);
+                        let leftArrowID = cc(fn.ID+'_specViewFlow', "block", blockIndex, "arrow", "left", "from", indexInp, "to", indexOutp);
+                        let rigthArrowID = cc(fn.ID+'_specViewFlow', "block", blockIndex, "arrow", "right", "from", indexInp, "to", indexOutp);
                         newEdge(parentID, leftArrowID);
                         newEdge(parentID, rigthArrowID);
 
-                        let idFrom = cc(fn.ID+'_flow', "block", blockIndex, "bl", indexInp)
-                        let idInto = cc(fn.ID+'_flow', "block", blockIndex, "bl", indexOutp)
-                        let idSvg = cc("svg", fn.ID+'_flow', "block", blockIndex)
+                        let idFrom = cc(fn.ID+'_specViewFlow', "block", blockIndex, "bl", indexInp)
+                        let idInto = cc(fn.ID+'_specViewFlow', "block", blockIndex, "bl", indexOutp)
+                        let idSvg = cc("svg", fn.ID+'_specViewFlow', "block", blockIndex)
 
-                        this.drawArrowSpecStyle(idFrom, idInto, leftArrowID, rigthArrowID, idSvg);
-
+                        this.DrawArrow(idFrom, idInto, leftArrowID, rigthArrowID, idSvg);
                     });
                 });
             },
-            drawArrowSpecStyle: function(idFrom, idInto, idArrowLeft, idArrowRight, svgID) {
-                console.log(idFrom, idInto, idArrowLeft, idArrowRight);
-
+            DrawArrow: function(idFrom, idInto, idArrowLeft, idArrowRight, svgID) {
                 if (idFrom == "" || idInto == "") {
                     return
                 }
@@ -1354,12 +1281,12 @@
                 var drawConnector = function() {
                     let anchorPoint1 = {
                       x: (rectFrom.x - rectSvg.x + (rectFrom.width / 2)),
-                      y: (divFrom.offsetParent.offsetHeight - (rectFrom.height*3))
+                      y: (rectSvg.height-1)
                     }
 
                     let anchorPoint2 = {
                       x: (rectInto.x - rectSvg.x + (rectInto.width / 2)),
-                      y: (divInto.offsetParent.offsetHeight - (rectFrom.height*3.3))
+                      y: (rectSvg.height-8)
                     }
 
                     let curveHeight = 80;
@@ -1388,7 +1315,7 @@
                     method.Selectors.forEach(selector => {
                       if (selector.Kind == "Func" && selector.Qualifier.Flows !== null) {
                         selector.Qualifier.Flows.Blocks.forEach((block, blockIndex) => {
-                          this.drawArrowsForSpec(blockIndex, selector.Qualifier);
+                          this.drawArrowsForSpecView(blockIndex, selector.Qualifier);
                         });
                       }
                     });
@@ -1522,13 +1449,13 @@
               <div class="flow-block-index-indicator" :title="'Block #' + blockIndex">
                 #{{blockIndex}}
               </div>
-              <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" :id="cc('svg',xselector.Qualifier.ID+'_flow','block',blockIndex)">
+              <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" :id="cc('svg',xselector.Qualifier.ID+'_specViewFlow','block',blockIndex)">
                   <defs>
-                      <marker :id="cc('arrowhead',xselector.Qualifier.ID+'_flow','block',blockIndex)" viewBox="0 0 10 10" refX="3" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                      <marker :id="cc('arrowhead',xselector.Qualifier.ID+'_specViewFlow','block',blockIndex)" viewBox="0 0 10 10" refX="3" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                           <path d="M 0 0 L 10 5 L 0 10 z" />
                       </marker>
                   </defs>
-                  <g fill="none" stroke="black" stroke-width="2" :marker-end="'url(#'+cc('arrowhead',xselector.Qualifier.ID+'_flow','block',blockIndex)+')'" :id="cc(xselector.Qualifier.ID+'_flow','block',blockIndex,'arrows')">
+                  <g fill="none" stroke="black" stroke-width="2" :marker-end="'url(#'+cc('arrowhead',xselector.Qualifier.ID+'_specViewFlow','block',blockIndex)+')'" :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'arrows')">
                   </g>
               </svg>
               <div class="text-monospace d-inline">func</div>
@@ -1540,7 +1467,7 @@
                   'selected-primary': xselector.Qualifier.Flows && xselector.Qualifier.Flows.Blocks[blockIndex].Inp[0],
                   'selected-warning': xselector.Qualifier.Flows && xselector.Qualifier.Flows.Blocks[blockIndex].Out[0],
                 }"
-                :id="cc(xselector.Qualifier.ID+'_flow','block',blockIndex,'bl', 0)"
+                :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', 0)"
                 class="text-monospace d-inline"
                 >({{xselector.Qualifier.Elements.Receiver.TypeString}})</div>
 
@@ -1552,7 +1479,7 @@
                 class="text-monospace d-inline"
                 ><span v-if="elemIndex==0"><b>{{xselector.Qualifier.Name}}</b>(</span><span
                   :title="elem.KindString"
-                  :id="cc(xselector.Qualifier.ID+'_flow','block',blockIndex,'bl', xselector.Qualifier.Elements.Receiver?1+elemIndex:elemIndex)"
+                  :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', xselector.Qualifier.Elements.Receiver?1+elemIndex:elemIndex)"
                   v-bind:class="{
                      'selected-primary': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Inp[ xselector.Qualifier.Elements.Receiver?1+elemIndex:elemIndex ]),
                      'selected-warning': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Out[ xselector.Qualifier.Elements.Receiver?1+elemIndex:elemIndex ]) 
@@ -1565,7 +1492,7 @@
                 v-bind:key="elem.TypeString + 'result' + elemIndex"
                 class="text-monospace d-inline"
                 :title="elem.KindString"
-                :id="cc(xselector.Qualifier.ID+'_flow','block',blockIndex,'bl', xselector.Qualifier.Elements.Receiver?1+len(xselector.Qualifier.Elements.Parameters)+elemIndex:len(xselector.Qualifier.Elements.Parameters)+elemIndex)"
+                :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', xselector.Qualifier.Elements.Receiver?1+len(xselector.Qualifier.Elements.Parameters)+elemIndex:len(xselector.Qualifier.Elements.Parameters)+elemIndex)"
                 v-bind:class="{
                   'selected-primary': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Inp[ xselector.Qualifier.Elements.Receiver?1+len(xselector.Qualifier.Elements.Parameters)+elemIndex:len(xselector.Qualifier.Elements.Parameters)+elemIndex ]),
                   'selected-warning': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Out[ xselector.Qualifier.Elements.Receiver?1+len(xselector.Qualifier.Elements.Parameters)+elemIndex:len(xselector.Qualifier.Elements.Parameters)+elemIndex ]),
@@ -1841,7 +1768,6 @@
             len: len,
             newEdge: newEdge,
             remChildren: remChildren,
-            drawAnArrow: drawAnArrow,
             onChangeFuncFlow(item, blockIndex, key, index, value) {
                 // - Send the update to the API
                 // - Save the response in this.$root.$data.xspec
@@ -1893,7 +1819,7 @@
                     })
                     .then(json => {
                         this.$root.$data.xspec = json;
-                        this.$root.drawArrowsFor(blockIndex, item);
+                        this.$root.drawArrowsForSourceView(blockIndex, item);
                     })
                     .catch((error) => {
                         console.error('Error:', error);
@@ -2044,7 +1970,7 @@
                       </span>
                   </b-row>
               <div class="flow-block" v-for="(block, blockIndex) in item.Flows.Blocks">
-                <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+                <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" :id="cc('svg',item.ID,'block',blockIndex)">
                     <defs>
                         <marker :id="cc('arrowhead',item.ID,'block',blockIndex)" viewBox="0 0 10 10" refX="3" refY="5" markerWidth="6" markerHeight="6" orient="auto">
                             <path d="M 0 0 L 10 5 L 0 10 z" />
