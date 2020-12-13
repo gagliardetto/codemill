@@ -1090,7 +1090,7 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 
 	isStd := search.IsStandardImportPath(path)
 	if isStd {
-		Infof("Package %q is part of standard library", path)
+		Infof("Package %q belongs to the Go standard library.", path)
 	}
 
 	var rootPath string
