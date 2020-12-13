@@ -235,7 +235,7 @@
       top: 0.15em;
       font-weight: bolder;
       font-style: initial;
-      font-size: 1em;
+      font-size: 1.5em;
     }
     .flow-block-trash-icon {
       position: absolute;
@@ -380,8 +380,8 @@
                             <b-input-group class="mt-3">
                                 <b-form-input type="search" placeholder="Filter" id="element-filter-input-field" @input="updateElementFilterValue" class="mr-sm-6" aria-describedby="element-filter-help-block"></b-form-input>
                             </b-input-group>
-                            <b-form-checkbox v-model="currentElementSelectedOnly" name="check-button" switch>
-                                  Show only selected items
+                            <b-form-checkbox v-model="currentElementSelectedOnly" name="check-button" switch class="font-weight-bold">
+                                  {{currentElementSelectedOnly?'Showing only selected items':'Show only selected items'}}
                             </b-form-checkbox>
                         </div>
                         <b-form-text id="element-filter-help-block">
