@@ -49,9 +49,9 @@ func NewTestFile(includeBoilerplace bool) *File {
 			file.Add(code.Line())
 		}
 		{
-			// newSource functions returns a new tainted thing:
+			// The `source` function returns a new tainted thing:
 			code := Func().
-				Id("newSource").
+				Id("source").
 				Params(Id("id").Int()).
 				Interface().
 				Block(Return(Nil()))
@@ -151,18 +151,16 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 								if !funcQual.Flows.Enabled {
 									continue
 								}
-								allCode := generateGoTestBlock_Func(
+								blocksOfCases := generateGoTestBlock_Func(
 									file,
 									thing,
 									funcQual,
 									&testCounter,
 								)
-								for _, block := range allCode {
-									if block != nil {
-										groupCase.Add(block)
-									} else {
-										Warnf("NOTHING GENERATED")
-									}
+								if len(blocksOfCases) == 1 {
+									groupCase.Add(blocksOfCases...)
+								} else {
+									groupCase.Block(blocksOfCases...)
 								}
 							}
 
@@ -689,25 +687,12 @@ func generateGoTestBlock_Func(file *File, fe *feparser.FEFunc, qual *x.FuncQuali
 					fe,
 					inpIndex,
 					outIndex,
+					*testCounter,
 				)
 				{
 					if childBlock != nil {
-
-						enclosed := BlockFunc(func(block *Group) {
-							block.Id("result").Op(":=").Func().
-								ParamsFunc(
-									func(group *Group) {
-										group.Add(Id("sourceCQL").Interface())
-									},
-								).
-								Interface().
-								Add(childBlock).Parens(Id("newSource").Call(Lit(*testCounter)))
-
-							block.Id("sink").Call(Lit(*testCounter), Id("result"))
-						})
 						*testCounter++
-
-						childBlocks = append(childBlocks, enclosed)
+						childBlocks = append(childBlocks, childBlock)
 					} else {
 						Warnf(Sf("NOTHING GENERATED; block %v, inp %v, outp %v", blockIndex, inpIndex, outIndex))
 					}
@@ -718,7 +703,31 @@ func generateGoTestBlock_Func(file *File, fe *feparser.FEFunc, qual *x.FuncQuali
 
 	return childBlocks
 }
-func generateGoChildBlock_Func(file *File, fe *feparser.FEFunc, inpIndex int, outIndex int) *Statement {
+
+// declare `name := source(1).(Type)`
+func ComposeTypeAssertion(file *File, group *Group, varName string, typ types.Type, isVariadic bool, counter int) {
+	assertContent := newStatement()
+	if isVariadic {
+		if slice, ok := typ.(*types.Slice); ok {
+			gogentools.ComposeTypeDeclaration(file, assertContent, slice.Elem())
+		} else {
+			gogentools.ComposeTypeDeclaration(file, assertContent, typ)
+		}
+	} else {
+		gogentools.ComposeTypeDeclaration(file, assertContent, typ)
+	}
+	group.Id(varName).Op(":=").Id("source").Call(Lit(counter)).Assert(assertContent)
+}
+func DoGroup(f func(*Group)) *Statement {
+	g := &Group{}
+	g.CustomFunc(Options{
+		Multi: true,
+	}, f)
+	s := newStatement()
+	*s = append(*s, g)
+	return s
+}
+func generateGoChildBlock_Func(file *File, fe *feparser.FEFunc, inpIndex int, outIndex int, counter int) *Statement {
 
 	inpElem, _, inpRelIndex, err := fe.GetRelativeElement(inpIndex)
 	if err != nil {
@@ -733,19 +742,19 @@ func generateGoChildBlock_Func(file *File, fe *feparser.FEFunc, inpIndex int, ou
 
 	switch {
 	case inpElem == Parameter && outElem == Parameter:
-		return generate_ParaFuncPara(file, fe, inpRelIndex, outRelIndex)
+		return generate_ParaFuncPara(file, fe, inpRelIndex, outRelIndex, counter)
 	case inpElem == Parameter && outElem == Result:
-		return generate_ParaFuncResu(file, fe, inpRelIndex, outRelIndex)
+		return generate_ParaFuncResu(file, fe, inpRelIndex, outRelIndex, counter)
 	case inpElem == Result && outElem == Parameter:
-		return generate_ResuFuncPara(file, fe, inpRelIndex, outRelIndex)
+		return generate_ResuFuncPara(file, fe, inpRelIndex, outRelIndex, counter)
 	case inpElem == Result && outElem == Result:
-		return generate_ResuFuncResu(file, fe, inpRelIndex, outRelIndex)
+		return generate_ResuFuncResu(file, fe, inpRelIndex, outRelIndex, counter)
 	default:
 		panic(Sf("unhandled case: inp.Element %v, out.Element %v", inpElem, outElem))
 	}
 }
 
-func generate_ParaFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOut int) *Statement {
+func generate_ParaFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOut int, counter int) *Statement {
 	// from: param
 	// medium: func
 	// into: param
@@ -764,7 +773,7 @@ func generate_ParaFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
 
 			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
-			gogentools.ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic())
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
 
 			Comments(groupCase, Sf("Declare `%s` variable:", outVarName))
 			gogentools.ComposeVarDeclaration(file, groupCase, out.VarName, out.GetOriginal().GetType(), out.GetOriginal().IsVariadic())
@@ -797,13 +806,13 @@ func generate_ParaFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Return(Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName))
 		})
 
 	return code
 }
 
-func generate_ParaFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOut int) *Statement {
+func generate_ParaFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOut int, counter int) *Statement {
 	// from: param
 	// medium: func
 	// into: result
@@ -822,7 +831,7 @@ func generate_ParaFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
 
 			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
-			gogentools.ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic())
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
 
 			Comments(groupCase,
 				"Call the function that transfers the taint",
@@ -857,11 +866,11 @@ func generate_ParaFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Return(Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName))
 		})
 	return code
 }
-func generate_ResuFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOut int) *Statement {
+func generate_ResuFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOut int, counter int) *Statement {
 	// from: result
 	// medium: func
 	// into: param
@@ -881,7 +890,7 @@ func generate_ResuFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
 
 			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
-			gogentools.ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic())
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
 
 			Comments(groupCase, Sf("Declare `%s` variable:", out.VarName))
 			gogentools.ComposeVarDeclaration(file, groupCase, out.VarName, out.GetOriginal().GetType(), out.GetOriginal().IsVariadic())
@@ -928,11 +937,11 @@ func generate_ResuFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Return(Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName))
 		})
 	return code
 }
-func generate_ResuFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOut int) *Statement {
+func generate_ResuFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOut int, counter int) *Statement {
 	// from: result
 	// medium: func
 	// into: result
@@ -951,7 +960,7 @@ func generate_ResuFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
 
 			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
-			gogentools.ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic())
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
 			gogentools.ImportPackage(file, out.PkgPath, out.PkgName)
 
 			Comments(groupCase,
@@ -994,7 +1003,7 @@ func generate_ResuFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Return(Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName))
 		})
 	return code
 }
