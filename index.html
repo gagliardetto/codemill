@@ -224,6 +224,9 @@
         border-radius: 4px;
         width: fit-content;
     }
+    div.text-muted * {
+        color: #6c757d !important;
+    }
     </style>
 </head>
 
@@ -1735,12 +1738,42 @@
                         });
                     });
             },
+            addBlock(fn) {
+              // TODO:
+              // - can add a block if at least one true inside Inp or Out.
+                let width = this.len(fn.Flows.Blocks[0].Inp);
+                fn.Flows.Blocks.push({ Inp: this.$root.newBoolArray(width), Out: this.$root.newBoolArray(width) });
+            },
+            removeBlock(blockIndex, fn) {
+                fn.Flows.Blocks.splice(blockIndex, 1);
+                // TODO: send API call.
+            },
+            onEnableChange(newVal, fn) {
+              console.log("onEnableChange",newVal);
+                // TODO: send API call.
+            },
         }
     });
     </script>
     <script type="text/x-template" id="cm-func-item-flow-template">
         <b-list-group-item v-bind:key="item.ID">
-          <b-row class="mr-1">
+          <b-row class="ml-0">
+            <div>
+                <b-form-checkbox
+                  v-model="item.Flows.Enabled"
+                  name="check-button"
+                  switch
+                  title="Click to enable/disable"
+                  @change="onEnableChange($event, func.Signature)">
+                      {{item.Flows.Enabled?'Enabled ✓':'Click to enable'}}
+                </b-form-checkbox>
+            </div>
+          </b-row>
+          <b-row
+            class="mr-1"
+            v-bind:class="{ 
+              'text-muted': item.Flows && !item.Flows.Enabled,
+            }">
               <b-col align-self="start">
                   <b-row class="ml-0">
                       <span>
@@ -1757,7 +1790,9 @@
                     <g fill="none" stroke="black" stroke-width="2" :marker-end="'url(#'+cc('arrowhead',item.ID,'block',blockIndex)+')'" :id="cc(item.ID,'block',blockIndex,'arrows')">
                     </g>
                 </svg>
-                <table class="table-responsive table-sm">
+                <table
+                  class="table-responsive table-sm"
+                  >
                     <tbody>
                         <tr>
                             <td 
@@ -1816,6 +1851,7 @@
                               @change="onChangeFuncFlow(item, blockIndex, 'Inp', 0, $event)"
                               v-model="item.Flows.Blocks[blockIndex].Inp[0]"
                               switch
+                              :disabled="!item.Flows.Enabled"
                             ></b-form-checkbox>
                           </td>
                           <td v-if="!item.Receiver" class="pl-0 pr-0">&nbsp;</td>
@@ -1825,6 +1861,7 @@
                               @change="onChangeFuncFlow(item, blockIndex, 'Inp', item.Receiver?1+index:index, $event)"
                               v-model="item.Flows.Blocks[blockIndex].Inp[ item.Receiver?1+index:index ]"
                               switch
+                              :disabled="!item.Flows.Enabled"
                             ></b-form-checkbox>
                           </td>
                           <td v-for="(res, index) in func.Results" class="pl-0 pr-0">
@@ -1833,6 +1870,7 @@
                               @change="onChangeFuncFlow(item, blockIndex, 'Inp', item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, $event)"
                               v-model="item.Flows.Blocks[blockIndex].Inp[ item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index ]"
                               switch
+                              :disabled="!item.Flows.Enabled"
                             ></b-form-checkbox>
                           </td>
                         </tr>
@@ -1844,6 +1882,7 @@
                               @change="onChangeFuncFlow(item, blockIndex, 'Out', 0, $event)"
                               v-model="item.Flows.Blocks[blockIndex].Out[0]"
                               switch
+                              :disabled="!item.Flows.Enabled"
                             ></b-form-checkbox>
                           </td>
                           <td v-if="!item.Receiver" class="pl-0 pr-0">&nbsp;</td>
@@ -1853,6 +1892,7 @@
                               @change="onChangeFuncFlow(item, blockIndex, 'Out', item.Receiver?1+index:index, $event)"
                               v-model="item.Flows.Blocks[blockIndex].Out[ item.Receiver?1+index:index ]"
                               switch
+                              :disabled="!item.Flows.Enabled"
                             ></b-form-checkbox>
                           </td>
                           <td v-for="(res, index) in func.Results" class="pl-0 pr-0">
@@ -1861,11 +1901,25 @@
                               @change="onChangeFuncFlow(item, blockIndex, 'Out', item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, $event)"
                               v-model="item.Flows.Blocks[blockIndex].Out[ item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index ]"
                               switch
+                              :disabled="!item.Flows.Enabled"
                             ></b-form-checkbox>
                           </td>
                         </tr>
                     </tbody>
                   </table>
+                  <div class="text-center">
+                      <b-button
+                        v-if="blockIndex == item.Flows.Blocks.length - 1"
+                        class="btn btn-sm"
+                        @click="addBlock(item)"
+                        :disabled="!item.Flows.Enabled"
+                        title="Add another block with different flow conditions">Add new block</b-button>
+                      <b-button
+                        v-if="item.Flows.Blocks.length > 1"
+                        class="btn btn-danger btn-sm"
+                        @click="removeBlock(blockIndex, item)"
+                        :disabled="!item.Flows.Enabled"> Remove block #{{blockIndex}} </b-button>
+                  </div>
                 </div>
               </b-col>
           </b-row>
