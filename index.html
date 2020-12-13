@@ -1517,9 +1517,11 @@
 
           <!-- Func with Flow -->
           <div v-if="xselector.Kind == 'Func' && xselector.Qualifier.Flows !== null">
-            <div class="text-monospace d-inline">TODO: flow graphs here</div>
 
             <div class="flow-block" v-for="(block, blockIndex) in xselector.Qualifier.Flows.Blocks">
+              <div class="flow-block-index-indicator" :title="'Block #' + blockIndex">
+                #{{blockIndex}}
+              </div>
               <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" :id="cc('svg',xselector.Qualifier.ID+'_flow','block',blockIndex)">
                   <defs>
                       <marker :id="cc('arrowhead',xselector.Qualifier.ID+'_flow','block',blockIndex)" viewBox="0 0 10 10" refX="3" refY="5" markerWidth="6" markerHeight="6" orient="auto">
