@@ -1763,9 +1763,58 @@
                 fn.Flows.Blocks.splice(blockIndex, 1);
                 // TODO: send API call.
             },
-            onEnableChange(newVal, fn) {
-              console.log("onEnableChange",newVal);
-                // TODO: send API call.
+            onChangeEnabled(value, item) {
+                console.log("Enabling/disabling a flow selector...");
+
+                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
+                console.log(item.ID, value)
+
+                let rPath = this.$root.$data.currentPackage.path;
+                let rVersion = this.$root.$data.currentPackage.version;
+                let rModel = this.$root.$data.context.modelName;
+                let rMethod = this.$root.$data.context.methodName;
+
+                let payload = {
+                    "Where": {
+                      "Path": rPath,
+                      "Version": rVersion,
+                      "Model": rModel,
+                      "Method": rMethod
+                    },
+                    "What": {
+                      "FuncID": item.ID
+                    },
+                    "Flow": {
+                      "Enable": value,
+                    }
+                }
+                console.log(payload);
+
+                let url = '/api/spec/funcs/flow/enable';
+                fetch(url, {
+                        method: 'PATCH',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.$root.$data.xspec = json;
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
             },
         }
     });
@@ -1779,7 +1828,7 @@
                   name="check-button"
                   switch
                   title="Click to enable/disable"
-                  @change="onEnableChange($event, func.Signature)">
+                  @change="onChangeEnabled($event, item)">
                       {{item.Flows.Enabled?'Enabled ✓':'Click to enable'}}
                 </b-form-checkbox>
             </div>

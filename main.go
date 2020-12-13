@@ -490,18 +490,17 @@ func main() {
 		}
 
 		if req.Flow != nil {
-			// - validate Key
+			// Validate flow Key:
 			isValidFlowKey := SliceContains(validFlowKeys, req.Flow.Key)
 			if !isValidFlowKey {
 				Abort400(c, Sf("Provided req.Flow.Key is not valid: %q", req.Flow.Key))
 				return
 			}
-			// - validate Index
+			// Validate Index:
 			if req.Flow.Index < 0 || req.Flow.Index >= fn.Len() {
 				Abort400(c, Sf("req.Flow.Index out of bounds: index=%v, but v.Len() = %v", req.Flow.Index, fn.Len()))
 				return
 			}
-			// TODO: validate BlockIndex
 		}
 
 		err = globalSpec.ModifyModelByName(
@@ -670,6 +669,94 @@ func main() {
 								}
 							}
 							return nil
+						}
+						return nil
+					},
+				)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			Abort400(c, Sf("Error modifying model: %s", err))
+			return
+		}
+
+		c.IndentedJSON(200, globalSpec)
+	})
+
+	r.PATCH("/api/spec/funcs/flow/enable", func(c *gin.Context) {
+		// Enable/disable a flow selector:
+		type FlowValueSet struct {
+			Enable bool // Enable selector.
+		}
+		var req struct {
+			Where struct {
+				Path    string
+				Version string
+				Model   string
+				Method  string
+			}
+			What struct {
+				FuncID string
+			}
+			Flow *FlowValueSet
+		}
+		err := c.BindJSON(&req)
+		if err != nil {
+			Q(err)
+			Abort400(c, err.Error())
+			return
+		}
+
+		source := x.GetCachedSource(req.Where.Path, req.Where.Version)
+		if source == nil {
+			Abort404(c, Sf("Source not found: %s@%s", req.Where.Path, req.Where.Version))
+			return
+		}
+		// Find the func/type-method/interface-method:
+		fn := x.FindFuncByID(source, req.What.FuncID)
+		if fn == nil {
+			Abort404(c, Sf("Func not found: %q", req.What.FuncID))
+			return
+		}
+
+		err = globalSpec.ModifyModelByName(
+			req.Where.Model,
+			func(mdl *x.XModel) error {
+				// Currently, only the tainttracking.Handler is the only handler
+				// that supports flow handling.
+				if mdl.Kind != tainttracking.Kind {
+					return errors.New("This model does not support func flow qualifiers.")
+				}
+				err := mdl.ModifyMethodByName(
+					req.Where.Method,
+					func(mt *x.XMethod) error {
+
+						meta := x.CompileFuncQualifierElementsMeta(fn)
+						existingSel := mt.GetFuncSelector(
+							req.Where.Path,
+							req.Where.Version,
+							req.What.FuncID,
+						)
+
+						// Handle Flow:
+						if existingSel == nil {
+							// The selctor does not exist.
+							// TODO: Do nothing, or return a 404??
+							return nil
+						} else {
+							if existingSel.Flows == nil {
+								// TODO: what to do in this case?
+								return errors.New("Found sel.Flows is nil")
+							}
+
+							// Set Enabled to true/false:
+							existingSel.Flows.Enabled = req.Flow.Enable
+
+							existingSel.Elements = meta
 						}
 						return nil
 					},
