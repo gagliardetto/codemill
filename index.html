@@ -1493,10 +1493,10 @@
                 class="text-monospace d-inline"
                 ><span v-if="elemIndex==0"><b>{{xselector.Qualifier.Name}}</b>(</span><span
                   :title="elem.KindString"
-                  :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', xselector.Qualifier.Elements.Receiver?1+elemIndex:elemIndex)"
+                  :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', elem.AI)"
                   v-bind:class="{
-                     'selected-primary': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Inp[ xselector.Qualifier.Elements.Receiver?1+elemIndex:elemIndex ]),
-                     'selected-warning': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Out[ xselector.Qualifier.Elements.Receiver?1+elemIndex:elemIndex ]) 
+                     'selected-primary': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Inp[elem.AI]),
+                     'selected-warning': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Out[elem.AI]) 
                   }"
                   >{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Parameters) - 1 ?")":", "}}</span>
               </div>
@@ -1506,10 +1506,10 @@
                 v-bind:key="elem.TypeString + 'result' + elemIndex"
                 class="text-monospace d-inline"
                 :title="elem.KindString"
-                :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', xselector.Qualifier.Elements.Receiver?1+len(xselector.Qualifier.Elements.Parameters)+elemIndex:len(xselector.Qualifier.Elements.Parameters)+elemIndex)"
+                :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', elem.AI)"
                 v-bind:class="{
-                  'selected-primary': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Inp[ xselector.Qualifier.Elements.Receiver?1+len(xselector.Qualifier.Elements.Parameters)+elemIndex:len(xselector.Qualifier.Elements.Parameters)+elemIndex ]),
-                  'selected-warning': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Out[ xselector.Qualifier.Elements.Receiver?1+len(xselector.Qualifier.Elements.Parameters)+elemIndex:len(xselector.Qualifier.Elements.Parameters)+elemIndex ]),
+                  'selected-primary': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Inp[elem.AI]),
+                  'selected-warning': xselector.Qualifier.Flows && (xselector.Qualifier.Flows.Blocks[blockIndex].Out[elem.AI]),
                  }"
                 >{{elemIndex==0?"(":""}}{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Results) - 1 ?")":", "}}</div>
             </div>
