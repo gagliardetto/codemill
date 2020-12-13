@@ -212,20 +212,35 @@
       display: none;
     }
     .flow-block {
-        margin: 0.5em;
+        margin-top: 0.5em;
+        margin-bottom: 0.5em;
         padding: 0.8em;
         padding-left: 2em;
         padding-right: 2em;
-        border: 1px solid;
+        border: 2px solid;
         -moz-outline-radius: 10px;
         -webkit-outline-radius: 10px;
         -webkit-border-radius: 4px;
         -moz-border-radius: 4px;
         border-radius: 4px;
         width: fit-content;
+        position: relative;
     }
     div.text-muted * {
         color: #6c757d !important;
+    }
+    .flow-block-index-indicator {
+      position: absolute;
+      left: 0.5em;
+      top: 0.15em;
+      font-weight: bolder;
+      font-style: initial;
+      font-size: 1em;
+    }
+    .flow-block-trash-icon {
+      position: absolute;
+      right: 0.5em;
+      top: 0.5em;
     }
     </style>
 </head>
@@ -369,7 +384,7 @@
                                   v-bind:key="item.ID"
                                   v-bind:item="item"
                                   v-bind:func="item.Func || item"
-                                  v-bind:isFlow="context.isFlow"
+                                  v-bind:isflow="context.isFlow"
                                 ></cm-func-item>
                             </b-list-group>
                         </b-tab>
@@ -380,7 +395,7 @@
                                   v-bind:key="item.ID"
                                   v-bind:item="item"
                                   v-bind:func="item.Func || item"
-                                  v-bind:isFlow="context.isFlow"
+                                  v-bind:isflow="context.isFlow"
                                 ></cm-func-item>
                             </b-list-group>
                         </b-tab>
@@ -391,7 +406,7 @@
                                   v-bind:key="item.ID"
                                   v-bind:item="item"
                                   v-bind:func="item.Func || item"
-                                  v-bind:isFlow="context.isFlow"
+                                  v-bind:isflow="context.isFlow"
                                 ></cm-func-item>
                             </b-list-group>
                         </b-tab>
@@ -579,7 +594,7 @@
         },
         mounted() {
           this.$root.$on('bv::modal::shown', (bvEvent, modalId) => {
-            if (modalId == "modal-show-code") {
+            if (this.$data.context.isFlow == true && modalId == "modal-show-code") {
               this.$data.sourceModalIsShown = true;
 
               let tabIndex = this.$data.tabIndex;
@@ -815,7 +830,7 @@
 
                         // Sync source with spec:
                         json.Funcs.forEach((item) => {
-                          if (!this.$data.context.isFlow) {
+                          if (this.$data.context.isFlow == false) {
                             this.PosSyncParametersWithSpec(item);
                             this.PosSyncResultsWithSpec(item);
                           } else {
@@ -823,7 +838,7 @@
                           }
                         });
                         json.TypeMethods.forEach((item) => {
-                          if (!this.$data.context.isFlow) {
+                          if (this.$data.context.isFlow == false) {
                             this.PosSyncReceiverWithSpec(item);
                             this.PosSyncParametersWithSpec(item);
                             this.PosSyncResultsWithSpec(item);
@@ -832,7 +847,7 @@
                           }
                         });
                         json.InterfaceMethods.forEach((item) => {
-                          if (!this.$data.context.isFlow) {
+                          if (this.$data.context.isFlow == false) {
                             this.PosSyncReceiverWithSpec(item);
                             this.PosSyncParametersWithSpec(item);
                             this.PosSyncResultsWithSpec(item);
@@ -1364,7 +1379,7 @@
         <div class="xselector">
           <div
             class="package-indication"
-            @click="setContext(xmodelName, xmethodName, 'Flows' in xselector.Qualifier); loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version)"
+            @click="setContext(xmodelName, xmethodName, xselector.Qualifier.Flows !== null); loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version)"
             title="Click to open source view"
           >{{xselector.Qualifier.Path}}{{fmtv(xselector.Qualifier.Version)}}</div>
           <div v-if="xselector.Kind == 'Struct'">
@@ -1505,14 +1520,14 @@
     <script type="text/x-template" id="cm-func-item-template">
         <div>
           <cm-func-item-pos
-            v-if="!isflow"
+            v-if="isflow == false"
             v-bind:key="item.ID"
             v-bind:item="item"
             v-bind:func="func"
           ></cm-func-item-pos>
 
           <cm-func-item-flow
-            v-if="isflow"
+            v-if="isflow == true"
             v-bind:key="item.ID"
             v-bind:item="item"
             v-bind:func="func"
@@ -1907,18 +1922,24 @@
                         </tr>
                     </tbody>
                   </table>
+                  <div class="flow-block-index-indicator">
+                    #{{blockIndex}}
+                  </div>
                   <div class="text-center">
                       <b-button
                         v-if="blockIndex == item.Flows.Blocks.length - 1"
-                        class="btn btn-sm"
+                        size="sm"
+                        variant="success"
                         @click="addBlock(item)"
                         :disabled="!item.Flows.Enabled"
-                        title="Add another block with different flow conditions">Add new block</b-button>
+                        title="Add another block with different flow conditions"><b-icon icon="plus-square"></b-icon> Add new block</b-button>
                       <b-button
                         v-if="item.Flows.Blocks.length > 1"
-                        class="btn btn-danger btn-sm"
+                        class="btn-danger flow-block-trash-icon"
+                        size="sm"
                         @click="removeBlock(blockIndex, item)"
-                        :disabled="!item.Flows.Enabled"> Remove block #{{blockIndex}} </b-button>
+                        title="Click to delete this block"
+                        :disabled="!item.Flows.Enabled"> <b-icon icon="trash-fill"></b-icon> </b-button>
                   </div>
                 </div>
               </b-col>
