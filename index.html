@@ -1759,9 +1759,59 @@
                 let width = this.len(fn.Flows.Blocks[0].Inp);
                 fn.Flows.Blocks.push({ Inp: this.$root.newBoolArray(width), Out: this.$root.newBoolArray(width) });
             },
-            removeBlock(blockIndex, fn) {
-                fn.Flows.Blocks.splice(blockIndex, 1);
-                // TODO: send API call.
+            deleteBlock(blockIndex, item) {
+                console.log("Deleting block from a flow selector...");
+
+                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
+                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
+                console.log(item.ID, "; BlockIndex:", blockIndex)
+
+                let rPath = this.$root.$data.currentPackage.path;
+                let rVersion = this.$root.$data.currentPackage.version;
+                let rModel = this.$root.$data.context.modelName;
+                let rMethod = this.$root.$data.context.methodName;
+
+                let payload = {
+                    "Where": {
+                      "Path": rPath,
+                      "Version": rVersion,
+                      "Model": rModel,
+                      "Method": rMethod
+                    },
+                    "What": {
+                      "FuncID": item.ID
+                    },
+                    "Flow": {
+                      "BlockIndex": blockIndex,
+                    }
+                }
+                console.log(payload);
+
+                let url = '/api/spec/funcs/flow/blocks';
+                fetch(url, {
+                        method: 'DELETE',
+                        headers: {
+                            'Content-Type': 'application/json',
+                        },
+                        body: JSON.stringify(payload),
+                    })
+                    .then(response => {
+                        if (response.ok) {
+                            return response.json()
+                        } else {
+                            throw response;
+                        }
+                    })
+                    .then(json => {
+                        this.$root.$data.xspec = json;
+                        item.Flows.Blocks.splice(blockIndex, 1);
+                    })
+                    .catch((error) => {
+                        console.error('Error:', error);
+                        error.json().then((body) => {
+                            this.makeToast("danger", "Error", body.error);
+                        });
+                    });
             },
             onChangeEnabled(value, item) {
                 console.log("Enabling/disabling a flow selector...");
@@ -1979,7 +2029,7 @@
                         v-if="item.Flows.Blocks.length > 1"
                         class="btn-danger flow-block-trash-icon"
                         size="sm"
-                        @click="removeBlock(blockIndex, item)"
+                        @click="deleteBlock(blockIndex, item)"
                         title="Click to delete this block"
                         :disabled="!item.Flows.Enabled"> <b-icon icon="trash-fill"></b-icon> </b-button>
                   </div>

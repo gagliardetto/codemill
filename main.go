@@ -508,7 +508,7 @@ func main() {
 			func(mdl *x.XModel) error {
 				// Currently, only the tainttracking.Handler is the only handler
 				// that supports flow handling.
-				if req.Flow != nil && mdl.Kind != tainttracking.Kind {
+				if !ModelSupportsFuncFlow(mdl) {
 					return errors.New("This model does not support func flow qualifiers.")
 				}
 				err := mdl.ModifyMethodByName(
@@ -728,7 +728,7 @@ func main() {
 			func(mdl *x.XModel) error {
 				// Currently, only the tainttracking.Handler is the only handler
 				// that supports flow handling.
-				if mdl.Kind != tainttracking.Kind {
+				if !ModelSupportsFuncFlow(mdl) {
 					return errors.New("This model does not support func flow qualifiers.")
 				}
 				err := mdl.ModifyMethodByName(
@@ -755,6 +755,92 @@ func main() {
 
 							// Set Enabled to true/false:
 							existingSel.Flows.Enabled = req.Flow.Enable
+
+							existingSel.Elements = meta
+						}
+						return nil
+					},
+				)
+				if err != nil {
+					return err
+				}
+				return nil
+			},
+		)
+		if err != nil {
+			Abort400(c, Sf("Error modifying model: %s", err))
+			return
+		}
+
+		c.IndentedJSON(200, globalSpec)
+	})
+
+	r.DELETE("/api/spec/funcs/flow/blocks", func(c *gin.Context) {
+		// Delete a block:
+		type FlowValueSet struct {
+			BlockIndex int
+		}
+		var req struct {
+			Where struct {
+				Path    string
+				Version string
+				Model   string
+				Method  string
+			}
+			What struct {
+				FuncID string
+			}
+			Flow *FlowValueSet
+		}
+		err := c.BindJSON(&req)
+		if err != nil {
+			Q(err)
+			Abort400(c, err.Error())
+			return
+		}
+
+		source := x.GetCachedSource(req.Where.Path, req.Where.Version)
+		if source == nil {
+			Abort404(c, Sf("Source not found: %s@%s", req.Where.Path, req.Where.Version))
+			return
+		}
+		// Find the func/type-method/interface-method:
+		fn := x.FindFuncByID(source, req.What.FuncID)
+		if fn == nil {
+			Abort404(c, Sf("Func not found: %q", req.What.FuncID))
+			return
+		}
+
+		err = globalSpec.ModifyModelByName(
+			req.Where.Model,
+			func(mdl *x.XModel) error {
+				if !ModelSupportsFuncFlow(mdl) {
+					return errors.New("This model does not support func flow qualifiers.")
+				}
+				err := mdl.ModifyMethodByName(
+					req.Where.Method,
+					func(mt *x.XMethod) error {
+
+						meta := x.CompileFuncQualifierElementsMeta(fn)
+						existingSel := mt.GetFuncSelector(
+							req.Where.Path,
+							req.Where.Version,
+							req.What.FuncID,
+						)
+
+						// Handle Flow:
+						if existingSel == nil {
+							// The selctor does not exist.
+							// TODO: Do nothing, or return a 404??
+							return nil
+						} else {
+							if existingSel.Flows == nil {
+								// TODO: what to do in this case?
+								return errors.New("Found sel.Flows is nil")
+							}
+
+							// Delete block:
+							existingSel.Flows.DeleteBlock(req.Flow.BlockIndex)
 
 							existingSel.Elements = meta
 						}
@@ -983,6 +1069,14 @@ func main() {
 	}
 }
 
+func ModelSupportsFuncFlow(mdl *x.XModel) bool {
+	// Currently, only the tainttracking.Handler is the only handler
+	// that supports flow handling.
+	if mdl.Kind != tainttracking.Kind {
+		return false
+	}
+	return true
+}
 func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 
 	if path == "" {

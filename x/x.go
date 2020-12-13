@@ -787,6 +787,20 @@ func (fls *FlowSpec) Validate() error {
 	return nil
 }
 
+//
+func (fls *FlowSpec) DeleteBlock(index int) bool {
+	for i := range fls.Blocks {
+		if i == index {
+			// Remove the element at index i from a.
+			fls.Blocks[i] = fls.Blocks[len(fls.Blocks)-1] // Copy last element to index i.
+			fls.Blocks[len(fls.Blocks)-1] = nil           // Erase last element (write zero value).
+			fls.Blocks = fls.Blocks[:len(fls.Blocks)-1]   // Truncate slice.
+			return true
+		}
+	}
+	return false
+}
+
 // ValidateFlowBlocks tells whether the blocks can be used (i.e. they have enough correct information.)
 func ValidateFlowBlocks(blocks ...*FlowBlock) error {
 	if len(blocks) == 0 {
