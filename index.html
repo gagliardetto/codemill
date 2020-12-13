@@ -242,6 +242,20 @@
       right: 0.5em;
       top: 0.5em;
     }
+    .inp-label {
+      position: absolute;
+      bottom: 66px;
+      left: 14px;
+      font-size: smaller;
+      color: #6c757d !important;
+    }
+    .out-label {
+      position: absolute;
+      bottom: 24px;
+      left: 14px;
+      font-size: smaller;
+      color: #6c757d !important;
+    }
     </style>
 </head>
 
@@ -2063,6 +2077,8 @@
                             ></b-form-checkbox>
                           </td>
                         </tr>
+                          <span class="inp-label font-italic">From<b-icon icon="arrow-right-short"></b-icon></span>
+                          <span class="out-label font-italic"><b-icon icon="arrow-right"></b-icon> Into</span>
                          <!--checkboxes for output -->
                         <tr>
                           <td v-if="item.Receiver" class="pl-0 pr-0">
