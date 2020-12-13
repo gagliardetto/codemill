@@ -108,7 +108,6 @@
         border-color: #ffeeba !important;
         border-radius: 0.3em;
     }
-
     .custom-control-label {
       cursor: pointer;
     }
@@ -211,6 +210,19 @@
     }
     [v-cloak] {
       display: none;
+    }
+    .flow-block {
+        margin: 0.5em;
+        padding: 0.8em;
+        padding-left: 2em;
+        padding-right: 2em;
+        border: 1px solid;
+        -moz-outline-radius: 10px;
+        -webkit-outline-radius: 10px;
+        -webkit-border-radius: 4px;
+        -moz-border-radius: 4px;
+        border-radius: 4px;
+        width: fit-content;
     }
     </style>
 </head>
@@ -344,7 +356,7 @@
                             Filter elements.
                         </b-form-text>
                     </b-form>
-                    <b-tabs align="left" card>
+                    <b-tabs align="left" card @input="handleTabIndex">
                         <!-- This tabs content will not be mounted until the tab is shown -->
                         <!-- and will be un-mounted when hidden -->
                         <b-tab :title="'Funcs (' + len(filteredFuncs) + ')'" active>
@@ -380,7 +392,7 @@
                                 ></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'">
+                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" v-if="!context.isFlow">
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <cm-struct-item
                                   v-for="item in filteredStructs"
@@ -389,7 +401,7 @@
                                 ></cm-struct-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Types (' + len(filteredTypes) + ')'">
+                        <b-tab :title="'Types (' + len(filteredTypes) + ')'" v-if="!context.isFlow">
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <cm-type-item
                                   v-for="item in filteredTypes"
@@ -428,6 +440,94 @@
         return path + "@" + version
     }
 
+    function newEdge(parentID, id) {
+        let path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+        path.setAttribute("id", id);
+        let parentNode = document.getElementById(parentID);
+        if (parentNode == null) {
+            console.log(parentID, "does not exist");
+            return
+        }
+        parentNode.appendChild(path)
+    }
+
+    function remChildren(parentID) {
+        const parentNode = document.getElementById(parentID);
+        if (parentNode == null) {
+            console.log(parentID, "does not exist");
+            return
+        }
+        while (parentNode.lastElementChild) {
+            parentNode.removeChild(parentNode.lastElementChild);
+        }
+    }
+
+    function drawAnArrow(idFrom, idInto, idArrowLeft, idArrowRight) {
+        console.log(idFrom, idInto, idArrowLeft, idArrowRight);
+
+        if (idFrom == "" || idInto == "") {
+            return
+        }
+        var divFrom = document.getElementById(idFrom);
+        var divInto = document.getElementById(idInto);
+        var arrowLeft = document.getElementById(idArrowLeft);
+        var arrowRight = document.getElementById(idArrowRight);
+
+        if (divFrom == null || divInto == null) {
+            return
+        }
+        if (divFrom.offsetParent == null || divInto.offsetParent == null) {
+            return
+        }
+        let rectFrom = divFrom.getBoundingClientRect();
+        let rectInto = divInto.getBoundingClientRect();
+
+        var drawConnector = function() {
+            var posnALeft = {
+                x: divFrom.offsetLeft - 8,
+                y: divFrom.offsetTop + divFrom.offsetHeight / 2
+            };
+            var posnBLeft = {
+                x: divInto.offsetLeft - 8,
+                y: divInto.offsetTop + divInto.offsetHeight / 2
+            };
+
+            console.log(posnALeft);
+            console.log(posnBLeft);
+
+            var posnFrom = {
+                x: rectFrom.right - rectFrom.width / 2,
+                y: rectFrom.bottom - rectFrom.height
+            };
+            var posnInto = {
+                x: rectInto.right - rectInto.width / 2,
+                y: rectInto.bottom - rectInto.height
+            };
+            console.log(posnFrom);
+            console.log(posnInto);
+
+            let horizOffset = 0;
+            if (divInto.offsetLeft > divFrom.offsetLeft) {
+                horizOffset = divInto.offsetLeft - divFrom.offsetLeft
+            } else {
+                horizOffset = divFrom.offsetLeft - divInto.offsetLeft
+            }
+
+            horizOffset = horizOffset + rectFrom.width + rectInto.width
+
+            var dStrLeft =
+                "M" +
+                (divFrom.offsetLeft + rectFrom.width / 2) + "," + (divInto.offsetParent.offsetHeight + 7) + " " +
+                "C " +
+                (posnALeft.x + rectInto.width / 2) + "," + (divInto.offsetParent.offsetHeight + 7) + " " +
+                (Math.abs(horizOffset)) + "," + (divFrom.offsetParent.offsetHeight - 60) + " " +
+                (divInto.offsetLeft + rectInto.width / 2) + "," + (divInto.offsetParent.offsetHeight) + " "
+            arrowLeft.setAttribute("d", dStrLeft);
+        };
+
+        drawConnector();
+    }
+
     window.app = new Vue({
         el: '#codemill-app',
         data: {
@@ -436,6 +536,8 @@
               methodName: "",
               isFlow: false
             },
+            tabIndex: 0,
+            sourceModalIsShown: false,
             cacheModules: [],
             modelKinds: [],
             newModel: {
@@ -467,14 +569,33 @@
             this.spec_Load();
             this.spec_LoadModelKinds();
 
-            // TODO: remove.
-            this.doSearch("revel");
+            // this.doSearch("revel");
         },
         updated() {
 
         },
         mounted() {
+          this.$root.$on('bv::modal::shown', (bvEvent, modalId) => {
+            if (modalId == "modal-show-code") {
+              this.$data.sourceModalIsShown = true;
 
+              let tabIndex = this.$data.tabIndex;
+              if (tabIndex == 0) {
+                this.drawAllArrowsForFuncs();
+              }
+              if (tabIndex == 1) {
+                this.drawAllArrowsForTypeMethods();
+              }
+              if (tabIndex == 2) {
+                this.drawAllArrowsForInterfaceMethods();
+              }
+            }
+          });
+          this.$root.$on('bv::modal::hidden', (bvEvent, modalId) => {
+            if (modalId == "modal-show-code") {
+              this.$data.sourceModalIsShown = false;
+            }
+          })
         },
         computed: {
             filteredFuncs() {
@@ -484,11 +605,12 @@
                 let [path, version, modelName, methodName, selOnly] = this.getFilterCtx();
 
                 const isTrue = (element) => element == true;
+                const isTrueFlows = (block) => block.Inp.some(isTrue) || block.Out.some(isTrue);
  
                 return this.$data.currentPackage.source.Funcs.filter(item => {
                   if (selOnly) {
                     let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
-                    return qualifier && qualifier.Pos.some(isTrue)
+                    return qualifier && ((qualifier.Pos && qualifier.Pos.some(isTrue)) || (qualifier.Flows && qualifier.Flows.Blocks.some(isTrueFlows)))
                   }
                   return true
                 }).filter(item => {
@@ -503,11 +625,12 @@
                 let [path, version, modelName, methodName, selOnly] = this.getFilterCtx();
 
                 const isTrue = (element) => element == true;
+                const isTrueFlows = (block) => block.Inp.some(isTrue) || block.Out.some(isTrue);
 
                 return this.$data.currentPackage.source.TypeMethods.filter(item => {
                   if (selOnly) {
                     let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
-                    return qualifier && qualifier.Pos.some(isTrue)
+                    return qualifier && ((qualifier.Pos && qualifier.Pos.some(isTrue)) || (qualifier.Flows && qualifier.Flows.Blocks.some(isTrueFlows)))
                   }
                   return true
                 }).filter(item => {
@@ -522,11 +645,12 @@
                 let [path, version, modelName, methodName, selOnly] = this.getFilterCtx();
 
                 const isTrue = (element) => element == true;
+                const isTrueFlows = (block) => block.Inp.some(isTrue) || block.Out.some(isTrue);
 
                 return this.$data.currentPackage.source.InterfaceMethods.filter(item => {
                   if (selOnly) {
                     let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, item.ID);
-                    return qualifier && qualifier.Pos.some(isTrue)
+                    return qualifier && ((qualifier.Pos && qualifier.Pos.some(isTrue)) || (qualifier.Flows && qualifier.Flows.Blocks.some(isTrueFlows)))
                   }
                   return true
                 }).filter(item => {
@@ -688,18 +812,30 @@
 
                         // Sync source with spec:
                         json.Funcs.forEach((item) => {
-                          this.syncParametersWithSpec(item);
-                          this.syncResultsWithSpec(item);
+                          if (!this.$data.context.isFlow) {
+                            this.PosSyncParametersWithSpec(item);
+                            this.PosSyncResultsWithSpec(item);
+                          } else {
+                            this.FlowSyncFuncWithSpec(item);
+                          }
                         });
                         json.TypeMethods.forEach((item) => {
-                          this.syncReceiverWithSpec(item);
-                          this.syncParametersWithSpec(item);
-                          this.syncResultsWithSpec(item);
+                          if (!this.$data.context.isFlow) {
+                            this.PosSyncReceiverWithSpec(item);
+                            this.PosSyncParametersWithSpec(item);
+                            this.PosSyncResultsWithSpec(item);
+                          } else {
+                            this.FlowSyncFuncWithSpec(item);
+                          }
                         });
                         json.InterfaceMethods.forEach((item) => {
-                          this.syncReceiverWithSpec(item);
-                          this.syncParametersWithSpec(item);
-                          this.syncResultsWithSpec(item);
+                          if (!this.$data.context.isFlow) {
+                            this.PosSyncReceiverWithSpec(item);
+                            this.PosSyncParametersWithSpec(item);
+                            this.PosSyncResultsWithSpec(item);
+                          } else {
+                            this.FlowSyncFuncWithSpec(item);
+                          }
                         });
                         json.Structs.forEach((item) => {
                           this.syncFieldsWithSpec(item);
@@ -937,7 +1073,7 @@
               }
               return null
             },
-            getFuncValueFromSpec(index, funcID) {
+            getFuncPosValueAtIndexFromSpec(index, funcID) {
               // console.log("Getting func component checkbox value")
 
               let path = this.$data.currentPackage.path;
@@ -954,6 +1090,24 @@
                 return qualifier.Pos[index]
               }
               return false
+            },
+            getFuncFlowsFromSpec(funcID) {
+              // console.log("Getting func component checkbox value")
+
+              let path = this.$data.currentPackage.path;
+              let version = this.$data.currentPackage.version;
+              let modelName = this.$data.context.modelName;
+              let methodName = this.$data.context.methodName;
+
+              let qualifier = this.getQualifierFromSpec(path, version, modelName, methodName, funcID);
+              if (qualifier == null) {
+                return null
+              }
+
+              if (qualifier.Flows != null) {
+                return qualifier.Flows
+              }
+              return null
             },
             getTypeValueFromSpec(typeID) {
               // console.log("Getting type checkbox value")
@@ -992,13 +1146,13 @@
               // - matches Qualifier
               // - if .Fields[fieldVar] exists, then use the value.
             },
-            syncReceiverWithSpec(item) {
+            PosSyncReceiverWithSpec(item) {
               if (!item.Receiver) {
                 return
               }
-              item.Receiver.Checked = this.getFuncValueFromSpec(0, item.ID);
+              item.Receiver.Checked = this.getFuncPosValueAtIndexFromSpec(0, item.ID);
             },
-            syncParametersWithSpec(item) {
+            PosSyncParametersWithSpec(item) {
               let fItem = item.Func || item;
               if (!fItem || !fItem.Parameters) {
                 return
@@ -1006,10 +1160,10 @@
               let receiverLen = item.Receiver?1:0;
               var params = fItem.Parameters;
               params.forEach((param, paramIndex) => {
-                  param.Checked = this.getFuncValueFromSpec(receiverLen + paramIndex, item.ID);
+                  param.Checked = this.getFuncPosValueAtIndexFromSpec(receiverLen + paramIndex, item.ID);
               });
             },
-            syncResultsWithSpec(item) {
+            PosSyncResultsWithSpec(item) {
               let fItem = item.Func || item;
               if (!fItem || !fItem.Results) {
                 return
@@ -1018,13 +1172,115 @@
               let paramsLen = this.len(fItem.Parameters);
               var results = fItem.Results;
               results.forEach((res, resIndex) => {
-                  res.Checked = this.getFuncValueFromSpec(receiverLen + paramsLen + resIndex, item.ID);
+                  res.Checked = this.getFuncPosValueAtIndexFromSpec(receiverLen + paramsLen + resIndex, item.ID);
               });
+            },
+            newBoolArray(len) {
+                return new Array(len).fill(false);
+            },
+            FlowSyncFuncWithSpec(item) {
+              let receiverLen = item.Receiver?1:0;
+              let fItem = item.Func || item;
+              let paramsLen = this.len(fItem.Parameters);
+              let resultsLen = this.len(fItem.Results);
+
+              let width = receiverLen + paramsLen + resultsLen;
+
+              let flows = this.getFuncFlowsFromSpec(item.ID);
+              if (flows == null) {
+                item.Flows = {
+                  Blocks: [{Inp: this.newBoolArray(width), Out: this.newBoolArray(width) }]
+                };
+              } else {
+                item.Flows = flows;
+              }
             },
             syncFieldsWithSpec(item) {
               item.Fields.forEach((field) => {
                   field.Checked = this.getStructFieldValueFromSpec(item, field);
               });
+            },
+            drawArrowsFor: function(blockIndex, fn) {
+                // Remove any existing arrows:
+                let parentID = cc(fn.ID, "block", blockIndex, 'arrows');
+                remChildren(parentID);
+
+                let block = fn.Flows.Blocks[blockIndex];
+                block.Inp.forEach(function(itemInp, indexInp) {
+
+                    block.Out.forEach(function(itemOutp, indexOutp) {
+                        if (!itemInp || !itemOutp) {
+                            return
+                        }
+                        console.log(itemOutp, indexOutp);
+                        console.log(itemInp, indexInp);
+
+                        let leftArrowID = cc(fn.ID, "block", blockIndex, "arrow", "left", "from", indexInp, "to", indexOutp);
+                        let rigthArrowID = cc(fn.ID, "block", blockIndex, "arrow", "right", "from", indexInp, "to", indexOutp);
+                        newEdge(parentID, leftArrowID);
+                        newEdge(parentID, rigthArrowID);
+
+                        let idFrom = cc(fn.ID, "block", blockIndex, "bl", indexInp)
+                        let idInto = cc(fn.ID, "block", blockIndex, "bl", indexOutp)
+
+                        drawAnArrow(idFrom, idInto, leftArrowID, rigthArrowID);
+
+                    });
+                });
+            },
+            drawAllArrowsForFuncs: function() {
+                // Draw arrows:
+                let self = this;
+                this.$root.$data.currentPackage.source.Funcs.forEach(function(element, elementIndex) {
+                  if (element.Flows !== null) {
+                    element.Flows.Blocks.forEach(function(block, blockIndex) {
+                        self.drawArrowsFor(blockIndex, element)
+                    });
+                  }
+                });
+            },
+            drawAllArrowsForTypeMethods: function() {
+                // Draw arrows:
+                let self = this;
+                this.$root.$data.currentPackage.source.TypeMethods.forEach(function(element, elementIndex) {
+                  if (element.Flows !== null) {
+                    element.Flows.Blocks.forEach(function(block, blockIndex) {
+                        self.drawArrowsFor(blockIndex, element)
+                    });
+                  }
+                });
+            },
+            drawAllArrowsForInterfaceMethods: function() {
+                // Draw arrows:
+                let self = this;
+                this.$root.$data.currentPackage.source.InterfaceMethods.forEach(function(element, elementIndex) {
+                  if (element.Flows !== null) {
+                    element.Flows.Blocks.forEach(function(block, blockIndex) {
+                        self.drawArrowsFor(blockIndex, element)
+                    });
+                  }
+                });
+            },
+            handleTabIndex: function(tabIndex){
+              this.$data.tabIndex = tabIndex;
+
+              setTimeout(() => {
+                if (this.$data.sourceModalIsShown == true) {
+                  if (tabIndex == 0) {
+                    this.drawAllArrowsForFuncs();
+                  }
+                  if (tabIndex == 1) {
+                    this.drawAllArrowsForTypeMethods();
+                  }
+                  if (tabIndex == 2) {
+                    this.drawAllArrowsForInterfaceMethods();
+                  }
+                }
+               }, 500);
+
+            },
+            sleep: function(ms) {
+              return new Promise(resolve => setTimeout(resolve, ms));
             }
         }
     });
@@ -1117,7 +1373,8 @@
             <div>}</div>
           </div>
 
-          <div v-if="xselector.Kind == 'Func'">
+          <!-- Func with Pos -->
+          <div v-if="xselector.Kind == 'Func' && xselector.Qualifier.Pos !== null">
             <div class="text-monospace d-inline">func</div>
             
             <div
@@ -1143,6 +1400,11 @@
               :title="elem.KindString"
               v-bind:class="{ 'selected-success': xselector.Qualifier.Pos[elem.AI] }"
               >{{elemIndex==0?"(":""}}{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Results) - 1 ?")":", "}}</div>
+          </div>
+
+          <!-- Func with Flow -->
+          <div v-if="xselector.Kind == 'Func' && xselector.Qualifier.Flows !== null">
+            <div class="text-monospace d-inline">TODO: flow graphs here</div>
           </div>
 
           <div v-if="xselector.Kind == 'Type'">
@@ -1404,9 +1666,15 @@
         props: ['item', 'func'],
         template: "#cm-func-item-flow-template",
         computed: {},
+        updated(){
+          this.$root.drawAllArrowsForFuncs();
+        },
         methods: {
             cc: cc,
             len: len,
+            newEdge: newEdge,
+            remChildren: remChildren,
+            drawAnArrow: drawAnArrow,
             onChangeFuncFlow(item, blockIndex, key, index, value) {
                 // - Send the update to the API
                 // - Save the response in this.$root.$data.xspec
@@ -1458,6 +1726,7 @@
                     })
                     .then(json => {
                         this.$root.$data.xspec = json;
+                        this.$root.drawArrowsFor(blockIndex, item);
                     })
                     .catch((error) => {
                         console.error('Error:', error);
@@ -1466,7 +1735,6 @@
                         });
                     });
             },
-
         }
     });
     </script>
@@ -1479,67 +1747,126 @@
                           <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
                       </span>
                   </b-row>
-              <table class="table-responsive table-sm">
-                  <tbody>
-                      <tr>
-                          <td v-if="item.Receiver" class="pl-0 pr-0">func (<b :title="item.Receiver.KindString" v-bind:class="{ 'selected-warning': item.Receiver.Checked }">{{ item.Receiver.TypeString }}</b>).<b :title="func.Signature">{{ func.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
-                          <td v-if="!item.Receiver" class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
-                          <td class="pl-0 pr-0"
-                            v-for="(param, index) in func.Parameters"
-                            >
-                            <cm-type
-                              v-bind:elem="param"
-                              v-bind:index="index"
-                              v-bind:key="item.ID + 'param' + index"
-                              v-bind:total="len(func.Parameters)"
-                              v-bind:class="{ 'selected-primary': param.Checked }"
-                              ></cm-type>
-                          </td>
+              <div class="flow-block" v-for="(block, blockIndex) in item.Flows.Blocks">
+                <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%">
+                    <defs>
+                        <marker :id="cc('arrowhead',item.ID,'block',blockIndex)" viewBox="0 0 10 10" refX="3" refY="5" markerWidth="6" markerHeight="6" orient="auto">
+                            <path d="M 0 0 L 10 5 L 0 10 z" />
+                        </marker>
+                    </defs>
+                    <g fill="none" stroke="black" stroke-width="2" :marker-end="'url(#'+cc('arrowhead',item.ID,'block',blockIndex)+')'" :id="cc(item.ID,'block',blockIndex,'arrows')">
+                    </g>
+                </svg>
+                <table class="table-responsive table-sm">
+                    <tbody>
+                        <tr>
+                            <td 
+                              v-if="item.Receiver"
+                              class="pl-0 pr-0"
+                              :id="cc(item.ID,'block',blockIndex,'bl', 0)"
+                              >func (<b
+                                :title="item.Receiver.KindString"
+                                v-bind:class="{ 
+                                  'selected-primary': item.Flows && item.Flows.Blocks[blockIndex].Inp[0],
+                                  'selected-warning': item.Flows && item.Flows.Blocks[blockIndex].Out[0],
+                                }"
+                                >{{ item.Receiver.TypeString }}</b>).<b :title="func.Signature">{{ func.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
+                            <td v-if="!item.Receiver" class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
                             
-                          <td class="pl-0 pr-0"
-                            v-for="(res, index) in func.Results"
-                            >
-                            <cm-type
-                              v-bind:elem="res"
-                              v-bind:index="index"
-                              v-bind:key="item.ID + 'result' + index"
-                              v-bind:total="len(func.Results)"
-                              v-bind:class="{ 'selected-success': res.Checked }"
-                              ></cm-type>
+                            <td class="pl-0 pr-0"
+                              v-for="(param, index) in func.Parameters"
+                              :id="cc(item.ID,'block',blockIndex,'bl', item.Receiver?1+index:index)"
+                              >
+                              <cm-type
+                                v-bind:elem="param"
+                                v-bind:index="index"
+                                v-bind:key="item.ID + 'param' + index"
+                                v-bind:total="len(func.Parameters)"
+                                v-bind:class="{
+                                    'selected-primary': item.Flows && (item.Flows.Blocks[blockIndex].Inp[ item.Receiver?1+index:index ]),
+                                    'selected-warning': item.Flows && (item.Flows.Blocks[blockIndex].Out[ item.Receiver?1+index:index ]) 
+                                 }"
+                                ></cm-type>
+                            </td>
+                              
+                            <td class="pl-0 pr-0"
+                              v-for="(res, index) in func.Results"
+                              :id="cc(item.ID,'block',blockIndex,'bl', item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index)"
+                              >
+                              <cm-type
+                                v-bind:elem="res"
+                                v-bind:index="index"
+                                v-bind:key="item.ID + 'result' + index"
+                                v-bind:total="len(func.Results)"
+                                v-bind:class="{
+                                    'selected-primary': item.Flows && (item.Flows.Blocks[blockIndex].Inp[ item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index ]),
+                                    'selected-warning': item.Flows && (item.Flows.Blocks[blockIndex].Out[ item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index ]),
+                                     }"
+                                ></cm-type>
+                            </td>
+                            <td>
+                              <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
+                            </td>
+                        </tr>
+                         <!--checkboxes for input -->
+                        <tr>
+                          <td v-if="item.Receiver" class="pl-0 pr-0">
+                            <b-form-checkbox 
+                              class="d-flex justify-content-center"
+                              @change="onChangeFuncFlow(item, blockIndex, 'Inp', 0, $event)"
+                              v-model="item.Flows.Blocks[blockIndex].Inp[0]"
+                              switch
+                            ></b-form-checkbox>
                           </td>
-                          <td>
-                            <span v-for="comment in item.Comments" class="text-comment documentation">// {{ comment }}</span>
+                          <td v-if="!item.Receiver" class="pl-0 pr-0">&nbsp;</td>
+                          <td v-for="(param, index) in func.Parameters" class="pl-0 pr-0">
+                            <b-form-checkbox 
+                              class="d-flex justify-content-center"
+                              @change="onChangeFuncFlow(item, blockIndex, 'Inp', item.Receiver?1+index:index, $event)"
+                              v-model="item.Flows.Blocks[blockIndex].Inp[ item.Receiver?1+index:index ]"
+                              switch
+                            ></b-form-checkbox>
                           </td>
-                      </tr>
-                      <tr>
-                        <td v-if="item.Receiver" class="pl-0 pr-0">
-                          <b-form-checkbox 
-                            class="d-flex justify-content-center checkbox-warning"
-                            @change="onChangeFuncFlow(item, 0, $event)"
-                            v-model="item.Receiver.Checked"
-                            switch
-                          ></b-form-checkbox>
-                        </td>
-                        <td v-if="!item.Receiver" class="pl-0 pr-0">&nbsp;</td>
-                        <td v-for="(param, index) in func.Parameters" class="pl-0 pr-0">
-                          <b-form-checkbox 
-                            class="d-flex justify-content-center"
-                            @change="onChangeFuncFlow(item, item.Receiver?1+index:index, $event)"
-                            v-model="param.Checked"
-                            switch
-                          ></b-form-checkbox>
-                        </td>
-                        <td v-for="(res, index) in func.Results" class="pl-0 pr-0">
-                          <b-form-checkbox 
-                            class="d-flex justify-content-center checkbox-success"
-                            @change="onChangeFuncFlow(item, item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, $event)"
-                            v-model="res.Checked"
-                            switch
-                          ></b-form-checkbox>
-                        </td>
-                      </tr>
-                  </tbody>
+                          <td v-for="(res, index) in func.Results" class="pl-0 pr-0">
+                            <b-form-checkbox 
+                              class="d-flex justify-content-center"
+                              @change="onChangeFuncFlow(item, blockIndex, 'Inp', item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, $event)"
+                              v-model="item.Flows.Blocks[blockIndex].Inp[ item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index ]"
+                              switch
+                            ></b-form-checkbox>
+                          </td>
+                        </tr>
+                         <!--checkboxes for output -->
+                        <tr>
+                          <td v-if="item.Receiver" class="pl-0 pr-0">
+                            <b-form-checkbox 
+                              class="d-flex justify-content-center checkbox-warning"
+                              @change="onChangeFuncFlow(item, blockIndex, 'Out', 0, $event)"
+                              v-model="item.Flows.Blocks[blockIndex].Out[0]"
+                              switch
+                            ></b-form-checkbox>
+                          </td>
+                          <td v-if="!item.Receiver" class="pl-0 pr-0">&nbsp;</td>
+                          <td v-for="(param, index) in func.Parameters" class="pl-0 pr-0">
+                            <b-form-checkbox 
+                              class="d-flex justify-content-center checkbox-warning"
+                              @change="onChangeFuncFlow(item, blockIndex, 'Out', item.Receiver?1+index:index, $event)"
+                              v-model="item.Flows.Blocks[blockIndex].Out[ item.Receiver?1+index:index ]"
+                              switch
+                            ></b-form-checkbox>
+                          </td>
+                          <td v-for="(res, index) in func.Results" class="pl-0 pr-0">
+                            <b-form-checkbox 
+                              class="d-flex justify-content-center checkbox-warning"
+                              @change="onChangeFuncFlow(item, blockIndex, 'Out', item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index, $event)"
+                              v-model="item.Flows.Blocks[blockIndex].Out[ item.Receiver?1+len(func.Parameters)+index:len(func.Parameters)+index ]"
+                              switch
+                            ></b-form-checkbox>
+                          </td>
+                        </tr>
+                    </tbody>
                   </table>
+                </div>
               </b-col>
           </b-row>
       </b-list-group-item>
