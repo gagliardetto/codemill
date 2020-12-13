@@ -143,14 +143,12 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							gogentools.ImportPackage(file, thing.PkgPath, thing.PkgName)
 							pathVersionToFuncAndVarNames[pathVersion] = append(pathVersionToFuncAndVarNames[pathVersion], thing.Name)
 
-							groupCase.Comment(thing.Signature)
-							//_, codeElements := GoGetFuncQualifierCodeElements(file, funcQual)
-							//groupCase.Add(codeElements...)
-
 							{
 								if !funcQual.Flows.Enabled {
 									continue
 								}
+								groupCase.Comment(thing.Signature)
+
 								blocksOfCases := generateGoTestBlock_Func(
 									file,
 									thing,
@@ -173,7 +171,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				)
 			}
 		}
-		if false {
+		{
 			cont, ok := b2tm[pathVersion]
 			if ok {
 				codezTypeMethods := make([]Code, 0)
@@ -212,27 +210,43 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FETypeMethod)
 
-								groupCase.Comment(thing.Func.Signature)
-								_, codeElements := GoGetFuncQualifierCodeElements(file, methodQual)
-								groupCase.Add(codeElements...)
+								{
+									if !methodQual.Flows.Enabled {
+										continue
+									}
+									groupCase.Comment(thing.Func.Signature)
+
+									blocksOfCases := generateGoTestBlock_Method(
+										file,
+										thing,
+										methodQual,
+										&testCounter,
+									)
+									if len(blocksOfCases) == 1 {
+										groupCase.Add(blocksOfCases...)
+									} else {
+										groupCase.Block(blocksOfCases...)
+									}
+								}
 
 							}
 						})
+					// TODO: what if no flows are enabled? Check that before adding the comment.
 					codezTypeMethods = append(codezTypeMethods,
-						Commentf("Untrusted flow sources from method calls on %s.", typ.QualifiedName).
+						Commentf("Taint-tracking through method calls on %s.", typ.QualifiedName).
 							Line().
 							Add(code),
 					)
 				}
 				codez = append(codez,
-					Comment("Untrusted flow sources from method calls.").
+					Comment("Taint-tracking through method calls.").
 						Line().
 						Block(codezTypeMethods...),
 				)
 			}
 		}
 
-		if false {
+		{
 			cont, ok := b2itm[pathVersion]
 			if ok {
 				codezIfaceMethods := make([]Code, 0)
@@ -272,21 +286,36 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FEInterfaceMethod)
 
-								groupCase.Comment(thing.Func.Signature)
-								_, codeElements := GoGetFuncQualifierCodeElements(file, methodQual)
-								groupCase.Add(codeElements...)
+								{
+									if !methodQual.Flows.Enabled {
+										continue
+									}
+									groupCase.Comment(thing.Func.Signature)
 
+									converted := feparser.FEIToFET(thing)
+									blocksOfCases := generateGoTestBlock_Method(
+										file,
+										converted,
+										methodQual,
+										&testCounter,
+									)
+									if len(blocksOfCases) == 1 {
+										groupCase.Add(blocksOfCases...)
+									} else {
+										groupCase.Block(blocksOfCases...)
+									}
+								}
 							}
 						})
 					codezIfaceMethods = append(codezIfaceMethods,
-						Commentf("Untrusted flow sources from method calls on %s interface.", typ.QualifiedName).
+						Commentf("Taint-tracking through method calls on %s interface.", typ.QualifiedName).
 							Line().
 							Add(code),
 					)
 				}
 
 				codez = append(codez,
-					Comment("Untrusted flow sources from interface method calls.").
+					Comment("Taint-tracking through interface method calls.").
 						Line().
 						Block(codezIfaceMethods...),
 				)
@@ -306,7 +335,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				// - depstubber -vendor github.com/my/package Type1,Type2 SomeFunc,SomeVariable
 			}
 
-			file.Comment("Untrusted flow sources from package: " + pathVersion)
+			file.Comment("Taint-tracking through package: " + pathVersion)
 		}
 		file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 		if !allInOneFile {
@@ -426,228 +455,7 @@ func Comments(group *Group, comments ...string) *Group {
 	}
 	return group
 }
-func GoGetFuncQualifierCodeElements(file *File, qual *x.FuncQualifier) (x.FuncInterface, []Code) {
 
-	source := x.GetCachedSource(qual.Path, qual.Version)
-	if source == nil {
-		Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-	}
-	// Find the func/type-method/interface-method:
-	fn := x.FindFuncByID(source, qual.ID)
-	if fn == nil {
-		Fatalf("Func not found: %q", qual.ID)
-	}
-
-	codeElements := make([]Code, 0)
-	parameterIndexes := make([]int, 0)
-	resultIndexes := make([]int, 0)
-	considerReceiver := false
-PosLoop:
-	for pos, ok := range qual.Pos {
-		if !ok {
-			continue PosLoop
-		}
-
-		elTyp, _, relIndex, err := fn.GetRelativeElement(pos)
-		if err != nil {
-			Fatalf("Error while GetRelativeElement: %s", err)
-		}
-
-		switch elTyp {
-		case feparser.ElementReceiver:
-			{
-				considerReceiver = true
-			}
-		case feparser.ElementParameter:
-			{
-				parameterIndexes = append(parameterIndexes,
-					relIndex,
-				)
-			}
-		case feparser.ElementResult:
-			{
-				resultIndexes = append(resultIndexes,
-					relIndex,
-				)
-			}
-		default:
-			panic(Sf("Unknown type: %q", elTyp))
-		}
-	}
-
-	lenReceiver, lenParams, _ := fn.Lengths()
-	hasReceiver := lenReceiver == 1
-
-	fe := fn.GetFunc()
-	tpFun := fe.GetOriginal().GetType().(*types.Signature)
-	receiver := fn.GetReceiver()
-
-	// Compile array of the zero values of the function parameters:
-	paramZeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.GetOriginal().IsVariadic())
-
-	// Compile array of the zero values of the function results:
-	resultZeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Results(), fe.GetOriginal().IsVariadic())
-
-	code := BlockFunc(
-		func(groupCase *Group) {
-
-			codeCallFunc := Null()
-			if hasReceiver {
-				varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("receiver", receiver.TypeName))
-				receiver.VarName = varName
-				gogentools.ComposeVarDeclaration(file, groupCase, varName, receiver.GetOriginal(), false)
-				codeCallFunc = Id(varName).Dot(fe.Name)
-			} else {
-				codeCallFunc = Qual(fe.PkgPath, fe.Name)
-			}
-
-			// Decide parameter names, and declare variables that will be passed as those parameters:
-			if len(parameterIndexes) > 0 {
-				if len(parameterIndexes) == 1 {
-					// If only one parameter is considered, the use a single var declaration:
-					i := parameterIndexes[0]
-
-					isLast := i == lenParams-1
-					isVariadicParam := isLast && fe.GetOriginal().Variadic
-
-					varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
-					fe.Parameters[i].VarName = varName
-					gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), isVariadicParam)
-				} else {
-					// If multiple parameters are considered, then use a group var declaration:
-					varTypes := make([]*VarNameAndType, 0)
-					for i := range paramZeroVals {
-						isConsidered := IntSliceContains(parameterIndexes, i)
-						if isConsidered {
-							varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
-							fe.Parameters[i].VarName = varName
-
-							isLast := i == lenParams-1
-							isVariadicParam := isLast && fe.GetOriginal().Variadic
-
-							varTypes = append(varTypes, &VarNameAndType{
-								Name:       varName,
-								Type:       fe.Parameters[i].GetOriginal().GetType(),
-								IsVariadic: isVariadicParam,
-							})
-						}
-					}
-					ComposeGroupVarDeclaration(file, groupCase, varTypes)
-				}
-			}
-
-			codeResultList := Null()
-			if len(resultIndexes) > 0 {
-				for i := range resultZeroVals {
-					isConsidered := IntSliceContains(resultIndexes, i)
-					if isConsidered {
-						varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("result", fe.Results[i].VarName))
-						fe.Results[i].VarName = varName
-					}
-				}
-
-				codeResultList = ListFunc(func(resGroup *Group) {
-					for i, v := range fe.Results {
-						isConsidered := IntSliceContains(resultIndexes, i)
-						if isConsidered {
-							resGroup.Id(v.VarName)
-						} else {
-							resGroup.Id("_")
-						}
-					}
-				}).Op(":=")
-			}
-
-			// Call the function, passing the considered parameters:
-			groupCase.Add(codeResultList).Add(codeCallFunc).CallFunc(
-				func(call *Group) {
-					for i, zero := range paramZeroVals {
-						isConsidered := IntSliceContains(parameterIndexes, i)
-						if isConsidered {
-							call.Id(fe.Parameters[i].VarName)
-						} else {
-							call.Add(zero)
-						}
-					}
-				},
-			)
-
-			// Sink the parameters:
-			if len(parameterIndexes) > 0 {
-				//groupCase.Comment("Sink parameters:")
-				if len(parameterIndexes) == 1 {
-					i := parameterIndexes[0]
-					groupCase.Id("sink").Call(Id(fe.Parameters[i].VarName))
-				} else {
-					codeParamIDs := make([]Code, 0)
-					for i := range paramZeroVals {
-						isConsidered := IntSliceContains(parameterIndexes, i)
-						if isConsidered {
-							codeParamIDs = append(codeParamIDs, Id(fe.Parameters[i].VarName).Op(",").Line())
-						}
-					}
-					groupCase.Id("sink").Call(Line().Add(codeParamIDs...).Line())
-				}
-			}
-			// Sink the results:
-			if len(resultIndexes) > 0 {
-				//groupCase.Comment("Sink results:")
-				if len(resultIndexes) == 1 {
-					i := resultIndexes[0]
-					groupCase.Id("sink").Call(Id(fe.Results[i].VarName))
-				} else {
-					codeResultIDs := make([]Code, 0)
-					for i := range resultZeroVals {
-						isConsidered := IntSliceContains(resultIndexes, i)
-						if isConsidered {
-							codeResultIDs = append(codeResultIDs, Id(fe.Results[i].VarName).Op(",").Line())
-						}
-					}
-					groupCase.Id("sink").Call(Line().Add(codeResultIDs...).Line())
-				}
-			}
-			// Sink the receiver:
-			if considerReceiver {
-				//groupCase.Comment("Sink the receiver:")
-				groupCase.Id("sink").Call(Id(receiver.VarName))
-			}
-		})
-
-	codeElements = append(codeElements,
-		code,
-	)
-
-	return fn, codeElements
-}
-
-type VarNameAndType struct {
-	Name       string
-	Type       types.Type
-	IsVariadic bool
-}
-
-// declare:
-// `var (
-//		name1 Type1
-//		name2 Type2
-// 	)`
-func ComposeGroupVarDeclaration(file *File, group *Group, decs []*VarNameAndType) {
-	stat := newStatement()
-
-	for _, dec := range decs {
-		if dec.IsVariadic {
-			if slice, ok := dec.Type.(*types.Slice); ok {
-				gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), slice.Elem())
-			} else {
-				gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), dec.Type)
-			}
-		} else {
-			gogentools.ComposeTypeDeclaration(file, stat.Id(dec.Name), dec.Type)
-		}
-		stat.Line()
-	}
-	group.Var().Parens(stat)
-}
 func newStatement() *Statement {
 	return &Statement{}
 }
@@ -806,7 +614,7 @@ func generate_ParaFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Id(out.VarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
 		})
 
 	return code
@@ -866,7 +674,7 @@ func generate_ParaFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Id(out.VarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
 		})
 	return code
 }
@@ -937,7 +745,7 @@ func generate_ResuFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Id("sink").Call(Id(out.VarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
 		})
 	return code
 }
@@ -1003,7 +811,588 @@ func generate_ResuFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Id("sink").Call(Id(out.VarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+		})
+	return code
+}
+
+// for each block, generate a golang test function for each inp and outp combination.
+func generateGoTestBlock_Method(file *File, fe *feparser.FETypeMethod, qual *x.FuncQualifier, testCounter *int) []Code {
+	childBlocks := make([]Code, 0)
+	for blockIndex, block := range qual.Flows.Blocks {
+		for inpIndex, inpOk := range block.Inp {
+			if !inpOk {
+				continue
+			}
+			for outIndex, outpOk := range block.Out {
+				if !outpOk {
+					continue
+				}
+				childBlock := generateChildBlock_Method(
+					file,
+					fe,
+					inpIndex,
+					outIndex,
+					*testCounter,
+				)
+				{
+					if childBlock != nil {
+						*testCounter++
+						childBlocks = append(childBlocks, childBlock)
+					} else {
+						Warnf(Sf("NOTHING GENERATED; block %v, inp %v, outp %v", blockIndex, inpIndex, outIndex))
+					}
+				}
+			}
+		}
+	}
+
+	return childBlocks
+}
+
+func generateChildBlock_Method(file *File, fe *feparser.FETypeMethod, inpIndex int, outIndex int, counter int) *Statement {
+	inpElem, _, inpRelIndex, err := fe.GetRelativeElement(inpIndex)
+	if err != nil {
+		panic(err)
+	}
+	outElem, _, outRelIndex, err := fe.GetRelativeElement(outIndex)
+	if err != nil {
+		panic(err)
+	}
+
+	Receiver := feparser.ElementReceiver
+	Parameter := feparser.ElementParameter
+	Result := feparser.ElementResult
+
+	switch {
+	case inpElem == Receiver && outElem == Parameter:
+		return generate_ReceMethPara(file, fe, inpRelIndex, outRelIndex, counter)
+	case inpElem == Receiver && outElem == Result:
+		return generate_ReceMethResu(file, fe, inpRelIndex, outRelIndex, counter)
+	case inpElem == Parameter && outElem == Receiver:
+		return generate_ParaMethRece(file, fe, inpRelIndex, outRelIndex, counter)
+	case inpElem == Parameter && outElem == Parameter:
+		return generate_ParaMethPara(file, fe, inpRelIndex, outRelIndex, counter)
+	case inpElem == Parameter && outElem == Result:
+		return generate_ParaMethResu(file, fe, inpRelIndex, outRelIndex, counter)
+	case inpElem == Result && outElem == Receiver:
+		return generate_ResuMethRece(file, fe, inpRelIndex, outRelIndex, counter)
+	case inpElem == Result && outElem == Parameter:
+		return generate_ResuMethPara(file, fe, inpRelIndex, outRelIndex, counter)
+	case inpElem == Result && outElem == Result:
+		return generate_ResuMethResu(file, fe, inpRelIndex, outRelIndex, counter)
+	default:
+		panic(Sf("unhandled case: inpElem %v,  outElem %v", inpElem, outElem))
+	}
+}
+func generate_ReceMethPara(file *File, fe *feparser.FETypeMethod, indexIn int, indexOut int, counter int) *Statement {
+	// from: receiver
+	// medium: method (when there is a receiver, then it must be a method medium)
+	// into: param
+
+	_ = indexIn
+
+	in := fe.Receiver
+	out := fe.Func.Parameters[indexOut]
+
+	in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("from", in.TypeName))
+	out.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("into", out.TypeName))
+
+	inVarName := in.VarName
+	outVarName := out.VarName
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
+
+			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal(), in.Is.Variadic, counter)
+
+			Comments(groupCase, Sf("Declare `%s` variable:", outVarName))
+			gogentools.ComposeVarDeclaration(file, groupCase, out.VarName, out.GetOriginal().GetType(), out.GetOriginal().IsVariadic())
+
+			Comments(groupCase,
+				"Call the method that transfers the taint",
+				Sf("from the receiver `%s` to the argument `%s`", in.VarName, out.VarName),
+				Sf("(`%s` is now tainted).", out.VarName),
+			)
+
+			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
+
+			groupCase.Id(in.VarName).Dot(fe.Func.Name).CallFunc(
+				func(call *Group) {
+
+					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
+
+					for i, zero := range zeroVals {
+						isConsidered := i == indexOut
+						if isConsidered {
+							call.Id(fe.Func.Parameters[i].VarName)
+						} else {
+							call.Add(zero)
+						}
+					}
+
+				},
+			)
+
+			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+		})
+	return code
+}
+func generate_ReceMethResu(file *File, fe *feparser.FETypeMethod, indexIn int, indexOut int, counter int) *Statement {
+	// from: receiver
+	// medium: method (when there is a receiver, then it must be a method medium)
+	// into: result
+
+	_ = indexIn
+
+	in := fe.Receiver
+	out := fe.Func.Results[indexOut]
+
+	in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("from", in.TypeName))
+	out.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("into", out.TypeName))
+
+	inVarName := in.VarName
+	outVarName := out.VarName
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
+
+			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal(), in.Is.Variadic, counter)
+
+			Comments(groupCase,
+				"Call the method that transfers the taint",
+				Sf("from the receiver `%s` to the result `%s`", in.VarName, out.VarName),
+				Sf("(`%s` is now tainted).", out.VarName),
+			)
+
+			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
+
+			groupCase.ListFunc(func(resGroup *Group) {
+				for i, v := range fe.Func.Results {
+					if i == indexOut {
+						resGroup.Id(v.VarName)
+					} else {
+						resGroup.Id("_")
+					}
+				}
+			}).Op(":=").Id(in.VarName).Dot(fe.Func.Name).CallFunc(
+				func(call *Group) {
+
+					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
+
+					for _, zero := range zeroVals {
+						call.Add(zero)
+					}
+
+				},
+			)
+
+			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+		})
+	return code
+}
+func generate_ParaMethRece(file *File, fe *feparser.FETypeMethod, indexIn int, indexOut int, counter int) *Statement {
+	// from: param
+	// medium: method (when there is a receiver, then it must be a method medium)
+	// into: receiver
+
+	_ = indexOut
+
+	in := fe.Func.Parameters[indexIn]
+	out := fe.Receiver
+
+	in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("from", in.TypeName))
+	out.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("into", out.TypeName))
+
+	inVarName := in.VarName
+	outVarName := out.VarName
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
+
+			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
+
+			Comments(groupCase, Sf("Declare `%s` variable:", outVarName))
+			gogentools.ComposeVarDeclaration(file, groupCase, out.VarName, out.GetOriginal(), out.Is.Variadic)
+
+			Comments(groupCase,
+				"Call the method that transfers the taint",
+				Sf("from the parameter `%s` to the receiver `%s`", in.VarName, out.VarName),
+				Sf("(`%s` is now tainted).", out.VarName),
+			)
+
+			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
+
+			groupCase.Id(out.VarName).Dot(fe.Func.Name).CallFunc(
+				func(call *Group) {
+
+					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
+
+					for i, zero := range zeroVals {
+						isConsidered := i == indexIn
+						if isConsidered {
+							call.Id(fe.Func.Parameters[i].VarName)
+						} else {
+							call.Add(zero)
+						}
+					}
+
+				},
+			)
+
+			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+		})
+	return code
+}
+func generate_ParaMethPara(file *File, fe *feparser.FETypeMethod, indexIn int, indexOut int, counter int) *Statement {
+	// from: param
+	// medium: method (when there is a receiver, then it must be a method medium)
+	// into: param
+
+	in := fe.Func.Parameters[indexIn]
+	out := fe.Func.Parameters[indexOut]
+
+	in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("from", in.TypeName))
+	out.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("into", out.TypeName))
+
+	inVarName := in.VarName
+	outVarName := out.VarName
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
+
+			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
+
+			Comments(groupCase, Sf("Declare `%s` variable:", outVarName))
+			gogentools.ComposeVarDeclaration(file, groupCase, out.VarName, out.GetOriginal().GetType(), out.GetOriginal().IsVariadic())
+
+			Comments(groupCase, "Declare medium object/interface:")
+			groupCase.Var().Id("mediumObjCQL").Qual(fe.Receiver.PkgPath, fe.Receiver.TypeName)
+
+			Comments(groupCase,
+				"Call the method that transfers the taint",
+				Sf("from the parameter `%s` to the parameter `%s`", in.VarName, out.VarName),
+				Sf("(`%s` is now tainted).", out.VarName),
+			)
+
+			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
+
+			groupCase.Id("mediumObjCQL").Dot(fe.Func.Name).CallFunc(
+				func(call *Group) {
+
+					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
+
+					for i, zero := range zeroVals {
+						isConsidered := i == indexIn || i == indexOut
+						if isConsidered {
+							call.Id(fe.Func.Parameters[i].VarName)
+						} else {
+							call.Add(zero)
+						}
+					}
+
+				},
+			)
+
+			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+		})
+	return code
+}
+func generate_ParaMethResu(file *File, fe *feparser.FETypeMethod, indexIn int, indexOut int, counter int) *Statement {
+	// from: param
+	// medium: method (when there is a receiver, then it must be a method medium)
+	// into: result
+
+	in := fe.Func.Parameters[indexIn]
+	out := fe.Func.Results[indexOut]
+
+	in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("from", in.TypeName))
+	out.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("into", out.TypeName))
+
+	inVarName := in.VarName
+	outVarName := out.VarName
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
+
+			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
+
+			Comments(groupCase, "Declare medium object/interface:")
+			groupCase.Var().Id("mediumObjCQL").Qual(fe.Receiver.PkgPath, fe.Receiver.TypeName)
+
+			Comments(groupCase,
+				"Call the method that transfers the taint",
+				Sf("from the parameter `%s` to the result `%s`", in.VarName, out.VarName),
+				Sf("(`%s` is now tainted).", out.VarName),
+			)
+
+			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
+
+			groupCase.ListFunc(func(resGroup *Group) {
+				for i, v := range fe.Func.Results {
+					if i == indexOut {
+						resGroup.Id(v.VarName)
+					} else {
+						resGroup.Id("_")
+					}
+				}
+			}).Op(":=").Id("mediumObjCQL").Dot(fe.Func.Name).CallFunc(
+				func(call *Group) {
+
+					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
+
+					for i, zero := range zeroVals {
+						isConsidered := i == indexIn
+						if isConsidered {
+							call.Id(fe.Func.Parameters[i].VarName)
+						} else {
+							call.Add(zero)
+						}
+					}
+
+				},
+			)
+
+			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+		})
+	return code
+}
+func generate_ResuMethRece(file *File, fe *feparser.FETypeMethod, indexIn int, indexOut int, counter int) *Statement {
+	// from: result
+	// medium: method
+	// into: receiver
+
+	_ = indexOut
+
+	in := fe.Func.Results[indexIn]
+	out := fe.Receiver
+
+	in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("from", in.TypeName))
+	out.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("into", out.TypeName))
+
+	inVarName := in.VarName
+	outVarName := out.VarName
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
+
+			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
+
+			Comments(groupCase, Sf("Declare `%s` variable:", outVarName))
+			gogentools.ComposeVarDeclaration(file, groupCase, out.VarName, out.GetOriginal(), out.Is.Variadic)
+
+			Comments(groupCase,
+				"Call the method that will transfer the taint",
+				Sf("from the result `intermediateCQL` to receiver `%s`:", outVarName),
+			)
+
+			groupCase.ListFunc(func(resGroup *Group) {
+				for i := range fe.Func.Results {
+					if i == indexIn {
+						resGroup.Id("intermediateCQL")
+					} else {
+						resGroup.Id("_")
+					}
+				}
+			}).Op(":=").Id(out.VarName).Dot(fe.Func.Name).CallFunc(
+				func(call *Group) {
+
+					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
+
+					for _, zero := range zeroVals {
+						call.Add(zero)
+					}
+
+				},
+			)
+
+			Comments(groupCase,
+				Sf(
+					"Extra step (`%s` taints `intermediateCQL`, which taints `%s`:",
+					in.VarName,
+					out.VarName,
+				),
+			)
+			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
+
+			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+		})
+	return code
+}
+func generate_ResuMethPara(file *File, fe *feparser.FETypeMethod, indexIn int, indexOut int, counter int) *Statement {
+	// from: result
+	// medium: method
+	// into: parameter
+
+	in := fe.Func.Results[indexIn]
+	out := fe.Func.Parameters[indexOut]
+
+	in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("from", in.TypeName))
+	out.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("into", out.TypeName))
+
+	inVarName := in.VarName
+	outVarName := out.VarName
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
+
+			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
+
+			Comments(groupCase, Sf("Declare `%s` variable:", outVarName))
+			gogentools.ComposeVarDeclaration(file, groupCase, out.VarName, out.GetOriginal().GetType(), out.GetOriginal().IsVariadic())
+
+			Comments(groupCase, "Declare medium object/interface:")
+			groupCase.Var().Id("mediumObjCQL").Qual(fe.Receiver.PkgPath, fe.Receiver.TypeName)
+
+			Comments(groupCase,
+				"Call the method that transfers the taint",
+				Sf("from the result `%s` to the parameter `%s`", in.VarName, out.VarName),
+				Sf("(`%s` is now tainted).", out.VarName),
+			)
+
+			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
+
+			groupCase.ListFunc(func(resGroup *Group) {
+				for i, _ := range fe.Func.Results {
+					if i == indexIn {
+						resGroup.Id("intermediateCQL")
+					} else {
+						resGroup.Id("_")
+					}
+				}
+			}).Op(":=").Id("mediumObjCQL").Dot(fe.Func.Name).CallFunc(
+				func(call *Group) {
+
+					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
+
+					for i, zero := range zeroVals {
+						isConsidered := i == indexOut
+						if isConsidered {
+							call.Id(fe.Func.Parameters[i].VarName)
+						} else {
+							call.Add(zero)
+						}
+					}
+
+				},
+			)
+
+			Comments(groupCase,
+				Sf(
+					"Extra step (`%s` taints `intermediateCQL`, which taints `%s`:",
+					in.VarName,
+					out.VarName,
+				),
+			)
+			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
+
+			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+		})
+	return code
+}
+
+func generate_ResuMethResu(file *File, fe *feparser.FETypeMethod, indexIn int, indexOut int, counter int) *Statement {
+	// from: result
+	// medium: method
+	// into: result
+
+	in := fe.Func.Results[indexIn]
+	out := fe.Func.Results[indexOut]
+
+	in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("from", in.TypeName))
+	out.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("into", out.TypeName))
+
+	inVarName := in.VarName
+	outVarName := out.VarName
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+			Comments(groupCase, Sf("The flow is from `%s` into `%s`.", inVarName, outVarName))
+
+			Comments(groupCase, Sf("Assume that `sourceCQL` has the underlying type of `%s`:", inVarName))
+			ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic(), counter)
+
+			Comments(groupCase, "Declare medium object/interface:")
+			groupCase.Var().Id("mediumObjCQL").Qual(fe.Receiver.PkgPath, fe.Receiver.TypeName)
+
+			Comments(groupCase,
+				"Call the method that transfers the taint",
+				Sf("from the result `%s` to the result `%s`", in.VarName, out.VarName),
+				Sf("(`%s` is now tainted).", out.VarName),
+			)
+
+			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
+
+			groupCase.ListFunc(func(resGroup *Group) {
+				for i, v := range fe.Func.Results {
+					if i == indexIn || i == indexOut {
+						if i == indexIn {
+							resGroup.Id("intermediateCQL")
+						} else {
+							resGroup.Id(v.VarName)
+						}
+					} else {
+						resGroup.Id("_")
+					}
+				}
+			}).Op(":=").Id("mediumObjCQL").Dot(fe.Func.Name).CallFunc(
+				func(call *Group) {
+
+					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
+
+					for _, zero := range zeroVals {
+						call.Add(zero)
+					}
+
+				},
+			)
+			Comments(groupCase,
+				Sf(
+					"Extra step (`%s` taints `intermediateCQL`, which taints `%s`:",
+					in.VarName,
+					out.VarName,
+				))
+			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
+
+			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
+			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
 		})
 	return code
 }
