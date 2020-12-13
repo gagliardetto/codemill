@@ -625,8 +625,8 @@ func main() {
 
 								if req.Flow.BlockIndex < 0 || req.Flow.BlockIndex > len(existingSel.Flows.Blocks) /* Block is beyond len+1 */ {
 									return fmt.Errorf(
-										"req.Flow.BlockIndex is out of bounds: index=%v, but blocks.Len() = %v",
-										req.Flow.Index,
+										"req.Flow.BlockIndex is out of bounds: BlockIndex=%v, but blocks.Len() = %v",
+										req.Flow.BlockIndex,
 										len(existingSel.Flows.Blocks),
 									)
 								}

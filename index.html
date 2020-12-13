@@ -1597,7 +1597,7 @@
                     .catch((error) => {
                         console.error('Error:', error);
                         error.json().then((body) => {
-                            this.makeToast("danger", "Error", body.error);
+                            this.$root.makeToast("danger", "Error", body.error);
                         });
                     });
             },
@@ -1749,7 +1749,7 @@
                     .catch((error) => {
                         console.error('Error:', error);
                         error.json().then((body) => {
-                            this.makeToast("danger", "Error", body.error);
+                            this.$root.makeToast("danger", "Error", body.error);
                         });
                     });
             },
@@ -1809,7 +1809,7 @@
                     .catch((error) => {
                         console.error('Error:', error);
                         error.json().then((body) => {
-                            this.makeToast("danger", "Error", body.error);
+                            this.$root.makeToast("danger", "Error", body.error);
                         });
                     });
             },
@@ -1862,7 +1862,7 @@
                     .catch((error) => {
                         console.error('Error:', error);
                         error.json().then((body) => {
-                            this.makeToast("danger", "Error", body.error);
+                            this.$root.makeToast("danger", "Error", body.error);
                         });
                     });
             },
@@ -2021,7 +2021,7 @@
                         </tr>
                     </tbody>
                   </table>
-                  <div class="flow-block-index-indicator">
+                  <div class="flow-block-index-indicator" :title="'Block #' + blockIndex">
                     #{{blockIndex}}
                   </div>
                   <div class="text-center">
@@ -2155,7 +2155,7 @@
                   .catch((error) => {
                       console.error('Error:', error);
                       error.json().then((body) => {
-                          this.makeToast("danger", "Error", body.error);
+                          this.$root.makeToast("danger", "Error", body.error);
                       });
                   });
             }
@@ -2286,7 +2286,7 @@
                   .catch((error) => {
                       console.error('Error:', error);
                       error.json().then((body) => {
-                          this.makeToast("danger", "Error", body.error);
+                          this.$root.makeToast("danger", "Error", body.error);
                       });
                   });
             }
