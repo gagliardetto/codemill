@@ -104,6 +104,8 @@ github.com/gagliardetto/utilz v0.0.0-20201202165520-1d1c91544038 h1:N7Q9o2hNe7qN
 github.com/gagliardetto/utilz v0.0.0-20201202165520-1d1c91544038/go.mod h1:FqrJIHaVBve1PigrIcinRW1cahs8TfHVpvRoks+g6sU=
 github.com/gagliardetto/utilz v0.0.0-20201209165803-d0fa82bb4fd6 h1:wb9l4bbkorMddsWLIrEXF/raPdbzXmuVGii51FLYO2Q=
 github.com/gagliardetto/utilz v0.0.0-20201209165803-d0fa82bb4fd6/go.mod h1:FqrJIHaVBve1PigrIcinRW1cahs8TfHVpvRoks+g6sU=
+github.com/gagliardetto/utilz v0.0.0-20201214201314-ad74031c81e7 h1:S0FQuNyD1lENZeFWYnKEJspcCHOI2tSQzFdn0D5O88k=
+github.com/gagliardetto/utilz v0.0.0-20201214201314-ad74031c81e7/go.mod h1:FqrJIHaVBve1PigrIcinRW1cahs8TfHVpvRoks+g6sU=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
 github.com/gin-gonic/gin v1.6.3 h1:ahKqKTFpO5KTPHxWZjEdPScmYaGtLo8Y4DMHoEsnp14=

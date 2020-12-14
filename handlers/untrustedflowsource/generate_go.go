@@ -359,7 +359,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			isStd := search.IsStandardImportPath(path)
 			if !isStd {
 				// If path is NOT part of standard library, then add the depstubber generation comment.
-				file.Comment(x.GenerateDepstubberComment(path, pathVersionToTypeNames[pathVersion], pathVersionToFuncAndVarNames[pathVersion]))
+				file.Comment(x.FormatDepstubberComment(path, pathVersionToTypeNames[pathVersion], pathVersionToFuncAndVarNames[pathVersion]))
 				file.Comment("//go:generate depstubber -write_module_txt").Line()
 				// TODO:
 				// - go mod tidy # required to generate go.sum

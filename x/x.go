@@ -1609,9 +1609,9 @@ func GetFuncQualifier(qual *FuncQualifier) FuncInterface {
 	return fn
 }
 
-// GenerateDepstubberComment returns the `depstubber` comment that will be used to stub types.
+// FormatDepstubberComment returns the `depstubber` comment that will be used to stub types.
 // The returned string is prefixed with //
-func GenerateDepstubberComment(path string, typeNames []string, funcAndVarNames []string) string {
+func FormatDepstubberComment(path string, typeNames []string, funcAndVarNames []string) string {
 	var first string
 	if len(typeNames) > 0 {
 		first = strings.Join(typeNames, ",")

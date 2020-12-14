@@ -12,7 +12,7 @@ require (
 	github.com/gagliardetto/feparser v0.0.0-20201209231327-22979b5f16c3
 	github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814
 	github.com/gagliardetto/request v0.8.0
-	github.com/gagliardetto/utilz v0.0.0-20201209165803-d0fa82bb4fd6
+	github.com/gagliardetto/utilz v0.0.0-20201214201314-ad74031c81e7
 	github.com/gin-gonic/gin v1.6.3
 	github.com/go-stack/stack v1.8.0 // indirect
 	github.com/golang/protobuf v1.4.2 // indirect
