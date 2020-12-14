@@ -325,10 +325,10 @@
                     </b-list-group>
                     <b-form v-on:submit.prevent="search">
                         <b-overlay :show="isBusy.search" rounded="lg" opacity="0.6">
-                            <div>
-                                <label for="search-input-field" class="mb-0 pb-0 mt-2">Search:</label>
-                                <b-input-group class="mt-3">
-                                    <b-form-input type="search" id="search-input-field" v-model="searchData.current" class="mr-sm-6" aria-describedby="search-help-block"></b-form-input>
+                            <div class="mr-2">
+                                <label for="search-input-field" class="mb-0 pb-0 mt-3">Search:</label>
+                                <b-input-group class="mt-0 ml-2 mr-2">
+                                    <b-form-input type="search" id="search-input-field" v-model="searchData.current" aria-describedby="search-help-block"></b-form-input>
                                     <b-input-group-append>
                                         <b-button variant="primary" @click="search" :disabled="isBusy.search">{{isBusy.search ? "Searching..." : "Search" }}</b-button>
                                     </b-input-group-append>
@@ -351,7 +351,7 @@
                         </b-list-group>
                         <b-list-group v-bind:class="{ hidden: isBusy.search }">
                             <span class="float-left d-inline-block" v-if="len(searchData.results) == 0" variant="danger">
-                                No results were found.
+                                {{searchData.firstSubmitted?'No results were found.':'Type text to search in the input box.'}}
                             </span>
                             <cm-search-result v-for="(item, index) in searchData.results" v-bind:key="item.path + index" v-bind:item="item" v-bind:index="index"></cm-search-result>
                         </b-list-group>
@@ -520,6 +520,7 @@
             },
             searchData: {
                 results: [],
+                firstSubmitted: false,
                 current: "",
                 currentOut: ""
             },
@@ -691,7 +692,8 @@
                     })
             },
             search() {
-                this.searchData.currentOut = this.searchData.current.trim();
+                this.$data.searchData.firstSubmitted = true;
+                this.$data.searchData.currentOut = this.searchData.current.trim();
                 this.doSearch(this.searchData.currentOut);
             },
             updateElementFilterValue(val) {
