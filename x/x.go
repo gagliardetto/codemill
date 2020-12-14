@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 
 	cqljen "github.com/gagliardetto/cqlgen/jen"
@@ -1606,4 +1607,29 @@ func GetFuncQualifier(qual *FuncQualifier) FuncInterface {
 		Fatalf("Func not found: %q", qual.ID)
 	}
 	return fn
+}
+
+// GenerateDepstubberComment returns the `depstubber` comment that will be used to stub types.
+// The returned string is prefixed with //
+func GenerateDepstubberComment(path string, typeNames []string, funcAndVarNames []string) string {
+	var first string
+	if len(typeNames) > 0 {
+		first = strings.Join(typeNames, ",")
+	} else {
+		first = `""`
+	}
+
+	var second string
+	if len(funcAndVarNames) > 0 {
+		second = strings.Join(funcAndVarNames, ",")
+	} else {
+		second = `""`
+	}
+
+	return Sf(
+		"//go:generate depstubber -vendor %s %s %s",
+		path,
+		first,
+		second,
+	)
 }

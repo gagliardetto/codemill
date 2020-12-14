@@ -7,7 +7,6 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
-	"strings"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gagliardetto/codebox/gogentools"
@@ -360,7 +359,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			isStd := search.IsStandardImportPath(path)
 			if !isStd {
 				// If path is NOT part of standard library, then add the depstubber generation comment.
-				file.Comment(generateDepstubberComment(path, pathVersionToTypeNames[pathVersion], pathVersionToFuncAndVarNames[pathVersion]))
+				file.Comment(x.GenerateDepstubberComment(path, pathVersionToTypeNames[pathVersion], pathVersionToFuncAndVarNames[pathVersion]))
 				file.Comment("//go:generate depstubber -write_module_txt").Line()
 				// TODO:
 				// - go mod tidy # required to generate go.sum
@@ -462,15 +461,6 @@ func genGoModFile(outDir string, pathVersions ...string) error {
 		return err
 	}
 	return nil
-}
-
-func generateDepstubberComment(path string, typeNames []string, funcAndVarNames []string) string {
-	return Sf(
-		"//go:generate depstubber -vendor %s %s %s",
-		path,
-		strings.Join(typeNames, ","),
-		strings.Join(funcAndVarNames, ","),
-	)
 }
 
 // Comments adds comments to a Group (if enabled), and returns the group.
