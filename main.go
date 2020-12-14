@@ -191,8 +191,6 @@ func main() {
 				}
 
 			})
-			// TODO: remove debug print:
-			fmt.Printf("\n\n%#v", cqlFile)
 			{
 				// Save codeql assets:
 				assetFileName := feparser.FormatCodeQlName(globalSpec.Name) + ".qll"
