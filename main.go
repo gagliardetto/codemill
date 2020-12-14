@@ -1206,9 +1206,8 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 				errs = append(errs, err)
 			}
 		})
-		err = CombineErrors(errs...)
 		if len(errs) > 0 {
-			return nil, fmt.Errorf("error while packages.Load: %s", err)
+			return nil, fmt.Errorf("error while packages.Load: %s", CombineErrors(errs...))
 		}
 
 		for _, pkg := range pkgs {
