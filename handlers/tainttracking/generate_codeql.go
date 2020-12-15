@@ -58,7 +58,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 				if err != nil {
 					Fatalf("Error while GroupFuncSelectors: %s", err)
 				}
-				_, _ = b2tm, b2itm
 				{
 					cont, ok := b2fe[pathVersion]
 					if ok {

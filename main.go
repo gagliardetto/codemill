@@ -162,13 +162,12 @@ func main() {
 
 		{ // Generate codeql:
 			cqlFile := cqljen.NewFile()
-			cqlFile.HeaderDoc("This is a doc.")
-			cqlFile.HeaderDoc("Second line of doc.")
+			cqlFile.HeaderDoc("TODO: Doc about this file.")
 
 			// `go` is always imported:
 			cqlFile.Import("go")
 
-			cqlFile.Doc("Doc about this module.")
+			cqlFile.Doc("TODO: Doc about this module.")
 			cqlFile.Private().Module().Id(feparser.FormatCodeQlName(globalSpec.Name)).BlockFunc(func(moduleGroup *cqljen.Group) {
 				for _, mdl := range globalSpec.Models {
 

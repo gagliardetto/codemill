@@ -37,7 +37,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 	className := mdl.Name
 
-	moduleGroup.Doc("Doc about class.")
+	moduleGroup.Doc("Provides models of untrusted flow sources.")
 	moduleGroup.Private().Class().Id(className).Extends().List(Qual("UntrustedFlowSource", "Range")).
 		BlockFunc(func(classGr *Group) {
 			classGr.Id(className).Call().BlockFunc(func(metGr *Group) {
@@ -174,7 +174,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 												parMethods.ParensFunc(
 													func(par *Group) {
-
 														par.Commentf("Method: %s", thing.Func.Signature)
 														par.Id("methodName").Eq().Lit(thing.Func.Name)
 														par.And()
@@ -184,9 +183,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 																codeElements...,
 															),
 														)
-
-														//par.Or()
-
 													},
 												)
 
@@ -279,7 +275,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 												parMethods.ParensFunc(
 													func(par *Group) {
-
 														par.Commentf("Method: %s", thing.Func.Signature)
 														par.Id("methodName").Eq().Lit(thing.Func.Name)
 														par.And()
@@ -289,9 +284,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 																codeElements...,
 															),
 														)
-
-														//par.Or()
-
 													},
 												)
 
