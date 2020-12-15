@@ -109,6 +109,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		for _, mod := range mods {
 			res = append(res, mod.PathVersionClean())
 		}
+		sort.Strings(res)
 		return res
 	}()
 
