@@ -410,8 +410,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			Fatalf("Error while saving go.mod file: %s", err)
 		}
 	}
-	Q(pathVersionToFuncAndVarNames)
-	Q(pathVersionToTypeNames)
 	// TODO: include codeql assertions and test query.
 	return nil
 }
@@ -521,7 +519,7 @@ PosLoop:
 		}
 	}
 
-	lenReceiver, lenParams, _ := fn.Lengths()
+	lenReceiver, _, _ := fn.Lengths()
 	hasReceiver := lenReceiver == 1
 
 	fe := fn.GetFunc()
@@ -553,12 +551,15 @@ PosLoop:
 					// If only one parameter is considered, the use a single var declaration:
 					i := parameterIndexes[0]
 
-					isLast := i == lenParams-1
-					isVariadicParam := isLast && fe.GetOriginal().Variadic
-
 					varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
 					fe.Parameters[i].VarName = varName
-					gogentools.ComposeVarDeclaration(file, groupCase, varName, fe.Parameters[i].GetOriginal().GetType(), isVariadicParam)
+					gogentools.ComposeVarDeclaration(
+						file,
+						groupCase,
+						varName,
+						fe.Parameters[i].GetOriginal().GetType(),
+						fe.Parameters[i].GetOriginal().IsVariadic(),
+					)
 				} else {
 					// If multiple parameters are considered, then use a group var declaration:
 					varTypes := make([]*VarNameAndType, 0)
@@ -568,13 +569,10 @@ PosLoop:
 							varName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("param", fe.Parameters[i].VarName))
 							fe.Parameters[i].VarName = varName
 
-							isLast := i == lenParams-1
-							isVariadicParam := isLast && fe.GetOriginal().Variadic
-
 							varTypes = append(varTypes, &VarNameAndType{
 								Name:       varName,
 								Type:       fe.Parameters[i].GetOriginal().GetType(),
-								IsVariadic: isVariadicParam,
+								IsVariadic: fe.Parameters[i].GetOriginal().IsVariadic(),
 							})
 						}
 					}

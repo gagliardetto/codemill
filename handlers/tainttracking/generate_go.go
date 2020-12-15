@@ -377,8 +377,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			Fatalf("Error while saving go.mod file: %s", err)
 		}
 	}
-	Q(pathVersionToFuncAndVarNames)
-	Q(pathVersionToTypeNames)
 	// TODO: include codeql assertions and test query.
 	return nil
 }
