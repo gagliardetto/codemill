@@ -45,142 +45,85 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		sort.Strings(res)
 		return res
 	}()
-	taintTrackingModule := Private().Module().Id(feparser.FormatCodeQlName(className))
 
-	taintTrackingModule.BlockFunc(func(ttModuleGroup *Group) {
+	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(self)
+	if err != nil {
+		Fatalf("Error while GroupFuncSelectors: %s", err)
+	}
+	{
+		addedCount := 0
+		funcModelsClassName := feparser.NewCodeQlName(className, "FunctionModels")
+		tmp := DoGroup(func(tempFuncsModel *Group) {
+			tempFuncsModel.Comment("Models taint-tracking through functions.")
+			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().Qual("TaintTracking", "FunctionModel").BlockFunc(
+				func(funcModelsClassGroup *Group) {
+					funcModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
+					funcModelsClassGroup.Id("FunctionOutput").Id("out").Semicolon().Line()
 
-		for _, pathVersion := range allPathVersions {
-
-			ttModuleGroup.Doc(Sf("Provides classes modeling taint-tracking through the %s package.", pathVersion))
-			ttModuleGroup.Private().Module().Id(feparser.NewCodeQlName(pathVersion, "TaintTracking")).BlockFunc(func(thisModuleGroup *Group) {
-
-				b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(self)
-				if err != nil {
-					Fatalf("Error while GroupFuncSelectors: %s", err)
-				}
-				{
-					cont, ok := b2fe[pathVersion]
-					if ok {
-						thisModuleGroup.Comment("Taint-tracking through functions.")
-						thisModuleGroup.Private().Class().Id("FunctionModels").Extends().Qual("TaintTracking", "FunctionModel").BlockFunc(
-							func(funcModelsClassGroup *Group) {
-								funcModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
-								funcModelsClassGroup.Id("FunctionOutput").Id("out").Semicolon().Line()
-
-								funcModelsClassGroup.Id("FunctionModels").Call().BlockFunc(
-									func(funcModelsSelfMethodGroup *Group) {
-										{
-											funcModelsSelfMethodGroup.DoGroup(
-												func(groupCase *Group) {
-
-													for i, funcQual := range cont {
-														if i > 0 {
-															groupCase.Or()
-														}
-														{
-															if !funcQual.Flows.Enabled {
-																continue
-															}
-
-															fn, codeElements := GetFuncQualifierCodeElements(funcQual)
-															thing := fn.(*feparser.FEFunc)
-															groupCase.Comment("Function: " + thing.Signature)
-															groupCase.Id("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name)).
-																And().
-																Parens(
-																	Join(
-																		Or(),
-																		codeElements...,
-																	),
-																)
-														}
+					funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
+						func(funcModelsSelfMethodGroup *Group) {
+							{
+								funcModelsSelfMethodGroup.DoGroup(
+									func(groupCase *Group) {
+										for _, pathVersion := range allPathVersions {
+											cont, ok := b2fe[pathVersion]
+											if ok {
+												for _, funcQual := range cont {
+													if !funcQual.Flows.Enabled {
+														continue
 													}
-												})
+													if addedCount > 0 {
+														groupCase.Or()
+													}
+													addedCount++
+
+													fn, codeElements := GetFuncQualifierCodeElements(funcQual)
+													thing := fn.(*feparser.FEFunc)
+													groupCase.Comment("signature: " + thing.Signature)
+													groupCase.Id("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name)).
+														And().
+														Parens(
+															Join(
+																Or(),
+																codeElements...,
+															),
+														)
+												}
+											}
 										}
 									})
+							}
+						})
 
-								funcModelsClassGroup.Override().Predicate().Id("hasTaintFlow").Call(Id("FunctionInput").Id("input"), Id("FunctionOutput").Id("output")).BlockFunc(
-									func(overrideBlockGroup *Group) {
-										overrideBlockGroup.Id("input").Eq().Id("inp").And().Id("output").Eq().Id("out")
-									})
-							})
-					}
-				}
+					funcModelsClassGroup.Override().Predicate().Id("hasTaintFlow").Call(Id("FunctionInput").Id("input"), Id("FunctionOutput").Id("output")).BlockFunc(
+						func(overrideBlockGroup *Group) {
+							overrideBlockGroup.Id("input").Eq().Id("inp").And().Id("output").Eq().Id("out")
+						})
+				})
+		})
+		if addedCount > 0 {
+			rootModuleGroup.Add(tmp)
+		}
+	}
 
-				_, okb2tm := b2tm[pathVersion]
-				_, okb2itm := b2itm[pathVersion]
-				if okb2tm || okb2itm {
-					thisModuleGroup.Comment("Taint-tracking through method calls.")
-					thisModuleGroup.Private().Class().Id("MethodModels").Extends().List(Qual("TaintTracking", "FunctionModel"), Id("Method")).BlockFunc(
-						func(methodModelsClassGroup *Group) {
-							methodModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
-							methodModelsClassGroup.Id("FunctionOutput").Id("out").Semicolon().Line()
+	{
+		addedCount := 0
+		methodModelsClassName := feparser.NewCodeQlName(className, "MethodModels")
+		tmp := DoGroup(func(tempMethodsModel *Group) {
+			tempMethodsModel.Comment("Taint-tracking through method calls.")
+			tempMethodsModel.Private().Class().Id(methodModelsClassName).Extends().List(Qual("TaintTracking", "FunctionModel"), Id("Method")).BlockFunc(
+				func(methodModelsClassGroup *Group) {
+					methodModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
+					methodModelsClassGroup.Id("FunctionOutput").Id("out").Semicolon().Line()
 
-							methodModelsClassGroup.Id("MethodModels").Call().BlockFunc(
-								func(methodModelsSelfMethodGroup *Group) {
-									{
-										methodModelsSelfMethodGroup.DoGroup(
-											func(groupCase *Group) {
-												hadB2tm := false
-												{
-													cont, ok := b2tm[pathVersion]
-													if ok {
-														keys := func(v map[string][]*x.FuncQualifier) []string {
-															res := make([]string, 0)
-															for key := range v {
-																res = append(res, key)
-															}
-															sort.Strings(res)
-															return res
-														}(cont)
-														for _, receiverTypeID := range keys {
-															methodQualifiers := cont[receiverTypeID]
-															if len(methodQualifiers) == 0 {
-																continue
-															}
-
-															qual := methodQualifiers[0]
-															source := x.GetCachedSource(qual.Path, qual.Version)
-															if source == nil {
-																Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-															}
-															// Find receiver type:
-															typ := x.FindTypeByID(source, receiverTypeID)
-															if typ == nil {
-																Fatalf("Type not found: %q", receiverTypeID)
-															}
-
-															for _, methodQual := range methodQualifiers {
-																if !methodQual.Flows.Enabled {
-																	continue
-																}
-																if hadB2tm {
-																	groupCase.Or()
-																}
-																hadB2tm = true
-
-																fn, codeElements := GetFuncQualifierCodeElements(methodQual)
-																thing := fn.(*feparser.FETypeMethod)
-
-																groupCase.ParensFunc(
-																	func(par *Group) {
-																		par.Commentf("Method: %s", thing.Func.Signature)
-																		par.Id("hasQualifiedName").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
-																		par.And()
-																		par.Parens(
-																			Join(
-																				Or(),
-																				codeElements...,
-																			),
-																		)
-																	},
-																)
-															}
-
-														}
-													}
-												}
-												contb2itm, ok := b2itm[pathVersion]
+					methodModelsClassGroup.Id(methodModelsClassName).Call().BlockFunc(
+						func(methodModelsSelfMethodGroup *Group) {
+							{
+								methodModelsSelfMethodGroup.DoGroup(
+									func(groupCase *Group) {
+										for _, pathVersion := range allPathVersions {
+											{
+												cont, ok := b2tm[pathVersion]
 												if ok {
 													keys := func(v map[string][]*x.FuncQualifier) []string {
 														res := make([]string, 0)
@@ -189,9 +132,9 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 														}
 														sort.Strings(res)
 														return res
-													}(contb2itm)
+													}(cont)
 													for _, receiverTypeID := range keys {
-														methodQualifiers := contb2itm[receiverTypeID]
+														methodQualifiers := cont[receiverTypeID]
 														if len(methodQualifiers) == 0 {
 															continue
 														}
@@ -207,23 +150,22 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															Fatalf("Type not found: %q", receiverTypeID)
 														}
 
-														had := false
 														for _, methodQual := range methodQualifiers {
 															if !methodQual.Flows.Enabled {
 																continue
 															}
-															if hadB2tm || had {
+															if addedCount > 0 {
 																groupCase.Or()
 															}
-															had = true
+															addedCount++
 
 															fn, codeElements := GetFuncQualifierCodeElements(methodQual)
-															thing := fn.(*feparser.FEInterfaceMethod)
+															thing := fn.(*feparser.FETypeMethod)
 
 															groupCase.ParensFunc(
 																func(par *Group) {
-																	par.Commentf("Method: %s", thing.Func.Signature)
-																	par.Id("implements").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																	par.Commentf("signature: %s", thing.Func.Signature)
+																	par.Id("hasQualifiedName").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
 																	par.And()
 																	par.Parens(
 																		Join(
@@ -236,25 +178,81 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 														}
 
 													}
+												}
+											}
+											contb2itm, ok := b2itm[pathVersion]
+											if ok {
+												keys := func(v map[string][]*x.FuncQualifier) []string {
+													res := make([]string, 0)
+													for key := range v {
+														res = append(res, key)
+													}
+													sort.Strings(res)
+													return res
+												}(contb2itm)
+												for _, receiverTypeID := range keys {
+													methodQualifiers := contb2itm[receiverTypeID]
+													if len(methodQualifiers) == 0 {
+														continue
+													}
+
+													qual := methodQualifiers[0]
+													source := x.GetCachedSource(qual.Path, qual.Version)
+													if source == nil {
+														Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+													}
+													// Find receiver type:
+													typ := x.FindTypeByID(source, receiverTypeID)
+													if typ == nil {
+														Fatalf("Type not found: %q", receiverTypeID)
+													}
+
+													for _, methodQual := range methodQualifiers {
+														if !methodQual.Flows.Enabled {
+															continue
+														}
+														if addedCount > 0 {
+															groupCase.Or()
+														}
+														addedCount++
+
+														fn, codeElements := GetFuncQualifierCodeElements(methodQual)
+														thing := fn.(*feparser.FEInterfaceMethod)
+
+														groupCase.ParensFunc(
+															func(par *Group) {
+																par.Commentf("Method: %s", thing.Func.Signature)
+																par.Id("implements").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																par.And()
+																par.Parens(
+																	Join(
+																		Or(),
+																		codeElements...,
+																	),
+																)
+															},
+														)
+													}
 
 												}
 
-											})
-									}
-								})
-
-							methodModelsClassGroup.Override().Predicate().Id("hasTaintFlow").Call(Id("FunctionInput").Id("input"), Id("FunctionOutput").Id("output")).BlockFunc(
-								func(overrideBlockGroup *Group) {
-									overrideBlockGroup.Id("input").Eq().Id("inp").And().Id("output").Eq().Id("out")
-								})
+											}
+										}
+									})
+							}
 						})
-				}
-			})
 
+					methodModelsClassGroup.Override().Predicate().Id("hasTaintFlow").Call(Id("FunctionInput").Id("input"), Id("FunctionOutput").Id("output")).BlockFunc(
+						func(overrideBlockGroup *Group) {
+							overrideBlockGroup.Id("input").Eq().Id("inp").And().Id("output").Eq().Id("out")
+						})
+				})
+		})
+		if addedCount > 0 {
+			rootModuleGroup.Add(tmp)
 		}
-	})
+	}
 
-	rootModuleGroup.Doc("Provides taint-tracking models.").Add(taintTrackingModule)
 	return nil
 }
 func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Code) {
