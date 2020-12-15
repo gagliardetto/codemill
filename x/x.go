@@ -1614,6 +1614,7 @@ func GetFuncQualifier(qual *FuncQualifier) FuncInterface {
 func FormatDepstubberComment(path string, typeNames []string, funcAndVarNames []string) string {
 	var first string
 	if len(typeNames) > 0 {
+		typeNames = Deduplicate(typeNames)
 		sort.Strings(typeNames)
 		first = strings.Join(typeNames, ",")
 	} else {
@@ -1622,6 +1623,7 @@ func FormatDepstubberComment(path string, typeNames []string, funcAndVarNames []
 
 	var second string
 	if len(funcAndVarNames) > 0 {
+		funcAndVarNames = Deduplicate(funcAndVarNames)
 		sort.Strings(funcAndVarNames)
 		second = strings.Join(funcAndVarNames, ",")
 	} else {
