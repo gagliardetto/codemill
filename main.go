@@ -1096,6 +1096,7 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 		rootPath = path
 		version = "local"
 	} else {
+		// TODO: which get.ModuleMode is better?
 		// Find out the root of the package:
 		root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
 		if err != nil {
