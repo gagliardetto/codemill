@@ -42,6 +42,8 @@ github.com/gagliardetto/codebox v0.0.0-20201214231414-732868871bdf h1:AQlBF97x5X
 github.com/gagliardetto/codebox v0.0.0-20201214231414-732868871bdf/go.mod h1:RBKe+btp0b+GHsGvRVXSyS4ou2UUduVOde+kbchV5jo=
 github.com/gagliardetto/cqlgen v0.0.0-20201202210918-a8a454d2bb96 h1:zFvf+S8Z3119ffUmv5UtI/KSm9E/DfQEwirsO6xfkV4=
 github.com/gagliardetto/cqlgen v0.0.0-20201202210918-a8a454d2bb96/go.mod h1:pX96K3t9QVWgmwIjsVlDECOxH7HQbOX2SwiARfPwBpc=
+github.com/gagliardetto/cqlgen v0.0.0-20201215222351-651ffc8b33c6 h1:E3C+X6RoSWtgjm2dGWSAO70Q4XqrWgA8DWcAJJbB+ns=
+github.com/gagliardetto/cqlgen v0.0.0-20201215222351-651ffc8b33c6/go.mod h1:pX96K3t9QVWgmwIjsVlDECOxH7HQbOX2SwiARfPwBpc=
 github.com/gagliardetto/feparser v0.0.0-20201020161618-7f23b4f2bcf7 h1:tkq7foVQocEC9taWKU4RkJot5v4QqtS8E+t+SP4nvIg=
 github.com/gagliardetto/feparser v0.0.0-20201020161618-7f23b4f2bcf7/go.mod h1:1ula649k+N2bbJRIjun5HbcJy8GDEHAyai9HW9+Z36E=
 github.com/gagliardetto/feparser v0.0.0-20201020193055-8442f492b885/go.mod h1:VDhM9uRIl2V7LoTxTupJlOed2FidnlOelafBOVSlOqk=

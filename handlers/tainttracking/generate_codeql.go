@@ -51,68 +51,211 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 		for _, pathVersion := range allPathVersions {
 
-			ttModuleGroup.Commentf("Provides classes modeling security-relevant aspects of the %s package.", pathVersion)
-			ttModuleGroup.Private().Module().Id(feparser.FormatCodeQlName(pathVersion)).BlockFunc(func(thisModuleGroup *Group) {
+			ttModuleGroup.Doc(Sf("Provides classes modeling taint-tracking through the %s package.", pathVersion))
+			ttModuleGroup.Private().Module().Id(feparser.NewCodeQlName(pathVersion, "TaintTracking")).BlockFunc(func(thisModuleGroup *Group) {
 
 				b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(self)
 				if err != nil {
 					Fatalf("Error while GroupFuncSelectors: %s", err)
 				}
 				_, _ = b2tm, b2itm
-				cont, ok := b2fe[pathVersion]
-				if ok {
-					thisModuleGroup.Private().Class().Id("FunctionModels").Extends().Qual("TaintTracking", "FunctionModel").BlockFunc(
-						func(funcModelsClassGroup *Group) {
-							funcModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
-							funcModelsClassGroup.Id("FunctionOutput").Id("out").Semicolon().Line()
+				{
+					cont, ok := b2fe[pathVersion]
+					if ok {
+						thisModuleGroup.Comment("Taint-tracking through functions.")
+						thisModuleGroup.Private().Class().Id("FunctionModels").Extends().Qual("TaintTracking", "FunctionModel").BlockFunc(
+							func(funcModelsClassGroup *Group) {
+								funcModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
+								funcModelsClassGroup.Id("FunctionOutput").Id("out").Semicolon().Line()
 
-							funcModelsClassGroup.Id("FunctionModels").Call().BlockFunc(
-								func(funcModelsSelfMethodGroup *Group) {
-									{
+								funcModelsClassGroup.Id("FunctionModels").Call().BlockFunc(
+									func(funcModelsSelfMethodGroup *Group) {
+										{
+											funcModelsSelfMethodGroup.DoGroup(
+												func(groupCase *Group) {
 
-										code := DoGroup(
-											func(groupCase *Group) {
+													for i, funcQual := range cont {
+														if i > 0 {
+															groupCase.Or()
+														}
+														{
+															if !funcQual.Flows.Enabled {
+																continue
+															}
 
-												for i, funcQual := range cont {
-													if i > 0 {
-														groupCase.Or()
+															fn, codeElements := GetFuncQualifierCodeElements(funcQual)
+															thing := fn.(*feparser.FEFunc)
+															groupCase.Comment("Function: " + thing.Signature)
+															groupCase.Id("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name)).
+																And().
+																Parens(
+																	Join(
+																		Or(),
+																		codeElements...,
+																	),
+																)
+														}
 													}
-													{
-														if !funcQual.Flows.Enabled {
+												})
+										}
+									})
+
+								funcModelsClassGroup.Override().Predicate().Id("hasTaintFlow").Call(Id("FunctionInput").Id("input"), Id("FunctionOutput").Id("output")).BlockFunc(
+									func(overrideBlockGroup *Group) {
+										overrideBlockGroup.Id("input").Eq().Id("inp").And().Id("output").Eq().Id("out")
+									})
+							})
+					}
+				}
+
+				_, okb2tm := b2tm[pathVersion]
+				_, okb2itm := b2itm[pathVersion]
+				if okb2tm || okb2itm {
+					thisModuleGroup.Comment("Taint-tracking through method calls.")
+					thisModuleGroup.Private().Class().Id("MethodModels").Extends().List(Qual("TaintTracking", "FunctionModel"), Id("Method")).BlockFunc(
+						func(methodModelsClassGroup *Group) {
+							methodModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
+							methodModelsClassGroup.Id("FunctionOutput").Id("out").Semicolon().Line()
+
+							methodModelsClassGroup.Id("MethodModels").Call().BlockFunc(
+								func(methodModelsSelfMethodGroup *Group) {
+									{
+										methodModelsSelfMethodGroup.DoGroup(
+											func(groupCase *Group) {
+												hadB2tm := false
+												{
+													cont, ok := b2tm[pathVersion]
+													if ok {
+														keys := func(v map[string][]*x.FuncQualifier) []string {
+															res := make([]string, 0)
+															for key := range v {
+																res = append(res, key)
+															}
+															sort.Strings(res)
+															return res
+														}(cont)
+														for _, receiverTypeID := range keys {
+															methodQualifiers := cont[receiverTypeID]
+															if len(methodQualifiers) == 0 {
+																continue
+															}
+
+															qual := methodQualifiers[0]
+															source := x.GetCachedSource(qual.Path, qual.Version)
+															if source == nil {
+																Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+															}
+															// Find receiver type:
+															typ := x.FindTypeByID(source, receiverTypeID)
+															if typ == nil {
+																Fatalf("Type not found: %q", receiverTypeID)
+															}
+
+															for _, methodQual := range methodQualifiers {
+																if !methodQual.Flows.Enabled {
+																	continue
+																}
+																if hadB2tm {
+																	groupCase.Or()
+																}
+																hadB2tm = true
+
+																fn, codeElements := GetFuncQualifierCodeElements(methodQual)
+																thing := fn.(*feparser.FETypeMethod)
+
+																groupCase.ParensFunc(
+																	func(par *Group) {
+																		par.Commentf("Method: %s", thing.Func.Signature)
+																		par.Id("hasQualifiedName").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																		par.And()
+																		par.Parens(
+																			Join(
+																				Or(),
+																				codeElements...,
+																			),
+																		)
+																	},
+																)
+															}
+
+														}
+													}
+												}
+												contb2itm, ok := b2itm[pathVersion]
+												if ok {
+													keys := func(v map[string][]*x.FuncQualifier) []string {
+														res := make([]string, 0)
+														for key := range v {
+															res = append(res, key)
+														}
+														sort.Strings(res)
+														return res
+													}(contb2itm)
+													for _, receiverTypeID := range keys {
+														methodQualifiers := contb2itm[receiverTypeID]
+														if len(methodQualifiers) == 0 {
 															continue
 														}
 
-														fn, codeElements := GetFuncQualifierCodeElements(funcQual)
-														thing := fn.(*feparser.FEFunc)
-														groupCase.Comment("Function: " + thing.Signature)
-														groupCase.Id("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name)).
-															And().
-															Parens(
-																Join(
-																	Or(),
-																	codeElements...,
-																),
+														qual := methodQualifiers[0]
+														source := x.GetCachedSource(qual.Path, qual.Version)
+														if source == nil {
+															Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+														}
+														// Find receiver type:
+														typ := x.FindTypeByID(source, receiverTypeID)
+														if typ == nil {
+															Fatalf("Type not found: %q", receiverTypeID)
+														}
+
+														had := false
+														for _, methodQual := range methodQualifiers {
+															if !methodQual.Flows.Enabled {
+																continue
+															}
+															if hadB2tm || had {
+																groupCase.Or()
+															}
+															had = true
+
+															fn, codeElements := GetFuncQualifierCodeElements(methodQual)
+															thing := fn.(*feparser.FEInterfaceMethod)
+
+															groupCase.ParensFunc(
+																func(par *Group) {
+																	par.Commentf("Method: %s", thing.Func.Signature)
+																	par.Id("implements").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																	par.And()
+																	par.Parens(
+																		Join(
+																			Or(),
+																			codeElements...,
+																		),
+																	)
+																},
 															)
+														}
+
 													}
 
 												}
+
 											})
-										funcModelsSelfMethodGroup.
-											Comment("Taint-tracking through functions.").
-											Line().
-											Add(code)
 									}
 								})
 
+							methodModelsClassGroup.Override().Predicate().Id("hasTaintFlow").Call(Id("FunctionInput").Id("input"), Id("FunctionOutput").Id("output")).BlockFunc(
+								func(overrideBlockGroup *Group) {
+									overrideBlockGroup.Id("input").Eq().Id("inp").And().Id("output").Eq().Id("out")
+								})
 						})
 				}
-
 			})
 
 		}
 	})
 
-	rootModuleGroup.Add(taintTrackingModule)
+	rootModuleGroup.Doc("Provides taint-tracking models.").Add(taintTrackingModule)
 	return nil
 }
 func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Code) {
@@ -178,7 +321,6 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Cod
 				continue OutLoop
 			}
 
-			outCodeElements := make([]Code, 0)
 			outElTyp, _, outRelIndex, err := fn.GetRelativeElement(outPos)
 			if err != nil {
 				Fatalf("Error while GetRelativeElement: %s", err)
@@ -188,7 +330,7 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Cod
 			case feparser.ElementReceiver:
 				{
 					outCodeElements = append(outCodeElements,
-						Id("outp").Dot("isReceiver").Call(),
+						Id("out").Dot("isReceiver").Call(),
 					)
 				}
 			case feparser.ElementParameter:
@@ -208,8 +350,8 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Cod
 			}
 		}
 
-		inpCodeElements = append(inpCodeElements, genStuff("inp", fn, inpParameterIndexes, inpResultIndexes)...)
-		outCodeElements = append(outCodeElements, genStuff("out", fn, outParameterIndexes, outResultIndexes)...)
+		inpCodeElements = append(inpCodeElements, genFunctionInputOutput("inp", fn, inpParameterIndexes, inpResultIndexes)...)
+		outCodeElements = append(outCodeElements, genFunctionInputOutput("out", fn, outParameterIndexes, outResultIndexes)...)
 
 		codeElements = append(codeElements,
 			Parens(
@@ -228,7 +370,7 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Cod
 	return fn, codeElements
 }
 
-func genStuff(idName string, fn x.FuncInterface, parameterIndexes []int, resultIndexes []int) []Code {
+func genFunctionInputOutput(idName string, fn x.FuncInterface, parameterIndexes []int, resultIndexes []int) []Code {
 	codeElements := make([]Code, 0)
 	_, lenParams, lenResults := fn.Lengths()
 
