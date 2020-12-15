@@ -68,26 +68,42 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 										for _, pathVersion := range allPathVersions {
 											cont, ok := b2fe[pathVersion]
 											if ok {
+												pathCodez := make([]Code, 0)
 												for _, funcQual := range cont {
 													if !funcQual.Flows.Enabled {
 														continue
 													}
-													if addedCount > 0 {
-														groupCase.Or()
-													}
-													addedCount++
 
 													fn, codeElements := GetFuncQualifierCodeElements(funcQual)
 													thing := fn.(*feparser.FEFunc)
-													groupCase.Comment("signature: " + thing.Signature)
-													groupCase.Id("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name)).
-														And().
-														Parens(
-															Join(
-																Or(),
-																codeElements...,
-															),
-														)
+													pathCodez = append(pathCodez,
+														ParensFunc(
+															func(par *Group) {
+																par.Commentf("signature: %s", thing.Signature)
+																par.Id("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name))
+																par.And()
+																par.Parens(
+																	Join(
+																		Or(),
+																		codeElements...,
+																	),
+																)
+															},
+														),
+													)
+												}
+
+												if len(pathCodez) > 0 {
+													if addedCount > 0 {
+														groupCase.Or()
+													}
+													groupCase.Commentf("Taint-tracking models for package: %s", pathVersion).Parens(
+														Join(
+															Or(),
+															pathCodez...,
+														),
+													)
+													addedCount++
 												}
 											}
 										}
@@ -110,7 +126,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		addedCount := 0
 		methodModelsClassName := feparser.NewCodeQlName(className, "MethodModels")
 		tmp := DoGroup(func(tempMethodsModel *Group) {
-			tempMethodsModel.Comment("Taint-tracking through method calls.")
+			tempMethodsModel.Comment("Models taint-tracking through method calls.")
 			tempMethodsModel.Private().Class().Id(methodModelsClassName).Extends().List(Qual("TaintTracking", "FunctionModel"), Id("Method")).BlockFunc(
 				func(methodModelsClassGroup *Group) {
 					methodModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
@@ -122,6 +138,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 								methodModelsSelfMethodGroup.DoGroup(
 									func(groupCase *Group) {
 										for _, pathVersion := range allPathVersions {
+											pathCodez := make([]Code, 0)
 											{
 												cont, ok := b2tm[pathVersion]
 												if ok {
@@ -154,26 +171,24 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															if !methodQual.Flows.Enabled {
 																continue
 															}
-															if addedCount > 0 {
-																groupCase.Or()
-															}
-															addedCount++
 
 															fn, codeElements := GetFuncQualifierCodeElements(methodQual)
 															thing := fn.(*feparser.FETypeMethod)
 
-															groupCase.ParensFunc(
-																func(par *Group) {
-																	par.Commentf("signature: %s", thing.Func.Signature)
-																	par.Id("hasQualifiedName").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
-																	par.And()
-																	par.Parens(
-																		Join(
-																			Or(),
-																			codeElements...,
-																		),
-																	)
-																},
+															pathCodez = append(pathCodez,
+																ParensFunc(
+																	func(par *Group) {
+																		par.Commentf("signature: %s", thing.Func.Signature)
+																		par.Id("hasQualifiedName").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																		par.And()
+																		par.Parens(
+																			Join(
+																				Or(),
+																				codeElements...,
+																			),
+																		)
+																	},
+																),
 															)
 														}
 
@@ -211,31 +226,42 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 														if !methodQual.Flows.Enabled {
 															continue
 														}
-														if addedCount > 0 {
-															groupCase.Or()
-														}
-														addedCount++
 
 														fn, codeElements := GetFuncQualifierCodeElements(methodQual)
 														thing := fn.(*feparser.FEInterfaceMethod)
 
-														groupCase.ParensFunc(
-															func(par *Group) {
-																par.Commentf("Method: %s", thing.Func.Signature)
-																par.Id("implements").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
-																par.And()
-																par.Parens(
-																	Join(
-																		Or(),
-																		codeElements...,
-																	),
-																)
-															},
+														pathCodez = append(pathCodez,
+															ParensFunc(
+																func(par *Group) {
+																	par.Commentf("signature: %s", thing.Func.Signature)
+																	par.Id("implements").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																	par.And()
+																	par.Parens(
+																		Join(
+																			Or(),
+																			codeElements...,
+																		),
+																	)
+																},
+															),
 														)
+
 													}
 
 												}
+											}
 
+											if len(pathCodez) > 0 {
+												if addedCount > 0 {
+													groupCase.Or()
+												}
+												groupCase.Commentf("Taint-tracking models for package: %s", pathVersion).Parens(
+													Join(
+														Or(),
+														pathCodez...,
+													),
+												)
+												addedCount++
 											}
 										}
 									})
@@ -356,11 +382,14 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Cod
 					Or(),
 					inpCodeElements...,
 				),
-			).And().Add(
-				Join(
-					Or(),
-					outCodeElements...,
-				)),
+			).
+				And().
+				Parens(
+					Join(
+						Or(),
+						outCodeElements...,
+					),
+				),
 		)
 	}
 

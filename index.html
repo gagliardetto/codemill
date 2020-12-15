@@ -1460,7 +1460,7 @@
           </div>
 
           <!-- Func with Flow -->
-          <div v-if="xselector.Kind == 'Func' && xselector.Qualifier.Flows !== null">
+          <div v-if="xselector.Kind == 'Func' && xselector.Qualifier.Flows !== null && xselector.Qualifier.Flows.Enabled">
 
             <div class="flow-block" v-for="(block, blockIndex) in xselector.Qualifier.Flows.Blocks">
               <div class="flow-block-index-indicator" :title="'Block #' + blockIndex">
