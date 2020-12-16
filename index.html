@@ -229,6 +229,10 @@
     div.text-muted * {
         color: #6c757d !important;
     }
+    .muted {
+        color: #6c757d !important;
+        background-color: #0c0c0c61 !important;
+    }
     .flow-block-index-indicator {
       position: absolute;
       left: 0.5em;
@@ -1415,7 +1419,7 @@
     });
     </script>
     <script type="text/x-template" id="cm-xselector-template">
-        <div class="xselector">
+        <div class="xselector" v-bind:class="{ 'muted': xselector.Kind == 'Func' && xselector.Qualifier.Flows !== null && !xselector.Qualifier.Flows.Enabled }">
           <div
             class="package-indication"
             @click="setContext(xmodelName, xmethodName, xselector.Qualifier.Flows !== null); loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version)"
@@ -1460,11 +1464,11 @@
           </div>
 
           <!-- Func with Flow -->
-          <div v-if="xselector.Kind == 'Func' && xselector.Qualifier.Flows !== null && xselector.Qualifier.Flows.Enabled">
+          <div v-if="xselector.Kind == 'Func' && xselector.Qualifier.Flows !== null">
 
             <div class="flow-block" v-for="(block, blockIndex) in xselector.Qualifier.Flows.Blocks">
               <div class="flow-block-index-indicator" :title="'Block #' + blockIndex">
-                #{{blockIndex}}
+                #{{blockIndex}} {{xselector.Qualifier.Flows.Enabled?'':'(disabled selector)'}}
               </div>
               <svg xmlns="http://www.w3.org/2000/svg" width="100%" height="100%" :id="cc('svg',xselector.Qualifier.ID+'_specViewFlow','block',blockIndex)">
                   <defs>
