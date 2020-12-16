@@ -1433,7 +1433,7 @@
           <div v-if="xselector.Kind == 'Struct'">
             <div>struct <b>{{xselector.Qualifier.TypeName}}</b> {</div>
             <div v-for="(field, fieldIndex) in xselector.Qualifier.Fields" v-bind:key="field.Name" class="ml-2">
-              <span :title="field.KindString" class="hover-field">{{field.Name}} <b>{{field.TypeString}}</b></span>
+              <span v-b-tooltip :title="field.KindString" class="hover-field">{{field.Name}} <b>{{field.TypeString}}</b></span>
             </div>
             <div class="ml-2 text-muted" v-if="xselector.Qualifier.Left">// Has {{xselector.Qualifier.Left}} other ignored fields</div>
             <div>}</div>
@@ -1445,6 +1445,7 @@
             
             <div
               v-if="xselector.Qualifier.Elements.Receiver"
+              v-b-tooltip
               :title="xselector.Qualifier.Elements.Receiver.KindString"
               v-bind:class="{ 'selected-warning': xselector.Qualifier.Pos[xselector.Qualifier.Elements.Receiver.AI] }"
               class="text-monospace d-inline"
@@ -1456,13 +1457,14 @@
               v-for="(elem, elemIndex) in xselector.Qualifier.Elements.Parameters"
               v-bind:key="elem.TypeString + 'param' + elemIndex"
               class="text-monospace d-inline"
-              ><span v-if="elemIndex==0"><b>{{xselector.Qualifier.Name}}</b>(</span><span :title="elem.KindString" v-bind:class="{ 'selected-primary': xselector.Qualifier.Pos[elem.AI] }">{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Parameters) - 1 ?")":", "}}</span>
+              ><span v-if="elemIndex==0"><b>{{xselector.Qualifier.Name}}</b>(</span><span v-b-tooltip :title="elem.KindString" v-bind:class="{ 'selected-primary': xselector.Qualifier.Pos[elem.AI] }">{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Parameters) - 1 ?")":", "}}</span>
             </div>
 
             <div
               v-for="(elem, elemIndex) in xselector.Qualifier.Elements.Results"
               v-bind:key="elem.TypeString + 'result' + elemIndex"
               class="text-monospace d-inline"
+              v-b-tooltip
               :title="elem.KindString"
               v-bind:class="{ 'selected-success': xselector.Qualifier.Pos[elem.AI] }"
               >{{elemIndex==0?"(":""}}{{elem.Name?elem.Name+" ":""}}<b>{{elem.TypeString}}</b>{{elemIndex==len(xselector.Qualifier.Elements.Results) - 1 ?")":", "}}</div>
@@ -1488,6 +1490,7 @@
               
               <div
                 v-if="xselector.Qualifier.Elements.Receiver"
+                v-b-tooltip
                 :title="xselector.Qualifier.Elements.Receiver.KindString"
                 v-bind:class="{ 
                   'selected-primary': xselector.Qualifier.Flows && xselector.Qualifier.Flows.Blocks[blockIndex].Inp[0],
@@ -1504,6 +1507,7 @@
                 v-bind:key="elem.TypeString + 'param' + elemIndex"
                 class="text-monospace d-inline"
                 ><span v-if="elemIndex==0"><b>{{xselector.Qualifier.Name}}</b>(</span><span
+                  v-b-tooltip
                   :title="elem.KindString"
                   :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', elem.AI)"
                   v-bind:class="{
@@ -1517,6 +1521,7 @@
                 v-for="(elem, elemIndex) in xselector.Qualifier.Elements.Results"
                 v-bind:key="elem.TypeString + 'result' + elemIndex"
                 class="text-monospace d-inline"
+                v-b-tooltip
                 :title="elem.KindString"
                 :id="cc(xselector.Qualifier.ID+'_specViewFlow','block',blockIndex,'bl', elem.AI)"
                 v-bind:class="{
@@ -1718,7 +1723,7 @@
               <table class="table-responsive table-sm">
                   <tbody>
                       <tr>
-                          <td v-if="item.Receiver" class="pl-0 pr-0">func (<b :title="item.Receiver.KindString" v-bind:class="{ 'selected-warning': item.Receiver.Checked }">{{ item.Receiver.TypeString }}</b>).<b :title="func.Signature">{{ func.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
+                          <td v-if="item.Receiver" class="pl-0 pr-0">func (<b v-b-tooltip :title="item.Receiver.KindString" v-bind:class="{ 'selected-warning': item.Receiver.Checked }">{{ item.Receiver.TypeString }}</b>).<b :title="func.Signature">{{ func.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
                           <td v-if="!item.Receiver" class="pl-0 pr-0">func <b :title="item.Signature">{{ item.Name }}</b>{{func.Parameters == null ? "( )" : "" }}</td>
                           <td class="pl-0 pr-0"
                             v-for="(param, index) in func.Parameters"
@@ -2015,6 +2020,7 @@
                               class="pl-0 pr-0"
                               :id="cc(item.ID,'block',blockIndex,'bl', 0)"
                               >func (<b
+                                v-b-tooltip
                                 :title="item.Receiver.KindString"
                                 v-bind:class="{ 
                                   'selected-primary': item.Flows && item.Flows.Blocks[blockIndex].Inp[0],
@@ -2161,7 +2167,7 @@
     });
     </script>
     <script type="text/x-template" id="cm-type-template">
-        <span :title="elem.KindString" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{elem.VarName ? elem.VarName+" ":""}}<b>{{elem.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</span>
+        <span v-b-tooltip :title="elem.KindString" class="text-monospace float-left text-truncate">{{index==0 ?"(":""}}{{elem.VarName ? elem.VarName+" ":""}}<b>{{elem.TypeString}}</b>{{index < total - 1 ? ",&nbsp;" : "" }}{{index==total - 1 ?")":""}}</span>
     </script>
     <script type="text/javascript">
     Vue.component('cm-tm-item', {
@@ -2287,7 +2293,7 @@
                               </td>
                           </tr>
                           <tr>
-                              <td class="pt-1 pb-1" :title="'Embedded type: '+embedded.KindString">
+                              <td class="pt-1 pb-1" v-b-tooltip :title="'Embedded type: '+embedded.KindString">
                                   <span class="pl-4" style="color: rgb(0, 125, 156);font-weight: bold;">
                                       {{embedded.TypeString}}
                                   </span>
@@ -2317,7 +2323,7 @@
                                     @change="onChangeStructField($event, item, field)"
                                   ></b-form-checkbox>
                               </td>
-                              <td class="pt-1 pb-1" :title="field.KindString">
+                              <td class="pt-1 pb-1" v-b-tooltip :title="field.KindString">
                                   <span>
                                       {{field.TypeString}}
                                   </span>
