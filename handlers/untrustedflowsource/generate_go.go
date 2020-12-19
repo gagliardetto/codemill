@@ -32,7 +32,8 @@ func Tag() Code {
 }
 
 const (
-	TestQueryContent = `import go
+	TestQueryContent = `
+import go
 import TestUtilities.InlineExpectationsTest
 
 class UntrustedFlowSourceTest extends InlineExpectationsTest {
@@ -45,7 +46,7 @@ class UntrustedFlowSourceTest extends InlineExpectationsTest {
     exists(DataFlow::CallNode sinkCall, DataFlow::ArgumentNode arg |
       sinkCall.getCalleeName() = "sink" and
       arg = sinkCall.getAnArgument() and
-      (arg instanceof UntrustedFlowSource or arg.getAPredecessor+() instanceof UntrustedFlowSource)
+      (arg.getAPredecessor*() instanceof UntrustedFlowSource)
     |
       element = arg.toString() and
       value = "" and
