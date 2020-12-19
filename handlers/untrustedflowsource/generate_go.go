@@ -2,9 +2,7 @@ package untrustedflowsource
 
 import (
 	"go/types"
-	"io/ioutil"
 	"os"
-	"path"
 	"path/filepath"
 	"sort"
 
@@ -15,7 +13,6 @@ import (
 	"github.com/gagliardetto/feparser"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
 	. "github.com/gagliardetto/utilz"
-	"golang.org/x/mod/modfile"
 )
 
 var (
@@ -409,17 +406,17 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
 			assetFileName := feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)) + ".go"
-			if err := saveFile(pkgDstDirpath, assetFileName, file); err != nil {
+			if err := x.SaveGoFile(pkgDstDirpath, assetFileName, file); err != nil {
 				Fatalf("Error while saving go file: %s", err)
 			}
 
-			if err := writeGoModFile(pkgDstDirpath, pathVersion); err != nil {
+			if err := x.WriteGoModFile(pkgDstDirpath, pathVersion); err != nil {
 				Fatalf("Error while saving go.mod file: %s", err)
 			}
-			if err := writeCodeQLTestQuery(pkgDstDirpath); err != nil {
+			if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
 				Fatalf("Error while saving Test.ql file: %s", err)
 			}
-			if err := writeCodeQLDotExpected(pkgDstDirpath); err != nil {
+			if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
 				Fatalf("Error while saving Test.expected file: %s", err)
 			}
 		}
@@ -430,7 +427,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
 		assetFileName := feparser.FormatID("Model", mdl.Name) + ".go"
-		if err := saveFile(pkgDstDirpath, assetFileName, file); err != nil {
+		if err := x.SaveGoFile(pkgDstDirpath, assetFileName, file); err != nil {
 			Fatalf("Error while saving go file: %s", err)
 		}
 
@@ -446,96 +443,17 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 
 		pathVersions = Deduplicate(pathVersions)
 
-		if err := writeGoModFile(pkgDstDirpath, pathVersions...); err != nil {
+		if err := x.WriteGoModFile(pkgDstDirpath, pathVersions...); err != nil {
 			Fatalf("Error while saving go.mod file: %s", err)
 		}
-		if err := writeCodeQLTestQuery(pkgDstDirpath); err != nil {
+		if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
 			Fatalf("Error while saving Test.ql file: %s", err)
 		}
-		if err := writeCodeQLDotExpected(pkgDstDirpath); err != nil {
+		if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
 			Fatalf("Error while saving Test.expected file: %s", err)
 		}
 	}
 	// TODO: include codeql assertions and test query.
-	return nil
-}
-
-func saveFile(outDir string, assetFileName string, file *File) error {
-	// Save Go assets:
-	assetFilepath := path.Join(outDir, assetFileName)
-
-	// Create file Golang file:
-	goFile, err := os.Create(assetFilepath)
-	if err != nil {
-		panic(err)
-	}
-	defer goFile.Close()
-
-	// Write generated Golang to file:
-	Infof("Saving Golang assets to %q", MustAbs(assetFilepath))
-	return file.Render(goFile)
-}
-
-func writeCodeQLTestQuery(outDir string) error {
-	assetFileName := "Test.ql"
-	// Save codeql test query:
-	assetFilepath := path.Join(outDir, assetFileName)
-
-	// Create file:
-	file, err := os.Create(assetFilepath)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	Infof("Saving test query to %q", MustAbs(assetFilepath))
-	_, err = file.WriteString(TestQueryContent)
-	return err
-}
-func writeCodeQLDotExpected(outDir string) error {
-	assetFileName := "Test.expected"
-	// Save codeql .expected file:
-	assetFilepath := path.Join(outDir, assetFileName)
-
-	// Create file:
-	file, err := os.Create(assetFilepath)
-	if err != nil {
-		panic(err)
-	}
-	defer file.Close()
-
-	Infof("Saving Test.expected to %q", MustAbs(assetFilepath))
-	return nil
-}
-
-func writeGoModFile(outDir string, pathVersions ...string) error {
-	outDir = MustAbs(outDir)
-
-	// Create a `go.mod` file requiring the specified version of the package:
-	mf := &modfile.File{}
-	mf.AddModuleStmt("example.com/hello/world")
-
-	for _, pathVersion := range pathVersions {
-		path, version := scanner.SplitPathVersion(pathVersion)
-		isStd := search.IsStandardImportPath(path)
-		if !isStd {
-			mf.AddNewRequire(path, version, true)
-		}
-	}
-
-	mf.Cleanup()
-
-	mfBytes, err := mf.Format()
-	if err != nil {
-		return err
-	}
-	// Write `go.mod` file:
-	goModFilepath := filepath.Join(outDir, "go.mod")
-	Infof("Saving go.mod to %q", MustAbs(goModFilepath))
-	err = ioutil.WriteFile(goModFilepath, mfBytes, os.ModePerm)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 

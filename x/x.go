@@ -4,14 +4,21 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
+	"path/filepath"
 	"sort"
 	"strings"
 	"sync"
 
+	"github.com/dave/jennifer/jen"
+	"github.com/gagliardetto/codebox/scanner"
 	cqljen "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
 	. "github.com/gagliardetto/utilz"
+	"golang.org/x/mod/modfile"
 )
 
 type ModelKind string
@@ -1634,4 +1641,115 @@ func FormatDepstubberComment(path string, typeNames []string, funcAndVarNames []
 		first,
 		second,
 	))
+}
+
+// SaveGoFile encodes to a file the provided *jen.File.
+func SaveGoFile(outDir string, assetFileName string, file *jen.File) error {
+	// Save Go assets:
+	assetFilepath := path.Join(outDir, assetFileName)
+
+	// Create file Golang file:
+	goFile, err := os.Create(assetFilepath)
+	if err != nil {
+		panic(err)
+	}
+	defer goFile.Close()
+
+	// Write generated Golang to file:
+	Infof("Saving Golang assets to %q", MustAbs(assetFilepath))
+	return file.Render(goFile)
+}
+
+// WriteGoModFile will generate a go.mod file requiring the provided
+// pathVersions, i.e. an array of example.com/hello/world@v.1.1
+func WriteGoModFile(outDir string, pathVersions ...string) error {
+	outDir = MustAbs(outDir)
+
+	// Create a `go.mod` file requiring the specified version of the package:
+	mf := &modfile.File{}
+	// TODO: change statement path?
+	mf.AddModuleStmt("example.com/hello/world")
+
+	for _, pathVersion := range pathVersions {
+		path, version := scanner.SplitPathVersion(pathVersion)
+
+		isStd := search.IsStandardImportPath(path)
+		if !isStd {
+			if path == "" {
+				return fmt.Errorf("pathVersion has no path: %s", pathVersion)
+			}
+			if version == "" {
+				return fmt.Errorf("pathVersion has no version: %s", pathVersion)
+			}
+
+			mf.AddNewRequire(path, version, true)
+		}
+	}
+
+	mf.Cleanup()
+
+	mfBytes, err := mf.Format()
+	if err != nil {
+		return err
+	}
+	// Write `go.mod` file:
+	goModFilepath := filepath.Join(outDir, "go.mod")
+	Infof("Saving go.mod to %q", MustAbs(goModFilepath))
+	err = ioutil.WriteFile(goModFilepath, mfBytes, os.ModePerm)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+// WriteCodeQLTestQuery will write to a file the provided codeql test query.
+func WriteCodeQLTestQuery(outDir string, name string, content string) error {
+	{
+		name = strings.TrimSuffix(name, ".ql")
+		name = strings.TrimSuffix(name, ".qll")
+		name = strings.TrimSuffix(name, ".expected")
+	}
+
+	assetFileName := name + ".ql"
+	// Save codeql test query:
+	assetFilepath := path.Join(outDir, assetFileName)
+
+	// Create file:
+	file, err := os.Create(assetFilepath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	Infof("Saving test query to %q", MustAbs(assetFilepath))
+	_, err = file.WriteString(content)
+	return err
+}
+
+const (
+	DefaultCodeQLTestFileName = "Test"
+)
+
+// WriteEmptyCodeQLDotExpectedFile will create an empty <name>.expected file
+// in the specified directory.
+func WriteEmptyCodeQLDotExpectedFile(outDir string, name string) error {
+	{
+		name = strings.TrimSuffix(name, ".ql")
+		name = strings.TrimSuffix(name, ".qll")
+		name = strings.TrimSuffix(name, ".expected")
+	}
+
+	assetFileName := name + ".expected"
+	// Save codeql .expected file:
+	assetFilepath := path.Join(outDir, assetFileName)
+
+	// Create file:
+	file, err := os.Create(assetFilepath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	Infof("Saving %s to %q", assetFileName, MustAbs(assetFilepath))
+	return nil
 }
