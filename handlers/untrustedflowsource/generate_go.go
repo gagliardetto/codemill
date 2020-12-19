@@ -18,6 +18,44 @@ import (
 	"golang.org/x/mod/modfile"
 )
 
+var (
+	IncludeCommentsInGeneratedGo bool
+)
+
+const (
+	// NOTE: hardcoded inside TestQueryContent const.
+	InlineExpectationsTestTag = "$SinkingUntrustedFlowSource" // Must start with a $ sign.
+)
+
+func Tag() Code {
+	return Comment(InlineExpectationsTestTag)
+}
+
+const (
+	TestQueryContent = `import go
+import TestUtilities.InlineExpectationsTest
+
+class UntrustedFlowSourceTest extends InlineExpectationsTest {
+  UntrustedFlowSourceTest() { this = "UntrustedFlowSourceTest" }
+
+  override string getARelevantTag() { result = "SinkingUntrustedFlowSource" }
+
+  override predicate hasActualResult(string file, int line, string element, string tag, string value) {
+    tag = "SinkingUntrustedFlowSource" and
+    exists(DataFlow::CallNode sinkCall, DataFlow::ArgumentNode arg |
+      sinkCall.getCalleeName() = "sink" and
+      arg = sinkCall.getAnArgument() and
+      (arg instanceof UntrustedFlowSource or arg.getAPredecessor+() instanceof UntrustedFlowSource)
+    |
+      element = arg.toString() and
+      value = "" and
+      arg.hasLocationInfo(file, line, _, _, _)
+    )
+  }
+}
+`
+)
+
 func NewTestFile(includeBoilerplace bool) *File {
 	file := NewFile("main")
 	// Set a prefix to avoid collision between variable names and packages:
@@ -42,10 +80,6 @@ func NewTestFile(includeBoilerplace bool) *File {
 	}
 	return file
 }
-
-var (
-	IncludeCommentsInGeneratedGo bool
-)
 
 func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	// TODO
@@ -134,7 +168,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							groupCase.Comment(thing.Signature)
 							_, codeElements := GoGetFuncQualifierCodeElements(file, funcQual)
 							groupCase.Add(codeElements...)
-
 						}
 					})
 				codez = append(codez,
@@ -297,13 +330,13 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 									if len(fieldNames) > 0 {
 										if len(fieldNames) == 1 {
 											fieldName := fieldNames[0]
-											subGroup.Id("sink").Call(Id(structVarName).Dot(fieldName))
+											subGroup.Id("sink").Call(Id(structVarName).Dot(fieldName)).Add(Tag())
 										} else {
 											codeParamIDs := make([]Code, 0)
 											for _, fieldName := range fieldNames {
-												codeParamIDs = append(codeParamIDs, Id(structVarName).Dot(fieldName).Op(",").Line())
+												codeParamIDs = append(codeParamIDs, Id(structVarName).Dot(fieldName).Op(",").Add(Tag()).Line())
 											}
-											subGroup.Id("sink").Call(Line().Add(codeParamIDs...).Line())
+											subGroup.Id("sink").Call(Line().Add(codeParamIDs...))
 										}
 									}
 								})
@@ -342,7 +375,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							groupCase.BlockFunc(
 								func(subGroup *Group) {
 									subGroup.Var().Id(typeVarName).Qual(typ.PkgPath, typ.TypeName)
-									subGroup.Id("sink").Call(Id(typeVarName))
+									subGroup.Id("sink").Call(Id(typeVarName)).Add(Tag())
 								})
 						}
 					})
@@ -379,8 +412,14 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				Fatalf("Error while saving go file: %s", err)
 			}
 
-			if err := genGoModFile(pkgDstDirpath, pathVersion); err != nil {
+			if err := writeGoModFile(pkgDstDirpath, pathVersion); err != nil {
 				Fatalf("Error while saving go.mod file: %s", err)
+			}
+			if err := writeCodeQLTestQuery(pkgDstDirpath); err != nil {
+				Fatalf("Error while saving Test.ql file: %s", err)
+			}
+			if err := writeCodeQLDotExpected(pkgDstDirpath); err != nil {
+				Fatalf("Error while saving Test.expected file: %s", err)
 			}
 		}
 	}
@@ -406,8 +445,14 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 
 		pathVersions = Deduplicate(pathVersions)
 
-		if err := genGoModFile(pkgDstDirpath, pathVersions...); err != nil {
+		if err := writeGoModFile(pkgDstDirpath, pathVersions...); err != nil {
 			Fatalf("Error while saving go.mod file: %s", err)
+		}
+		if err := writeCodeQLTestQuery(pkgDstDirpath); err != nil {
+			Fatalf("Error while saving Test.ql file: %s", err)
+		}
+		if err := writeCodeQLDotExpected(pkgDstDirpath); err != nil {
+			Fatalf("Error while saving Test.expected file: %s", err)
 		}
 	}
 	// TODO: include codeql assertions and test query.
@@ -430,7 +475,39 @@ func saveFile(outDir string, assetFileName string, file *File) error {
 	return file.Render(goFile)
 }
 
-func genGoModFile(outDir string, pathVersions ...string) error {
+func writeCodeQLTestQuery(outDir string) error {
+	assetFileName := "Test.ql"
+	// Save codeql test query:
+	assetFilepath := path.Join(outDir, assetFileName)
+
+	// Create file:
+	file, err := os.Create(assetFilepath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	Infof("Saving test query to %q", MustAbs(assetFilepath))
+	_, err = file.WriteString(TestQueryContent)
+	return err
+}
+func writeCodeQLDotExpected(outDir string) error {
+	assetFileName := "Test.expected"
+	// Save codeql .expected file:
+	assetFilepath := path.Join(outDir, assetFileName)
+
+	// Create file:
+	file, err := os.Create(assetFilepath)
+	if err != nil {
+		panic(err)
+	}
+	defer file.Close()
+
+	Infof("Saving Test.expected to %q", MustAbs(assetFilepath))
+	return nil
+}
+
+func writeGoModFile(outDir string, pathVersions ...string) error {
 	outDir = MustAbs(outDir)
 
 	// Create a `go.mod` file requiring the specified version of the package:
@@ -621,16 +698,16 @@ PosLoop:
 				//groupCase.Comment("Sink parameters:")
 				if len(parameterIndexes) == 1 {
 					i := parameterIndexes[0]
-					groupCase.Id("sink").Call(Id(fe.Parameters[i].VarName))
+					groupCase.Id("sink").Call(Id(fe.Parameters[i].VarName)).Add(Tag())
 				} else {
 					codeParamIDs := make([]Code, 0)
 					for i := range paramZeroVals {
 						isConsidered := IntSliceContains(parameterIndexes, i)
 						if isConsidered {
-							codeParamIDs = append(codeParamIDs, Id(fe.Parameters[i].VarName).Op(",").Line())
+							codeParamIDs = append(codeParamIDs, Id(fe.Parameters[i].VarName).Op(",").Add(Tag()).Line())
 						}
 					}
-					groupCase.Id("sink").Call(Line().Add(codeParamIDs...).Line())
+					groupCase.Id("sink").Call(Line().Add(codeParamIDs...))
 				}
 			}
 			// Sink the results:
@@ -638,22 +715,22 @@ PosLoop:
 				//groupCase.Comment("Sink results:")
 				if len(resultIndexes) == 1 {
 					i := resultIndexes[0]
-					groupCase.Id("sink").Call(Id(fe.Results[i].VarName))
+					groupCase.Id("sink").Call(Id(fe.Results[i].VarName)).Add(Tag())
 				} else {
 					codeResultIDs := make([]Code, 0)
 					for i := range resultZeroVals {
 						isConsidered := IntSliceContains(resultIndexes, i)
 						if isConsidered {
-							codeResultIDs = append(codeResultIDs, Id(fe.Results[i].VarName).Op(",").Line())
+							codeResultIDs = append(codeResultIDs, Id(fe.Results[i].VarName).Op(",").Add(Tag()).Line())
 						}
 					}
-					groupCase.Id("sink").Call(Line().Add(codeResultIDs...).Line())
+					groupCase.Id("sink").Call(Line().Add(codeResultIDs...))
 				}
 			}
 			// Sink the receiver:
 			if considerReceiver {
 				//groupCase.Comment("Sink the receiver:")
-				groupCase.Id("sink").Call(Id(receiver.VarName))
+				groupCase.Id("sink").Call(Id(receiver.VarName)).Add(Tag())
 			}
 		})
 
