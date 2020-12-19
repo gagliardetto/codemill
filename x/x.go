@@ -1626,14 +1626,12 @@ func FormatDepstubberComment(path string, typeNames []string, funcAndVarNames []
 		funcAndVarNames = Deduplicate(funcAndVarNames)
 		sort.Strings(funcAndVarNames)
 		second = strings.Join(funcAndVarNames, ",")
-	} else {
-		second = `""`
 	}
 
-	return Sf(
+	return strings.TrimSpace(Sf(
 		"//go:generate depstubber -vendor %s %s %s",
 		path,
 		first,
 		second,
-	)
+	))
 }
