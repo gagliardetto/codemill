@@ -32,7 +32,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 	{
 		// Add imports:
-		impAdder.Import("DataFlow::PathGraph")
+		//impAdder.Import("DataFlow::PathGraph")
 	}
 
 	className := mdl.Name
