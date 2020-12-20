@@ -505,7 +505,7 @@ func main() {
 			func(mdl *x.XModel) error {
 				// Currently, only the tainttracking.Handler is the only handler
 				// that supports flow handling.
-				if !ModelSupportsFuncFlow(mdl) {
+				if req.Flow != nil && !ModelSupportsFuncFlow(mdl) {
 					return errors.New("This model does not support func flow qualifiers.")
 				}
 				err := mdl.ModifyMethodByName(

@@ -794,6 +794,14 @@ type FlowBlock struct {
 
 //
 func (fls *FlowSpec) Validate() error {
+	if !fls.Enabled {
+		return nil
+	}
+	if AllBlocksEmpty(fls.Blocks...) {
+		// TODO: move this to another place?
+		fls.Enabled = false
+		return nil
+	}
 	if err := ValidateFlowBlocks(fls.Blocks...); err != nil {
 		return fmt.Errorf(
 			"error validating block: %s", err,
