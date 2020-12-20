@@ -1764,12 +1764,17 @@ func WriteCodeQLTestQuery(outDir string, name string, content string) error {
 	// Create file:
 	file, err := os.Create(assetFilepath)
 	if err != nil {
-		panic(err)
+		return fmt.Errorf("error while creating file: %s", err)
 	}
 	defer file.Close()
 
+	formatted, err := cqljen.FormatCodeQL([]byte(content))
+	if err != nil {
+		return fmt.Errorf("error while formatting codeql: %s", err)
+	}
+
 	Infof("Saving test query to %q", MustAbs(assetFilepath))
-	_, err = file.WriteString(content)
+	_, err = file.Write(formatted)
 	return err
 }
 
@@ -2014,7 +2019,7 @@ func (ndb *NameDB) FromType(typs ...types.Type) {
 				}
 			}
 		default:
-			fmt.Println("SKIPPING:", typ)
+			//fmt.Println("SKIPPING:", typ)
 		}
 	}
 }
