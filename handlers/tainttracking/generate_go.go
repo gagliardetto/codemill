@@ -9,11 +9,54 @@ import (
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gagliardetto/codebox/gogentools"
-	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/x"
 	"github.com/gagliardetto/feparser"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
 	. "github.com/gagliardetto/utilz"
+)
+
+const (
+	// NOTE: hardcoded inside TestQueryContent const.
+	InlineExpectationsTestTag = "$SinkingSource" // Must start with a $ sign.
+)
+
+func Tag() Code {
+	return Comment(InlineExpectationsTestTag)
+}
+
+const (
+	TestQueryContent = `
+import go
+import TestUtilities.InlineExpectationsTest
+
+class Configuration extends TaintTracking::Configuration {
+  Configuration() { this = "test-configuration" }
+
+  override predicate isSource(DataFlow::Node source) {
+    exists(Function fn | fn.hasQualifiedName(_, "source") | source = fn.getACall().getResult())
+  }
+
+  override predicate isSink(DataFlow::Node sink) {
+    exists(Function fn | fn.hasQualifiedName(_, "sink") | sink = fn.getACall().getAnArgument())
+  }
+}
+
+class TaintTrackingTest extends InlineExpectationsTest {
+  TaintTrackingTest() { this = "TaintTrackingTest" }
+
+  override string getARelevantTag() { result = "SinkingSource" }
+
+  override predicate hasActualResult(string file, int line, string element, string tag, string value) {
+    tag = "SinkingSource" and
+    exists(DataFlow::Node sink | any(Configuration c).hasFlow(_, sink) |
+      element = sink.toString() and
+      value = "" and
+      sink.hasLocationInfo(file, line, _, _, _)
+    )
+  }
+}
+
+`
 )
 
 func NewTestFile(includeBoilerplace bool) *File {
@@ -32,7 +75,7 @@ func NewTestFile(includeBoilerplace bool) *File {
 			// sink function:
 			code := Func().
 				Id("sink").
-				Params(Id("id").Int(), Id("v").Interface()).
+				Params(Id("v").Interface()).
 				Block()
 			file.Add(code.Line())
 		}
@@ -48,7 +91,7 @@ func NewTestFile(includeBoilerplace bool) *File {
 			// The `source` function returns a new tainted thing:
 			code := Func().
 				Id("source").
-				Params(Id("id").Int()).
+				Params().
 				Interface().
 				Block(Return(Nil()))
 			file.Add(code.Line())
@@ -111,9 +154,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	}()
 
 	file := NewTestFile(true)
-	pathVersionToTypeNames := make(map[string][]string)
-	pathVersionToFuncAndVarNames := make(map[string][]string)
+
+	ndb := x.NewNameDB()
 	for _, pathVersion := range allPathVersions {
+		ndbthis := ndb.Child(pathVersion)
 		if !allInOneFile {
 			// Reset file:
 			file = NewTestFile(true)
@@ -137,8 +181,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							fn := x.GetFuncQualifier(funcQual)
 							thing := fn.(*feparser.FEFunc)
 
-							gogentools.ImportPackage(file, thing.PkgPath, thing.PkgName)
-							pathVersionToFuncAndVarNames[pathVersion] = append(pathVersionToFuncAndVarNames[pathVersion], thing.Name)
+							doImports(file, thing)
+							ndbthis.Second(pathVersion, thing.Name)
+							ndbthis.FromFETypes(thing.Parameters...)
+							ndbthis.FromFETypes(thing.Results...)
 
 							{
 								if !funcQual.Flows.Enabled {
@@ -198,7 +244,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 					}
 
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], typ.TypeName)
+					ndbthis.First(pathVersion, typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -206,12 +252,15 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							for _, methodQual := range methodQualifiers {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FETypeMethod)
+								doImports(file, fn)
 
 								{
 									if !methodQual.Flows.Enabled {
 										continue
 									}
 									groupCase.Comment(thing.Func.Signature)
+									ndbthis.FromFETypes(thing.Func.Parameters...)
+									ndbthis.FromFETypes(thing.Func.Results...)
 
 									blocksOfCases := generateGoTestBlock_Method(
 										file,
@@ -274,7 +323,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 
 					file := NewTestFile(true)
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], typ.TypeName)
+					ndbthis.First(pathVersion, typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -282,12 +331,15 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							for _, methodQual := range methodQualifiers {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FEInterfaceMethod)
+								doImports(file, fn)
 
 								{
 									if !methodQual.Flows.Enabled {
 										continue
 									}
 									groupCase.Comment(thing.Func.Signature)
+									ndbthis.FromFETypes(thing.Func.Parameters...)
+									ndbthis.FromFETypes(thing.Func.Results...)
 
 									converted := feparser.FEIToFET(thing)
 									blocksOfCases := generateGoTestBlock_Method(
@@ -319,23 +371,21 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			}
 		}
 
-		{
-			path, _ := scanner.SplitPathVersion(pathVersion)
-			isStd := search.IsStandardImportPath(path)
-			if !isStd {
-				// If path is NOT part of standard library, then add the depstubber generation comment.
-				file.Comment(x.FormatDepstubberComment(path, pathVersionToTypeNames[pathVersion], pathVersionToFuncAndVarNames[pathVersion]))
-				file.Comment("//go:generate depstubber -write_module_txt").Line()
-				// TODO:
-				// - go mod tidy # required to generate go.sum
-				// - depstubber -write_module_txt
-				// - depstubber -vendor github.com/my/package Type1,Type2 SomeFunc,SomeVariable
-			}
-
-			file.Comment("Taint-tracking through package: " + pathVersion)
-		}
-		file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 		if !allInOneFile {
+			{
+				for _, path := range ndbthis.Paths() {
+					isStd := search.IsStandardImportPath(path)
+					if !isStd {
+						pathToTypeNames, pathToFuncAndVarNames := ndbthis.ReturnByPaths()
+						file.Comment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
+					}
+				}
+				file.Comment("//go:generate depstubber -write_module_txt").Line()
+
+				file.Comment("Taint-tracking through package: " + pathVersion)
+			}
+			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
+
 			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
 			MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
@@ -347,10 +397,29 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			if err := x.WriteGoModFile(pkgDstDirpath, pathVersion); err != nil {
 				Fatalf("Error while saving go.mod file: %s", err)
 			}
+			if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
+				Fatalf("Error while saving <name>.ql file: %s", err)
+			}
+			if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
+				Fatalf("Error while saving <name>.expected file: %s", err)
+			}
+		} else {
+			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 		}
 	}
 
 	if allInOneFile {
+		{
+			for _, path := range ndb.Paths() {
+				isStd := search.IsStandardImportPath(path)
+				if !isStd {
+					pathToTypeNames, pathToFuncAndVarNames := ndb.ReturnByPaths()
+					file.Comment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
+				}
+			}
+			file.Comment("//go:generate depstubber -write_module_txt").Line()
+		}
+
 		pkgDstDirpath := outDir
 		MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
@@ -359,20 +428,16 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			Fatalf("Error while saving go file: %s", err)
 		}
 
-		pathVersions := make([]string, 0)
-		{
-			for pathVersion := range pathVersionToFuncAndVarNames {
-				pathVersions = append(pathVersions, pathVersion)
-			}
-			for pathVersion := range pathVersionToTypeNames {
-				pathVersions = append(pathVersions, pathVersion)
-			}
-		}
-
-		pathVersions = Deduplicate(pathVersions)
+		pathVersions := ndb.PathVersions()
 
 		if err := x.WriteGoModFile(pkgDstDirpath, pathVersions...); err != nil {
 			Fatalf("Error while saving go.mod file: %s", err)
+		}
+		if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
+			Fatalf("Error while saving <name>.ql file: %s", err)
+		}
+		if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
+			Fatalf("Error while saving <name>.expected file: %s", err)
 		}
 	}
 	// TODO: include codeql assertions and test query.
@@ -457,7 +522,7 @@ func ComposeTypeAssertion(file *File, group *Group, varName string, typ types.Ty
 	} else {
 		gogentools.ComposeTypeDeclaration(file, assertContent, typ)
 	}
-	group.Id(varName).Op(":=").Id("source").Call(Lit(counter)).Assert(assertContent)
+	group.Id(varName).Op(":=").Id("source").Call().Assert(assertContent)
 }
 func DoGroup(f func(*Group)) *Statement {
 	g := &Group{}
@@ -547,12 +612,35 @@ func generate_ParaFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 
 	return code
 }
 
+func doImports(file *File, fe x.FuncInterface) {
+	for _, v := range fe.GetFunc().Parameters {
+		if v.PkgPath != "" && v.PkgName != "" {
+			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
+		}
+	}
+	for _, v := range fe.GetFunc().Results {
+		if v.PkgPath != "" && v.PkgName != "" {
+			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
+		}
+	}
+	{
+		v := fe.GetReceiver()
+		if v != nil && v.PkgPath != "" && v.PkgName != "" {
+			fmt.Println(v.PkgPath, v.PkgName, v.GetOriginal().String())
+			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
+		}
+	}
+}
+func runTidy() {
+	// TODO:
+	// https://github.com/golang/go/blob/846dce9d05f19a1f53465e62a304dea21b99f910/src/cmd/go/internal/modcmd/tidy.go
+}
 func generate_ParaFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOut int, counter int) *Statement {
 	// from: param
 	// medium: func
@@ -607,7 +695,7 @@ func generate_ParaFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -678,7 +766,7 @@ func generate_ResuFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -744,7 +832,7 @@ func generate_ResuFuncResu(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -872,7 +960,7 @@ func generate_ReceMethPara(file *File, fe *feparser.FETypeMethod, indexIn int, i
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -930,7 +1018,7 @@ func generate_ReceMethResu(file *File, fe *feparser.FETypeMethod, indexIn int, i
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -988,7 +1076,7 @@ func generate_ParaMethRece(file *File, fe *feparser.FETypeMethod, indexIn int, i
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -1047,7 +1135,7 @@ func generate_ParaMethPara(file *File, fe *feparser.FETypeMethod, indexIn int, i
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -1111,7 +1199,7 @@ func generate_ParaMethResu(file *File, fe *feparser.FETypeMethod, indexIn int, i
 			)
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", outVarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -1178,7 +1266,7 @@ func generate_ResuMethRece(file *File, fe *feparser.FETypeMethod, indexIn int, i
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -1254,7 +1342,7 @@ func generate_ResuMethPara(file *File, fe *feparser.FETypeMethod, indexIn int, i
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }
@@ -1325,7 +1413,7 @@ func generate_ResuMethResu(file *File, fe *feparser.FETypeMethod, indexIn int, i
 			groupCase.Id("link").Call(Id(in.VarName), Id("intermediateCQL"))
 
 			Comments(groupCase, Sf("Return the tainted `%s`:", out.VarName))
-			groupCase.Id("sink").Call(Lit(counter), Id(out.VarName))
+			groupCase.Id("sink").Call(Id(out.VarName)).Add(Tag())
 		})
 	return code
 }

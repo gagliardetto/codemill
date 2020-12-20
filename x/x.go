@@ -4,19 +4,25 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"go/types"
 	"io/ioutil"
 	"os"
 	"path"
 	"path/filepath"
+	"regexp"
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
+	"unicode/utf8"
 
 	"github.com/dave/jennifer/jen"
 	"github.com/gagliardetto/codebox/scanner"
 	cqljen "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
+	"github.com/gagliardetto/golang-go/cmd/go/not-internal/get"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
+	"github.com/gagliardetto/golang-go/cmd/go/not-internal/web"
 	. "github.com/gagliardetto/utilz"
 	"golang.org/x/mod/modfile"
 )
@@ -1670,18 +1676,50 @@ func WriteGoModFile(outDir string, pathVersions ...string) error {
 	// TODO: change statement path?
 	mf.AddModuleStmt("example.com/hello/world")
 
-	for _, pathVersion := range pathVersions {
-		path, version := scanner.SplitPathVersion(pathVersion)
+	noVersion := make([]string, 0)
+	pathToVersions := make(map[string][]string)
 
-		isStd := search.IsStandardImportPath(path)
-		if !isStd {
-			if path == "" {
-				return fmt.Errorf("pathVersion has no path: %s", pathVersion)
-			}
-			if version == "" {
-				return fmt.Errorf("pathVersion has no version: %s", pathVersion)
-			}
+	{
+		// Modules work with the root path,
+		// so we need to make sure that the pathVersions all contain the root
+		// and not a subpackage:
+		for _, pathVersion := range pathVersions {
+			path, version := scanner.SplitPathVersion(pathVersion)
 
+			isStd := search.IsStandardImportPath(path)
+			if !isStd {
+				// Find out the root of the package:
+				root, err := get.RepoRootForImportPath(path, get.IgnoreMod, web.DefaultSecurity)
+				if err != nil {
+					return err
+				}
+				path = root.Root
+
+				if version == "" {
+					noVersion = append(noVersion, path)
+				} else {
+					pathToVersions[path] = append(pathToVersions[path], version)
+				}
+			}
+		}
+
+		for path := range pathToVersions {
+			pathToVersions[path] = Deduplicate(pathToVersions[path])
+			sort.Strings(pathToVersions[path])
+		}
+	}
+	{
+		// If no version, and no other version, then use "latest".
+		for _, nvPath := range noVersion {
+			_, ok := pathToVersions[nvPath]
+			if !ok {
+				pathToVersions[nvPath] = append(pathToVersions[nvPath], "latest")
+			}
+		}
+	}
+
+	for path, versions := range pathToVersions {
+		for _, version := range versions {
 			mf.AddNewRequire(path, version, true)
 		}
 	}
@@ -1752,4 +1790,254 @@ func WriteEmptyCodeQLDotExpectedFile(outDir string, name string) error {
 
 	Infof("Saving %s to %q", assetFileName, MustAbs(assetFilepath))
 	return nil
+}
+
+type NameDB struct {
+	pathVersionToTypeNames       map[string][]string
+	pathVersionToFuncAndVarNames map[string][]string
+	mu                           *sync.RWMutex
+	children                     map[string]*NameDB
+	parent                       *NameDB
+}
+
+func NewNameDB() *NameDB {
+	return &NameDB{
+		pathVersionToTypeNames:       make(map[string][]string),
+		pathVersionToFuncAndVarNames: make(map[string][]string),
+		mu:                           &sync.RWMutex{},
+		children:                     make(map[string]*NameDB),
+	}
+}
+
+//
+func (ndb *NameDB) First(pathVersion string, name string) {
+	ndb.mu.Lock()
+	defer ndb.mu.Unlock()
+
+	ndb.pathVersionToTypeNames[pathVersion] = append(ndb.pathVersionToTypeNames[pathVersion], name)
+	if ndb.parent != nil {
+		ndb.parent.First(pathVersion, name)
+	}
+}
+func (ndb *NameDB) Second(pathVersion string, name string) {
+	ndb.mu.Lock()
+	defer ndb.mu.Unlock()
+
+	ndb.pathVersionToFuncAndVarNames[pathVersion] = append(ndb.pathVersionToFuncAndVarNames[pathVersion], name)
+	if ndb.parent != nil {
+		ndb.parent.Second(pathVersion, name)
+	}
+}
+
+func (ndb *NameDB) ReturnByPathVersions() (map[string][]string, map[string][]string) {
+	ndb.mu.RLock()
+	defer ndb.mu.RUnlock()
+
+	return ndb.pathVersionToTypeNames, ndb.pathVersionToFuncAndVarNames
+}
+
+func (ndb *NameDB) Child(id string) *NameDB {
+	ndb.mu.Lock()
+	defer ndb.mu.Unlock()
+
+	if child, ok := ndb.children[id]; ok {
+		return child
+	}
+
+	child := NewNameDB()
+	child.parent = ndb
+
+	ndb.children[id] = child
+
+	return child
+}
+func (ndb *NameDB) PathVersions() []string {
+	ndb.mu.RLock()
+	defer ndb.mu.RUnlock()
+
+	pkgPathVersions := make([]string, 0)
+	{
+		// Get a list of all package pathVersions:
+		for pv := range ndb.pathVersionToTypeNames {
+			pkgPathVersions = append(pkgPathVersions, pv)
+		}
+		for pv := range ndb.pathVersionToFuncAndVarNames {
+			pkgPathVersions = append(pkgPathVersions, pv)
+		}
+		pkgPathVersions = Deduplicate(pkgPathVersions)
+		sort.Strings(pkgPathVersions)
+	}
+
+	return pkgPathVersions
+}
+
+func (ndb *NameDB) Paths() []string {
+	ndb.mu.RLock()
+	defer ndb.mu.RUnlock()
+
+	pkgPathVersions := make([]string, 0)
+	{
+		// Get a list of all package paths:
+		for path := range ndb.pathVersionToTypeNames {
+			pkgPathVersions = append(pkgPathVersions, path)
+		}
+		for path := range ndb.pathVersionToFuncAndVarNames {
+			pkgPathVersions = append(pkgPathVersions, path)
+		}
+		pkgPathVersions = Deduplicate(pkgPathVersions)
+		sort.Strings(pkgPathVersions)
+	}
+
+	pkgPaths := make([]string, 0)
+	{
+		for _, pathVersion := range pkgPathVersions {
+			path, _ := scanner.SplitPathVersion(pathVersion)
+
+			isStd := search.IsStandardImportPath(path)
+			if !isStd {
+				pkgPaths = append(pkgPaths, path)
+			}
+		}
+		pkgPaths = Deduplicate(pkgPaths)
+		sort.Strings(pkgPaths)
+	}
+
+	return pkgPaths
+}
+
+func (ndb *NameDB) ReturnByPaths() (map[string][]string, map[string][]string) {
+	ndb.mu.RLock()
+	defer ndb.mu.RUnlock()
+
+	pathToTypeNames := make(map[string][]string)
+	pathToFuncAndVarNames := make(map[string][]string)
+
+	for _, pathVersion := range ndb.PathVersions() {
+		path, _ := scanner.SplitPathVersion(pathVersion)
+
+		isStd := search.IsStandardImportPath(path)
+		if !isStd {
+			pathToTypeNames[path] = append(pathToTypeNames[path], ndb.pathVersionToTypeNames[pathVersion]...)
+			pathToFuncAndVarNames[path] = append(pathToFuncAndVarNames[path], ndb.pathVersionToFuncAndVarNames[pathVersion]...)
+		}
+	}
+
+	return pathToTypeNames, pathToFuncAndVarNames
+}
+
+func (ndb *NameDB) FromFETypes(feTypes ...*feparser.FEType) {
+	for _, typ := range feTypes {
+		ndb.FromType(typ.GetOriginal().GetType())
+	}
+}
+func (ndb *NameDB) FromType(typs ...types.Type) {
+	for _, typ := range typs {
+
+		switch t := typ.(type) {
+		case *types.Array:
+			{
+				ndb.FromType(t.Elem())
+			}
+		case *types.Slice:
+			{
+				ndb.FromType(t.Elem())
+			}
+		case *types.Struct:
+			{
+				for i := 0; i < t.NumFields(); i++ {
+					field := t.Field(i)
+					ndb.FromType(field.Type())
+				}
+			}
+		case *types.Pointer:
+			{
+				ndb.FromType(t.Elem())
+			}
+		case *types.Tuple:
+			{
+				tuple := t
+
+				for i := 0; i < tuple.Len(); i++ {
+					ndb.FromType(tuple.At(i).Type())
+				}
+			}
+		case *types.Signature:
+			{
+				ndb.FromType(t.Params())
+				ndb.FromType(t.Results())
+				ndb.FromType(t.Recv().Type())
+			}
+		case *types.Interface:
+			{
+				if t.String() == "error" {
+
+				} else {
+					if t.Empty() {
+
+					} else {
+						{
+							// TODO: use explicit methods?
+							for i := 0; i < t.NumMethods(); i++ {
+								ndb.FromType(t.Method(i).Type())
+							}
+						}
+					}
+				}
+			}
+		case *types.Map:
+			{
+				ndb.FromType(t.Key())
+				ndb.FromType(t.Elem())
+			}
+		case *types.Chan:
+			{
+				ndb.FromType(t.Elem())
+			}
+		case *types.Named:
+			{
+				if t.Obj() != nil && t.Obj().Name() == "error" {
+				} else {
+					if t.Obj() != nil && t.Obj().Pkg() != nil {
+						ndb.First(t.Obj().Pkg().Path(), t.Obj().Name())
+					}
+				}
+			}
+		default:
+			fmt.Println("SKIPPING:", typ)
+		}
+	}
+}
+func GuessAlias(path string) string {
+	// From https://github.com/dave/jennifer/blob/2abe0ee856a1cfbca4a3327861b51d9c1c1a8592/jen/file.go#L224
+	alias := path
+
+	if strings.HasSuffix(alias, "/") {
+		// training slashes are usually tolerated, so we can get rid of one if
+		// it exists
+		alias = alias[:len(alias)-1]
+	}
+
+	if strings.Contains(alias, "/") {
+		// if the path contains a "/", use the last part
+		alias = alias[strings.LastIndex(alias, "/")+1:]
+	}
+
+	// alias should be lower case
+	alias = strings.ToLower(alias)
+
+	// alias should now only contain alphanumerics
+	importsRegex := regexp.MustCompile(`[^a-z0-9]`)
+	alias = importsRegex.ReplaceAllString(alias, "")
+
+	// can't have a first digit, per Go identifier rules, so just skip them
+	for firstRune, runeLen := utf8.DecodeRuneInString(alias); unicode.IsDigit(firstRune); firstRune, runeLen = utf8.DecodeRuneInString(alias) {
+		alias = alias[runeLen:]
+	}
+
+	// If path part was all digits, we may be left with an empty string. In this case use "pkg" as the alias.
+	if alias == "" {
+		alias = "pkg"
+	}
+
+	return alias
 }

@@ -414,10 +414,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				Fatalf("Error while saving go.mod file: %s", err)
 			}
 			if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
-				Fatalf("Error while saving Test.ql file: %s", err)
+				Fatalf("Error while saving <name>.ql file: %s", err)
 			}
 			if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
-				Fatalf("Error while saving Test.expected file: %s", err)
+				Fatalf("Error while saving <name>.expected file: %s", err)
 			}
 		}
 	}
@@ -447,10 +447,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			Fatalf("Error while saving go.mod file: %s", err)
 		}
 		if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
-			Fatalf("Error while saving Test.ql file: %s", err)
+			Fatalf("Error while saving <name>.ql file: %s", err)
 		}
 		if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
-			Fatalf("Error while saving Test.expected file: %s", err)
+			Fatalf("Error while saving <name>.expected file: %s", err)
 		}
 	}
 	// TODO: include codeql assertions and test query.
