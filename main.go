@@ -51,9 +51,11 @@ func main() {
 	var specFilepath string
 	var outDir string
 	var runServer bool
+	var doGen bool
 	flag.StringVar(&specFilepath, "spec", "", "Path to spec file; file will be created if not already existing.")
 	flag.StringVar(&outDir, "dir", "", "Path to dir where to save generated files.")
 	flag.BoolVar(&runServer, "http", true, "Run http server.")
+	flag.BoolVar(&doGen, "gen", true, "Generate code.")
 	flag.Parse()
 
 	if specFilepath == "" {
@@ -112,6 +114,9 @@ func main() {
 		err := SaveAsJSON(globalSpec, specFilepath)
 		if err != nil {
 			panic(err)
+		}
+		if !doGen {
+			os.Exit(0)
 		}
 		// NOTE: after this point, any modification to globalSpec will be volatile,
 		// i.e. discarded the instant this program hits os.Exit.
@@ -657,6 +662,8 @@ func main() {
 								existingSel.Elements = meta
 
 								if x.AllBlocksEmpty(existingSel.Flows.Blocks...) {
+									existingSel.Flows.Enabled = false
+
 									// If all blocks are empty, then remove the selector:
 									mt.DeleteSelector(
 										req.Where.Path,
