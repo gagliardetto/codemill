@@ -8,7 +8,6 @@ import (
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gagliardetto/codebox/gogentools"
-	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/x"
 	"github.com/gagliardetto/feparser"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
@@ -126,9 +125,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	}()
 
 	file := NewTestFile(true)
-	pathVersionToTypeNames := make(map[string][]string)
-	pathVersionToFuncAndVarNames := make(map[string][]string)
+	ndb := x.NewNameDB()
+
 	for _, pathVersion := range allPathVersions {
+		ndbthis := ndb.Child(pathVersion)
 		if !allInOneFile {
 			// Reset file:
 			file = NewTestFile(true)
@@ -161,7 +161,11 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							thing := fn.(*feparser.FEFunc)
 
 							gogentools.ImportPackage(file, thing.PkgPath, thing.PkgName)
-							pathVersionToFuncAndVarNames[pathVersion] = append(pathVersionToFuncAndVarNames[pathVersion], thing.Name)
+
+							x.AddImportsFromFunc(file, thing)
+							ndbthis.Second(thing.PkgPath, thing.Name)
+							ndbthis.FromFETypes(thing.Parameters...)
+							ndbthis.FromFETypes(thing.Results...)
 
 							groupCase.Comment(thing.Signature)
 							_, codeElements := GoGetFuncQualifierCodeElements(file, funcQual)
@@ -205,7 +209,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 					}
 
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], typ.TypeName)
+					ndbthis.First(typ.PkgPath, typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -213,6 +217,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							for _, methodQual := range methodQualifiers {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FETypeMethod)
+
+								x.AddImportsFromFunc(file, thing)
+								ndbthis.FromFETypes(thing.Func.Parameters...)
+								ndbthis.FromFETypes(thing.Func.Results...)
 
 								groupCase.Comment(thing.Func.Signature)
 								_, codeElements := GoGetFuncQualifierCodeElements(file, methodQual)
@@ -263,9 +271,8 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 						Fatalf("Type not found: %q", receiverTypeID)
 					}
 
-					file := NewTestFile(true)
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], typ.TypeName)
+					ndbthis.First(typ.PkgPath, typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -273,6 +280,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							for _, methodQual := range methodQualifiers {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FEInterfaceMethod)
+
+								x.AddImportsFromFunc(file, thing)
+								ndbthis.FromFETypes(thing.Func.Parameters...)
+								ndbthis.FromFETypes(thing.Func.Results...)
 
 								groupCase.Comment(thing.Func.Signature)
 								_, codeElements := GoGetFuncQualifierCodeElements(file, methodQual)
@@ -311,8 +322,9 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							if str == nil {
 								Fatalf("Struct not found: %q", qual.ID)
 							}
+
 							gogentools.ImportPackage(file, str.PkgPath, str.PkgName)
-							pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], str.TypeName)
+							ndbthis.First(str.PkgPath, str.TypeName)
 
 							fieldNames := make([]string, 0)
 							for fieldName := range qual.Fields {
@@ -366,7 +378,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 								Fatalf("Type not found: %q", qual.ID)
 							}
 							gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-							pathVersionToTypeNames[pathVersion] = append(pathVersionToTypeNames[pathVersion], typ.TypeName)
+							ndbthis.First(typ.PkgPath, typ.TypeName)
 
 							typeVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("type", typ.TypeName))
 
@@ -385,23 +397,21 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			}
 		}
 
-		{
-			path, _ := scanner.SplitPathVersion(pathVersion)
-			isStd := search.IsStandardImportPath(path)
-			if !isStd {
-				// If path is NOT part of standard library, then add the depstubber generation comment.
-				file.Comment(x.FormatDepstubberComment(path, pathVersionToTypeNames[pathVersion], pathVersionToFuncAndVarNames[pathVersion]))
-				file.Comment("//go:generate depstubber -write_module_txt").Line()
-				// TODO:
-				// - go mod tidy # required to generate go.sum
-				// - depstubber -write_module_txt
-				// - depstubber -vendor github.com/my/package Type1,Type2 SomeFunc,SomeVariable
-			}
-
-			file.Comment("Untrusted flow sources from package: " + pathVersion)
-		}
-		file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 		if !allInOneFile {
+			{
+				for _, path := range ndbthis.Paths() {
+					isStd := search.IsStandardImportPath(path)
+					if !isStd {
+						pathToTypeNames, pathToFuncAndVarNames := ndbthis.ReturnByPaths()
+						file.Comment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
+					}
+				}
+				file.Comment("//go:generate depstubber -write_module_txt").Line()
+
+				file.Comment("Untrusted flow sources from package: " + pathVersion)
+			}
+			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
+
 			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
 			MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
@@ -419,10 +429,23 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
 				Fatalf("Error while saving <name>.expected file: %s", err)
 			}
+		} else {
+			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 		}
 	}
 
 	if allInOneFile {
+		{
+			for _, path := range ndb.Paths() {
+				isStd := search.IsStandardImportPath(path)
+				if !isStd {
+					pathToTypeNames, pathToFuncAndVarNames := ndb.ReturnByPaths()
+					file.Comment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
+				}
+			}
+			file.Comment("//go:generate depstubber -write_module_txt").Line()
+		}
+
 		pkgDstDirpath := outDir
 		MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
@@ -431,17 +454,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			Fatalf("Error while saving go file: %s", err)
 		}
 
-		pathVersions := make([]string, 0)
-		{
-			for pathVersion := range pathVersionToFuncAndVarNames {
-				pathVersions = append(pathVersions, pathVersion)
-			}
-			for pathVersion := range pathVersionToTypeNames {
-				pathVersions = append(pathVersions, pathVersion)
-			}
-		}
-
-		pathVersions = Deduplicate(pathVersions)
+		pathVersions := ndb.PathVersions()
 
 		if err := x.WriteGoModFile(pkgDstDirpath, pathVersions...); err != nil {
 			Fatalf("Error while saving go.mod file: %s", err)

@@ -1966,7 +1966,9 @@ func (ndb *NameDB) FromType(typs ...types.Type) {
 			{
 				ndb.FromType(t.Params())
 				ndb.FromType(t.Results())
-				ndb.FromType(t.Recv().Type())
+				if t.Recv() != nil {
+					ndb.FromType(t.Recv().Type())
+				}
 			}
 		case *types.Interface:
 			{

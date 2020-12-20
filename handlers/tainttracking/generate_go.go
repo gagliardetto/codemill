@@ -154,8 +154,8 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	}()
 
 	file := NewTestFile(true)
-
 	ndb := x.NewNameDB()
+
 	for _, pathVersion := range allPathVersions {
 		ndbthis := ndb.Child(pathVersion)
 		if !allInOneFile {
@@ -182,7 +182,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							thing := fn.(*feparser.FEFunc)
 
 							x.AddImportsFromFunc(file, thing)
-							ndbthis.Second(pathVersion, thing.Name)
+							ndbthis.Second(thing.PkgPath, thing.Name)
 							ndbthis.FromFETypes(thing.Parameters...)
 							ndbthis.FromFETypes(thing.Results...)
 
@@ -321,7 +321,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 						Fatalf("Type not found: %q", receiverTypeID)
 					}
 
-					file := NewTestFile(true)
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
 					ndbthis.First(pathVersion, typ.TypeName)
 
