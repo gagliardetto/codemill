@@ -116,6 +116,7 @@ func main() {
 			panic(err)
 		}
 		if !doGen {
+			Ln(LimeBG("Completed."))
 			os.Exit(0)
 		}
 		// NOTE: after this point, any modification to globalSpec will be volatile,
@@ -238,6 +239,7 @@ func main() {
 			}
 		}
 
+		Ln(LimeBG("Completed."))
 		os.Exit(0)
 	}
 
