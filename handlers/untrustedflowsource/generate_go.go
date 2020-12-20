@@ -410,6 +410,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 
 				file.Comment("Untrusted flow sources from package: " + pathVersion)
 			}
+			file.Commentf("Package %s", pathVersion)
 			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 
 			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
@@ -430,6 +431,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				Fatalf("Error while saving <name>.expected file: %s", err)
 			}
 		} else {
+			file.Commentf("Package %s", pathVersion)
 			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 		}
 	}
