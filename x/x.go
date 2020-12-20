@@ -17,6 +17,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/dave/jennifer/jen"
+	"github.com/gagliardetto/codebox/gogentools"
 	"github.com/gagliardetto/codebox/scanner"
 	cqljen "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
@@ -2040,4 +2041,32 @@ func GuessAlias(path string) string {
 	}
 
 	return alias
+}
+
+func AddImportsFromFunc(file *jen.File, fe FuncInterface) {
+	if fe == nil || fe.GetFunc() == nil {
+		return
+	}
+	{
+		v := fe.GetFunc()
+		if v.PkgPath != "" && v.PkgName != "" {
+			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
+		}
+	}
+	for _, v := range fe.GetFunc().Parameters {
+		if v.PkgPath != "" && v.PkgName != "" {
+			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
+		}
+	}
+	for _, v := range fe.GetFunc().Results {
+		if v.PkgPath != "" && v.PkgName != "" {
+			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
+		}
+	}
+	{
+		v := fe.GetReceiver()
+		if v != nil && v.PkgPath != "" && v.PkgName != "" {
+			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
+		}
+	}
 }

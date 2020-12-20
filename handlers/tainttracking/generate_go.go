@@ -181,7 +181,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							fn := x.GetFuncQualifier(funcQual)
 							thing := fn.(*feparser.FEFunc)
 
-							doImports(file, thing)
+							x.AddImportsFromFunc(file, thing)
 							ndbthis.Second(pathVersion, thing.Name)
 							ndbthis.FromFETypes(thing.Parameters...)
 							ndbthis.FromFETypes(thing.Results...)
@@ -252,7 +252,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							for _, methodQual := range methodQualifiers {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FETypeMethod)
-								doImports(file, fn)
+								x.AddImportsFromFunc(file, fn)
 
 								{
 									if !methodQual.Flows.Enabled {
@@ -331,7 +331,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							for _, methodQual := range methodQualifiers {
 								fn := x.GetFuncQualifier(methodQual)
 								thing := fn.(*feparser.FEInterfaceMethod)
-								doImports(file, fn)
+								x.AddImportsFromFunc(file, fn)
 
 								{
 									if !methodQual.Flows.Enabled {
@@ -618,25 +618,6 @@ func generate_ParaFuncPara(file *File, fe *feparser.FEFunc, indexIn int, indexOu
 	return code
 }
 
-func doImports(file *File, fe x.FuncInterface) {
-	for _, v := range fe.GetFunc().Parameters {
-		if v.PkgPath != "" && v.PkgName != "" {
-			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
-		}
-	}
-	for _, v := range fe.GetFunc().Results {
-		if v.PkgPath != "" && v.PkgName != "" {
-			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
-		}
-	}
-	{
-		v := fe.GetReceiver()
-		if v != nil && v.PkgPath != "" && v.PkgName != "" {
-			fmt.Println(v.PkgPath, v.PkgName, v.GetOriginal().String())
-			gogentools.ImportPackage(file, v.PkgPath, v.PkgName)
-		}
-	}
-}
 func runTidy() {
 	// TODO:
 	// https://github.com/golang/go/blob/846dce9d05f19a1f53465e62a304dea21b99f910/src/cmd/go/internal/modcmd/tidy.go
