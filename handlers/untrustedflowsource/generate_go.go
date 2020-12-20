@@ -397,6 +397,11 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			}
 		}
 
+		{
+			file.Commentf("Package %s", pathVersion)
+			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
+		}
+
 		if !allInOneFile {
 			{
 				for _, path := range ndbthis.Paths() {
@@ -410,8 +415,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 
 				file.Comment("Untrusted flow sources from package: " + pathVersion)
 			}
-			file.Commentf("Package %s", pathVersion)
-			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 
 			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
 			MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
@@ -430,9 +433,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
 				Fatalf("Error while saving <name>.expected file: %s", err)
 			}
-		} else {
-			file.Commentf("Package %s", pathVersion)
-			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
 		}
 	}
 
@@ -468,7 +468,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			Fatalf("Error while saving <name>.expected file: %s", err)
 		}
 	}
-	// TODO: include codeql assertions and test query.
 	return nil
 }
 
