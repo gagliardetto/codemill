@@ -10,11 +10,6 @@ import (
 )
 
 func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootModuleGroup *Group) error {
-	Sfln(
-		"%s: Generating grouped codeql code for model %q",
-		Kind,
-		mdl.Name,
-	)
 	if err := mdl.Validate(); err != nil {
 		return err
 	}

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"github.com/gagliardetto/codemill/x"
-	. "github.com/gagliardetto/utilz"
 )
 
 const (
@@ -29,11 +28,6 @@ func (han *Handler) ScavengeMethods() []*x.XMethod {
 	}
 }
 func (han *Handler) Validate(mdl *x.XModel) error {
-	// TODO
-	Sfln(
-		"Validating model %q",
-		mdl.Name,
-	)
 	if len(mdl.Methods) != 1 {
 		return fmt.Errorf("wrong number of methods; expected 1, got %v", len(mdl.Methods))
 	}

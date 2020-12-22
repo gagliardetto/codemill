@@ -105,14 +105,6 @@ var (
 )
 
 func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
-	// TODO
-	Sfln(
-		"%s: Generating go code for model %q into %q parentDir",
-		Kind,
-		mdl.Name,
-		parentDir,
-	)
-
 	if err := mdl.Validate(); err != nil {
 		return err
 	}
@@ -381,12 +373,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 					isStd := search.IsStandardImportPath(path)
 					if !isStd {
 						pathToTypeNames, pathToFuncAndVarNames := ndbthis.ReturnByPaths()
-						file.Comment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
+						file.PackageComment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
 					}
 				}
-				file.Comment("//go:generate depstubber -write_module_txt").Line()
-
-				file.Comment("Taint-tracking through package: " + pathVersion)
+				file.PackageComment("//go:generate depstubber -write_module_txt")
 			}
 
 			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
@@ -415,10 +405,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				isStd := search.IsStandardImportPath(path)
 				if !isStd {
 					pathToTypeNames, pathToFuncAndVarNames := ndb.ReturnByPaths()
-					file.Comment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
+					file.PackageComment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
 				}
 			}
-			file.Comment("//go:generate depstubber -write_module_txt").Line()
+			file.PackageComment("//go:generate depstubber -write_module_txt")
 		}
 
 		pkgDstDirpath := outDir
