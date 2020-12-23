@@ -382,7 +382,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						metGr.Comment("Types of package: " + pathVersion)
 						metGr.Exists(
 							List(
-								Qual("DataFlow", "ReadNode").Id("read"),
 								Id("ValueEntity").Id("v"),
 							),
 							DoGroup(func(st *Group) {
@@ -404,9 +403,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 								}
 							}),
 							DoGroup(func(st *Group) {
-								st.Id("read").Dot("reads").Call(Id("v"))
-								st.And()
-								st.This().Eq().Id("read")
+								st.This().Eq().Id("v").Dot("getARead").Call()
 							}),
 						)
 					}
