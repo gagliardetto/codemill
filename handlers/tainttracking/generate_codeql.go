@@ -151,54 +151,72 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 														sort.Strings(res)
 														return res
 													}(cont)
+													typeIndex := 0
 													for _, receiverTypeID := range keys {
 														methodQualifiers := cont[receiverTypeID]
 														if len(methodQualifiers) == 0 {
 															continue
 														}
+														codez := DoGroup(func(mtdGroup *Group) {
+															if typeIndex > 0 {
+																mtdGroup.Or()
+															}
+															typeIndex++
 
-														qual := methodQualifiers[0]
-														source := x.GetCachedSource(qual.Path, qual.Version)
-														if source == nil {
-															Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-														}
-														// Find receiver type:
-														typ := x.FindTypeByID(source, receiverTypeID)
-														if typ == nil {
-															Fatalf("Type not found: %q", receiverTypeID)
-														}
-
-														for _, methodQual := range methodQualifiers {
-															if !methodQual.Flows.Enabled {
-																continue
+															qual := methodQualifiers[0]
+															source := x.GetCachedSource(qual.Path, qual.Version)
+															if source == nil {
+																Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+															}
+															// Find receiver type:
+															typ := x.FindTypeByID(source, receiverTypeID)
+															if typ == nil {
+																Fatalf("Type not found: %q", receiverTypeID)
 															}
 
-															fn, codeElements := GetFuncQualifierCodeElements(methodQual)
-															thing := fn.(*feparser.FETypeMethod)
+															mtdGroup.Commentf("Receiver: %s", typ.TypeString)
 
-															pathCodez = append(pathCodez,
-																ParensFunc(
-																	func(par *Group) {
-																		par.Commentf("signature: %s", thing.Func.Signature)
-																		par.Id("hasQualifiedName").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
-																		par.And()
-
-																		joined := Join(
-																			Or(),
-																			codeElements...,
-																		)
-																		if len(codeElements) > 1 {
-																			par.Parens(
-																				joined,
-																			)
-																		} else {
-																			par.Add(joined)
+															methodIndex := 0
+															mtdGroup.ParensFunc(
+																func(parMethods *Group) {
+																	for _, methodQual := range methodQualifiers {
+																		if !methodQual.Flows.Enabled || x.AllBlocksEmpty(methodQual.Flows.Blocks...) {
+																			continue
 																		}
-																	},
-																),
-															)
-														}
+																		if methodIndex > 0 {
+																			parMethods.Or()
+																		}
+																		methodIndex++
 
+																		fn, codeElements := GetFuncQualifierCodeElements(methodQual)
+																		thing := fn.(*feparser.FETypeMethod)
+
+																		parMethods.ParensFunc(
+																			func(par *Group) {
+																				par.Commentf("Method: %s", thing.Func.Signature)
+																				par.Id("hasQualifiedName").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																				par.And()
+
+																				joined := Join(
+																					Or(),
+																					codeElements...,
+																				)
+																				if len(codeElements) > 1 {
+																					par.Parens(
+																						joined,
+																					)
+																				} else {
+																					par.Add(joined)
+																				}
+																			},
+																		)
+
+																	}
+																},
+															)
+
+														})
+														pathCodez = append(pathCodez, codez)
 													}
 												}
 											}
@@ -212,55 +230,71 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 													sort.Strings(res)
 													return res
 												}(contb2itm)
+												typeIndex := 0
 												for _, receiverTypeID := range keys {
 													methodQualifiers := contb2itm[receiverTypeID]
 													if len(methodQualifiers) == 0 {
 														continue
 													}
-
-													qual := methodQualifiers[0]
-													source := x.GetCachedSource(qual.Path, qual.Version)
-													if source == nil {
-														Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-													}
-													// Find receiver type:
-													typ := x.FindTypeByID(source, receiverTypeID)
-													if typ == nil {
-														Fatalf("Type not found: %q", receiverTypeID)
-													}
-
-													for _, methodQual := range methodQualifiers {
-														if !methodQual.Flows.Enabled {
-															continue
+													codez := DoGroup(func(mtdGroup *Group) {
+														if typeIndex > 0 {
+															mtdGroup.Or()
 														}
+														typeIndex++
 
-														fn, codeElements := GetFuncQualifierCodeElements(methodQual)
-														thing := fn.(*feparser.FEInterfaceMethod)
+														qual := methodQualifiers[0]
+														source := x.GetCachedSource(qual.Path, qual.Version)
+														if source == nil {
+															Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+														}
+														// Find receiver type:
+														typ := x.FindTypeByID(source, receiverTypeID)
+														if typ == nil {
+															Fatalf("Type not found: %q", receiverTypeID)
+														}
+														mtdGroup.Commentf("Receiver: %s", typ.TypeString)
 
-														pathCodez = append(pathCodez,
-															ParensFunc(
-																func(par *Group) {
-																	par.Commentf("signature: %s", thing.Func.Signature)
-																	par.Id("implements").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
-																	par.And()
-
-																	joined := Join(
-																		Or(),
-																		codeElements...,
-																	)
-																	if len(codeElements) > 1 {
-																		par.Parens(
-																			joined,
-																		)
-																	} else {
-																		par.Add(joined)
+														methodIndex := 0
+														mtdGroup.ParensFunc(
+															func(parMethods *Group) {
+																for _, methodQual := range methodQualifiers {
+																	if !methodQual.Flows.Enabled || x.AllBlocksEmpty(methodQual.Flows.Blocks...) {
+																		continue
 																	}
-																},
-															),
+																	if methodIndex > 0 {
+																		parMethods.Or()
+																	}
+																	methodIndex++
+
+																	fn, codeElements := GetFuncQualifierCodeElements(methodQual)
+																	thing := fn.(*feparser.FEInterfaceMethod)
+
+																	parMethods.ParensFunc(
+																		func(par *Group) {
+																			par.Commentf("Method: %s", thing.Func.Signature)
+																			par.Id("implements").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																			par.And()
+
+																			joined := Join(
+																				Or(),
+																				codeElements...,
+																			)
+																			if len(codeElements) > 1 {
+																				par.Parens(
+																					joined,
+																				)
+																			} else {
+																				par.Add(joined)
+																			}
+																		},
+																	)
+
+																}
+															},
 														)
 
-													}
-
+													})
+													pathCodez = append(pathCodez, codez)
 												}
 											}
 
