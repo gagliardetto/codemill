@@ -77,12 +77,18 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																par.Commentf("signature: %s", thing.Signature)
 																par.Id("hasQualifiedName").Call(x.CqlFormatPackagePath(funcQual.Path), Lit(thing.Name))
 																par.And()
-																par.Parens(
-																	Join(
-																		Or(),
-																		codeElements...,
-																	),
+
+																joined := Join(
+																	Or(),
+																	codeElements...,
 																)
+																if len(codeElements) > 1 {
+																	par.Parens(
+																		joined,
+																	)
+																} else {
+																	par.Add(joined)
+																}
 															},
 														),
 													)
@@ -176,12 +182,18 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																		par.Commentf("signature: %s", thing.Func.Signature)
 																		par.Id("hasQualifiedName").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
 																		par.And()
-																		par.Parens(
-																			Join(
-																				Or(),
-																				codeElements...,
-																			),
+
+																		joined := Join(
+																			Or(),
+																			codeElements...,
 																		)
+																		if len(codeElements) > 1 {
+																			par.Parens(
+																				joined,
+																			)
+																		} else {
+																			par.Add(joined)
+																		}
 																	},
 																),
 															)
@@ -231,12 +243,18 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																	par.Commentf("signature: %s", thing.Func.Signature)
 																	par.Id("implements").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
 																	par.And()
-																	par.Parens(
-																		Join(
-																			Or(),
-																			codeElements...,
-																		),
+
+																	joined := Join(
+																		Or(),
+																		codeElements...,
 																	)
+																	if len(codeElements) > 1 {
+																		par.Parens(
+																			joined,
+																		)
+																	} else {
+																		par.Add(joined)
+																	}
 																},
 															),
 														)
