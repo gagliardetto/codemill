@@ -1,6 +1,6 @@
 package main
 
-//go:generate statik -src=./public -include="*.html,*.css,*.js"
+//go:generate statik -src=./public -include=*.html,*.css,*.js
 import (
 	"errors"
 	"flag"
