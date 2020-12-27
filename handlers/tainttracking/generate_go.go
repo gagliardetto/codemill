@@ -17,7 +17,7 @@ import (
 
 const (
 	// NOTE: hardcoded inside TestQueryContent const.
-	InlineExpectationsTestTag = "$SinkingSource" // Must start with a $ sign.
+	InlineExpectationsTestTag = "$taintSink" // Must start with a $ sign.
 )
 
 func Tag() Code {
@@ -44,10 +44,10 @@ class Configuration extends TaintTracking::Configuration {
 class TaintTrackingTest extends InlineExpectationsTest {
   TaintTrackingTest() { this = "TaintTrackingTest" }
 
-  override string getARelevantTag() { result = "SinkingSource" }
+  override string getARelevantTag() { result = "taintSink" }
 
   override predicate hasActualResult(string file, int line, string element, string tag, string value) {
-    tag = "SinkingSource" and
+    tag = "taintSink" and
     exists(DataFlow::Node sink | any(Configuration c).hasFlow(_, sink) |
       element = sink.toString() and
       value = "" and
