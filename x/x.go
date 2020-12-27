@@ -2086,6 +2086,9 @@ func AddImportsFromFunc(file *jen.File, fe FuncInterface) {
 	}
 }
 func CqlFormatPackagePath(path string) cqljen.Code {
+	if isStd := search.IsStandardImportPath(path); isStd {
+		return cqljen.Lit(path)
+	}
 	return cqljen.Id("package").Call(cqljen.List(cqljen.Lit(path), cqljen.Lit("")))
 }
 func CqlFormatHeaderDoc(modules []*BasicQualifier) []string {
