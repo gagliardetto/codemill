@@ -1,10 +1,12 @@
 package main
 
+//go:generate statik -src=./public -include="*.html,*.css,*.js"
 import (
 	"errors"
 	"flag"
 	"fmt"
 	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 	"os"
@@ -17,6 +19,7 @@ import (
 	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/handlers/tainttracking"
 	"github.com/gagliardetto/codemill/handlers/untrustedflowsource"
+	_ "github.com/gagliardetto/codemill/statik"
 	"github.com/gagliardetto/codemill/x"
 	cqljen "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
@@ -27,6 +30,7 @@ import (
 	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
 	"github.com/gin-gonic/gin"
+	"github.com/rakyll/statik/fs"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 )
@@ -44,8 +48,50 @@ var (
 
 func main() {
 	r := gin.Default()
-	r.StaticFile("", "./index.html")
-	r.Static("/static", "./static")
+
+	statikFS, err := fs.New()
+	if err != nil {
+		Fataln(err)
+	}
+
+	r.GET("/", func(c *gin.Context) {
+		r, err := statikFS.Open("/index.html")
+		if err != nil {
+			Q(err)
+			Abort404(c, err.Error())
+			return
+		}
+		defer r.Close()
+		contents, err := ioutil.ReadAll(r)
+		if err != nil {
+			Q(err)
+			Abort404(c, err.Error())
+			return
+		}
+		c.Data(200, "text/html; charset=UTF-8", contents)
+	})
+	r.GET("/static/:filename", func(c *gin.Context) {
+		name := c.Param("filename")
+		if name == "" {
+			c.AbortWithStatus(400)
+			return
+		}
+		r, err := statikFS.Open("/static/" + name)
+		if err != nil {
+			c.AbortWithError(400, err)
+			Q(err)
+			return
+		}
+		defer r.Close()
+		contents, err := ioutil.ReadAll(r)
+		if err != nil {
+			c.AbortWithError(400, err)
+			Q(err)
+			return
+		}
+		m := mime.TypeByExtension(filepath.Ext(name))
+		c.Data(200, Sf("%s; charset=UTF-8", m), contents)
+	})
 	httpClient := new(http.Client)
 
 	var specFilepath string

@@ -19,6 +19,7 @@ require (
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.1 // indirect
 	github.com/mozillazg/request v0.8.0 // indirect
+	github.com/rakyll/statik v0.1.7
 	golang.org/x/mod v0.3.0
 	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b // indirect
 	golang.org/x/sys v0.0.0-20201112073958-5cba982894dd // indirect
