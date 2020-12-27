@@ -5,10 +5,12 @@ http := "true"
 endif
 
 ifeq ($(gen),)
-gen := "true"
+gen := "false"
 endif
 
-install:
+generate:
+	go generate
+install: generate
 	go build -o $$GOPATH/bin/codemill
-run:
+run: generate
 	GOPACKAGESDEBUG=true GO111MODULE=on GOOS=linux GOARCH=amd64 go run main.go --spec=$(spec) --dir=$(dir) --http=$(http) --gen=$(gen)

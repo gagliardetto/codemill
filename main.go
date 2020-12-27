@@ -54,44 +54,46 @@ func main() {
 		Fataln(err)
 	}
 
-	r.GET("/", func(c *gin.Context) {
-		r, err := statikFS.Open("/index.html")
-		if err != nil {
-			Q(err)
-			Abort404(c, err.Error())
-			return
-		}
-		defer r.Close()
-		contents, err := ioutil.ReadAll(r)
-		if err != nil {
-			Q(err)
-			Abort404(c, err.Error())
-			return
-		}
-		c.Data(200, "text/html; charset=UTF-8", contents)
-	})
-	r.GET("/static/:filename", func(c *gin.Context) {
-		name := c.Param("filename")
-		if name == "" {
-			c.AbortWithStatus(400)
-			return
-		}
-		r, err := statikFS.Open("/static/" + name)
-		if err != nil {
-			c.AbortWithError(400, err)
-			Q(err)
-			return
-		}
-		defer r.Close()
-		contents, err := ioutil.ReadAll(r)
-		if err != nil {
-			c.AbortWithError(400, err)
-			Q(err)
-			return
-		}
-		m := mime.TypeByExtension(filepath.Ext(name))
-		c.Data(200, Sf("%s; charset=UTF-8", m), contents)
-	})
+	{ // Add handlers for static files:
+		r.GET("/", func(c *gin.Context) {
+			reader, err := statikFS.Open("/index.html")
+			if err != nil {
+				Q(err)
+				Abort404(c, err.Error())
+				return
+			}
+			defer reader.Close()
+			contents, err := ioutil.ReadAll(reader)
+			if err != nil {
+				Q(err)
+				Abort404(c, err.Error())
+				return
+			}
+			c.Data(200, "text/html; charset=UTF-8", contents)
+		})
+		r.GET("/static/:filename", func(c *gin.Context) {
+			name := c.Param("filename")
+			if name == "" {
+				c.AbortWithStatus(400)
+				return
+			}
+			reader, err := statikFS.Open("/static/" + name)
+			if err != nil {
+				c.AbortWithError(400, err)
+				Q(err)
+				return
+			}
+			defer reader.Close()
+			contents, err := ioutil.ReadAll(reader)
+			if err != nil {
+				c.AbortWithError(400, err)
+				Q(err)
+				return
+			}
+			m := mime.TypeByExtension(filepath.Ext(name))
+			c.Data(200, Sf("%s; charset=UTF-8", m), contents)
+		})
+	}
 	httpClient := new(http.Client)
 
 	var specFilepath string
