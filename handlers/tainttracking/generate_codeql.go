@@ -75,7 +75,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 														ParensFunc(
 															func(par *Group) {
 																par.Commentf("signature: %s", thing.Signature)
-																par.Id("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name))
+																par.Id("hasQualifiedName").Call(x.CqlFormatPackagePath(funcQual.Path), Lit(thing.Name))
 																par.And()
 																par.Parens(
 																	Join(
@@ -174,7 +174,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																ParensFunc(
 																	func(par *Group) {
 																		par.Commentf("signature: %s", thing.Func.Signature)
-																		par.Id("hasQualifiedName").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																		par.Id("hasQualifiedName").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
 																		par.And()
 																		par.Parens(
 																			Join(
@@ -229,7 +229,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															ParensFunc(
 																func(par *Group) {
 																	par.Commentf("signature: %s", thing.Func.Signature)
-																	par.Id("implements").Call(Lit(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
+																	par.Id("implements").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
 																	par.And()
 																	par.Parens(
 																		Join(

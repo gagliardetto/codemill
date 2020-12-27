@@ -2085,3 +2085,6 @@ func AddImportsFromFunc(file *jen.File, fe FuncInterface) {
 		}
 	}
 }
+func CqlFormatPackagePath(path string) cqljen.Code {
+	return cqljen.Id("package").Call(cqljen.List(cqljen.Lit(path), cqljen.Lit("")))
+}

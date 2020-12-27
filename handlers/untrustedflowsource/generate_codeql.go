@@ -76,7 +76,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									fn, codeElements := GetFuncQualifierCodeElements(funcQual)
 									thing := fn.(*feparser.FEFunc)
 									st.Comment("Function: " + thing.Signature)
-									st.Id("fn").Dot("hasQualifiedName").Call(Lit(funcQual.Path), Lit(thing.Name)).
+									st.Id("fn").Dot("hasQualifiedName").Call(x.CqlFormatPackagePath(funcQual.Path), Lit(thing.Name)).
 										And().
 										Parens(
 											Join(
@@ -151,7 +151,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 									st.Commentf("Receiver: %s", typ.TypeString)
 									st.Id("mtd").Dot("hasQualifiedName").Call(
-										Lit(methodQualifiers[0].Path),
+										x.CqlFormatPackagePath(methodQualifiers[0].Path),
 										Lit(typ.TypeName),
 										Id("methodName"),
 									)
@@ -252,7 +252,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 									st.Commentf("Interface: %s", typ.TypeString)
 									st.Id("mtd").Dot("implements").Call(
-										Lit(methodQualifiers[0].Path),
+										x.CqlFormatPackagePath(methodQualifiers[0].Path),
 										Lit(typ.TypeName),
 										Id("methodName"),
 									)
@@ -345,7 +345,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 										fieldNames = append(fieldNames, fieldName)
 									}
 									st.Comment("Struct: " + str.TypeName)
-									st.Id("fld").Dot("hasQualifiedName").Call(Lit(qual.Path), Lit(str.TypeName), StringsToSetOrLit(fieldNames...))
+									st.Id("fld").Dot("hasQualifiedName").Call(x.CqlFormatPackagePath(qual.Path), Lit(str.TypeName), StringsToSetOrLit(fieldNames...))
 
 								}
 
@@ -399,7 +399,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 										Fatalf("Type not found: %q", qual.ID)
 									}
 
-									st.Id("v").Dot("getType").Call().Dot("hasQualifiedName").Call(Lit(qual.Path), Lit(typ.TypeName))
+									st.Id("v").Dot("getType").Call().Dot("hasQualifiedName").Call(x.CqlFormatPackagePath(qual.Path), Lit(typ.TypeName))
 								}
 							}),
 							DoGroup(func(st *Group) {
