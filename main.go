@@ -1126,10 +1126,10 @@ func main() {
 func ModelSupportsFuncFlow(mdl *x.XModel) bool {
 	// Currently, only the tainttracking.Handler is the only handler
 	// that supports flow handling.
-	if mdl.Kind != tainttracking.Kind {
-		return false
+	if mdl.Kind == tainttracking.Kind {
+		return true
 	}
-	return true
+	return false
 }
 func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 
