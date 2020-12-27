@@ -2088,3 +2088,26 @@ func AddImportsFromFunc(file *jen.File, fe FuncInterface) {
 func CqlFormatPackagePath(path string) cqljen.Code {
 	return cqljen.Id("package").Call(cqljen.List(cqljen.Lit(path), cqljen.Lit("")))
 }
+func CqlFormatHeaderDoc(modules []*BasicQualifier) []string {
+	if len(modules) == 1 {
+		mod := modules[0]
+		return []string{Sf(
+			"Provides classes for working with concepts from [`%s`](https://pkg.go.dev/%s) package.",
+			mod.PathVersionClean(),
+			mod.PathVersionClean(),
+		)}
+	}
+
+	var res []string
+	res = append(res,
+		"Provides classes for working with concepts from the following packages:")
+	for _, mod := range modules {
+		res = append(res,
+			Sf(
+				"- [`%s`](https://pkg.go.dev/%s)",
+				mod.PathVersionClean(),
+				mod.PathVersionClean(),
+			))
+	}
+	return res
+}
