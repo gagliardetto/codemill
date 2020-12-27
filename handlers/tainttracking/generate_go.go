@@ -15,6 +15,8 @@ import (
 	. "github.com/gagliardetto/utilz"
 )
 
+// TODO: if inp and out are the same element, ignore the combination?
+
 const (
 	// NOTE: hardcoded inside TestQueryContent const.
 	InlineExpectationsTestTag = "$taintSink" // Must start with a $ sign.
