@@ -52,7 +52,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						return res
 					}(b2fe)
 					for _, pathVersion := range keys {
-						cont := b2fe[pathVersion]
+						cont, ok := b2fe[pathVersion]
+						if !ok {
+							continue
+						}
 						if index > 0 {
 							metGr.Or()
 						}
@@ -105,7 +108,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						return res
 					}(b2tm)
 					for _, pathVersion := range keys {
-						cont := b2tm[pathVersion]
+						cont, ok := b2tm[pathVersion]
+						if !ok {
+							continue
+						}
 						if index > 0 {
 							metGr.Or()
 						}
@@ -132,7 +138,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									return res
 								}(cont)
 								for _, receiverTypeID := range keys {
-									methodQualifiers := cont[receiverTypeID]
+									methodQualifiers, ok := cont[receiverTypeID]
+									if !ok {
+										continue
+									}
 									if typeIndex > 0 {
 										st.Or()
 									}
@@ -205,7 +214,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						return res
 					}(b2itm)
 					for _, pathVersion := range keys {
-						cont := b2itm[pathVersion]
+						cont, ok := b2itm[pathVersion]
+						if !ok {
+							continue
+						}
 						if index > 0 {
 							metGr.Or()
 						}
@@ -232,7 +244,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									return res
 								}(cont)
 								for _, receiverTypeID := range keys {
-									methodQualifiers := cont[receiverTypeID]
+									methodQualifiers, ok := cont[receiverTypeID]
+									if !ok {
+										continue
+									}
 									if typeIndex > 0 {
 										st.Or()
 									}
@@ -309,7 +324,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						return res
 					}(b2st)
 					for _, pathVersion := range keys {
-						structQualifiers := b2st[pathVersion]
+						structQualifiers, ok := b2st[pathVersion]
+						if !ok {
+							continue
+						}
 						if index > 0 {
 							metGr.Or()
 						}
@@ -373,7 +391,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						return res
 					}(b2typ)
 					for _, pathVersion := range keys {
-						typeQualifiers := b2typ[pathVersion]
+						typeQualifiers, ok := b2typ[pathVersion]
+						if !ok {
+							continue
+						}
 						if index > 0 {
 							metGr.Or()
 						}
