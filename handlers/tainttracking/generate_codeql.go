@@ -65,7 +65,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 											if ok {
 												pathCodez := make([]Code, 0)
 												for _, funcQual := range cont {
-													if !funcQual.Flows.Enabled {
+													if !funcQual.Flows.Enabled || x.AllBlocksEmpty(funcQual.Flows.Blocks...) {
 														continue
 													}
 
@@ -74,7 +74,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 													pathCodez = append(pathCodez,
 														ParensFunc(
 															func(par *Group) {
-																par.Commentf("signature: %s", thing.Signature)
+																par.Commentf("Function: %s", thing.Signature)
 																par.Id("hasQualifiedName").Call(x.CqlFormatPackagePath(funcQual.Path), Lit(thing.Name))
 																par.And()
 
