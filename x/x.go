@@ -2096,7 +2096,7 @@ func CqlFormatHeaderDoc(modules []*BasicQualifier) []string {
 	if len(modules) == 1 {
 		mod := modules[0]
 		return []string{Sf(
-			"Provides classes for working with concepts from [`%s`](https://pkg.go.dev/%s) package.",
+			"Provides classes for working with concepts from the [`%s`](https://pkg.go.dev/%s) package.",
 			mod.PathVersionClean(),
 			mod.PathVersionClean(),
 		)}
