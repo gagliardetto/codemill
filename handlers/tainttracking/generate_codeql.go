@@ -151,18 +151,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 														sort.Strings(res)
 														return res
 													}(cont)
-													typeIndex := 0
 													for _, receiverTypeID := range keys {
 														methodQualifiers := cont[receiverTypeID]
 														if len(methodQualifiers) == 0 {
 															continue
 														}
 														codez := DoGroup(func(mtdGroup *Group) {
-															if typeIndex > 0 {
-																mtdGroup.Or()
-															}
-															typeIndex++
-
 															qual := methodQualifiers[0]
 															source := x.GetCachedSource(qual.Path, qual.Version)
 															if source == nil {
@@ -230,18 +224,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 													sort.Strings(res)
 													return res
 												}(contb2itm)
-												typeIndex := 0
 												for _, receiverTypeID := range keys {
 													methodQualifiers := contb2itm[receiverTypeID]
 													if len(methodQualifiers) == 0 {
 														continue
 													}
 													codez := DoGroup(func(mtdGroup *Group) {
-														if typeIndex > 0 {
-															mtdGroup.Or()
-														}
-														typeIndex++
-
 														qual := methodQualifiers[0]
 														source := x.GetCachedSource(qual.Path, qual.Version)
 														if source == nil {
