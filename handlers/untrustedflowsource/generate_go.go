@@ -155,7 +155,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							gogentools.ImportPackage(file, thing.PkgPath, thing.PkgName)
 
 							x.AddImportsFromFunc(file, thing)
-							ndbthis.Second(thing.PkgPath, thing.Name)
+							ndbthis.Second(pathVersion, thing.Name)
 							ndbthis.FromFETypes(thing.Parameters...)
 							ndbthis.FromFETypes(thing.Results...)
 
@@ -201,7 +201,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 					}
 
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					ndbthis.First(typ.PkgPath, typ.TypeName)
+					ndbthis.First(pathVersion, typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -264,7 +264,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 					}
 
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					ndbthis.First(typ.PkgPath, typ.TypeName)
+					ndbthis.First(pathVersion, typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -316,7 +316,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							}
 
 							gogentools.ImportPackage(file, str.PkgPath, str.PkgName)
-							ndbthis.First(str.PkgPath, str.TypeName)
+							ndbthis.First(pathVersion, str.TypeName)
 
 							fieldNames := make([]string, 0)
 							for fieldName := range qual.Fields {
@@ -370,7 +370,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 								Fatalf("Type not found: %q", qual.ID)
 							}
 							gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-							ndbthis.First(typ.PkgPath, typ.TypeName)
+							ndbthis.First(pathVersion, typ.TypeName)
 
 							typeVarName := gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("type", typ.TypeName))
 

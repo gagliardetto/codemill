@@ -2,8 +2,8 @@
 
 - run codemill
 - Copy .qll to ~/vscode-codeql-starter/codeql-go/ql/src/semmle/go/frameworks
-- Add import to ~/vscode-codeql-starter/codeql-go/ql/src/go.qll
 - Copy tests folder to ~/vscode-codeql-starter/codeql-go/ql/test/library-tests/semmle/go/frameworks
+- Add import to ~/vscode-codeql-starter/codeql-go/ql/src/go.qll
 	- Same paths? Add a `packagePath` predicate.
 	- Same versions and vendor across all models? Move /vendor and `go.mod` to parent dir of tests.
 - cd testdir

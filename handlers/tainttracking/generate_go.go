@@ -176,7 +176,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							thing := fn.(*feparser.FEFunc)
 
 							x.AddImportsFromFunc(file, thing)
-							ndbthis.Second(thing.PkgPath, thing.Name)
+							ndbthis.Second(pathVersion, thing.Name)
 							ndbthis.FromFETypes(thing.Parameters...)
 							ndbthis.FromFETypes(thing.Results...)
 

@@ -1712,6 +1712,7 @@ func WriteGoModFile(outDir string, pathVersions ...string) error {
 			}
 		}
 
+		// Deduplicate and sort:
 		for path := range pathToVersions {
 			pathToVersions[path] = Deduplicate(pathToVersions[path])
 			sort.Strings(pathToVersions[path])
