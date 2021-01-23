@@ -390,6 +390,8 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 										// TODO: add a comment on the type for each field?
 										fieldNames = append(fieldNames, fieldName)
 									}
+									sort.Strings(fieldNames)
+
 									st.Id("structName").Eq().Lit(str.TypeName)
 									st.And()
 									st.Id("fields").Eq().Add(StringsToSetOrLit(fieldNames...))
