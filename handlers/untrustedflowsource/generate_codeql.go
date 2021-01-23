@@ -230,15 +230,26 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						}
 						index++
 
+						path, _ := scanner.SplitPathVersion(pathVersion)
+
 						metGr.Comment("Interfaces of package: " + pathVersion)
 						metGr.Exists(
 							List(
+								String().Id("interfaceName"),
 								String().Id("methodName"),
 								Id("Method").Id("mtd"),
 								Id("FunctionOutput").Id("outp"),
 							),
 							DoGroup(func(st *Group) {
 								st.This().Eq().Id("outp").Dot("getExitNode").Call(Id("mtd").Dot("getACall").Call())
+
+								st.And()
+
+								st.Id("mtd").Dot("implements").Call(
+									x.CqlFormatPackagePath(path),
+									Id("interfaceName"),
+									Id("methodName"),
+								)
 							}),
 							DoGroup(func(st *Group) {
 								typeIndex := 0
@@ -272,12 +283,8 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 										Fatalf("Type not found: %q", receiverTypeID)
 									}
 
-									st.Commentf("Interface: %s", typ.TypeString)
-									st.Id("mtd").Dot("implements").Call(
-										x.CqlFormatPackagePath(methodQualifiers[0].Path),
-										Lit(typ.TypeName),
-										Id("methodName"),
-									)
+									st.Id("interfaceName").Eq().Lit(typ.TypeString)
+
 									st.And()
 
 									st.ParensFunc(
@@ -339,12 +346,26 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 							metGr.Or()
 						}
 						index++
+						path, _ := scanner.SplitPathVersion(pathVersion)
 
 						metGr.Comment("Structs of package: " + pathVersion)
 						metGr.Exists(
 							List(
+								String().Id("structName"),
+								String().Id("fields"),
 								Qual("DataFlow", "Field").Id("fld"),
 							),
+							DoGroup(func(st *Group) {
+								st.This().Eq().Id("fld").Dot("getARead").Call()
+
+								st.And()
+
+								st.Id("fld").Dot("hasQualifiedName").Call(
+									x.CqlFormatPackagePath(path),
+									Id("structName"),
+									Id("fields"),
+								)
+							}),
 							DoGroup(func(st *Group) {
 								for qualIndex, qual := range structQualifiers {
 									if qualIndex > 0 {
@@ -369,13 +390,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 										// TODO: add a comment on the type for each field?
 										fieldNames = append(fieldNames, fieldName)
 									}
-									st.Comment("Struct: " + str.TypeName)
-									st.Id("fld").Dot("hasQualifiedName").Call(x.CqlFormatPackagePath(qual.Path), Lit(str.TypeName), StringsToSetOrLit(fieldNames...))
-
+									st.Id("structName").Eq().Lit(str.TypeName)
+									st.And()
+									st.Id("fields").Eq().Add(StringsToSetOrLit(fieldNames...))
 								}
-
 							}),
-							This().Eq().Id("fld").Dot("getARead").Call(),
 						)
 					}
 				}
@@ -406,6 +425,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 							metGr.Or()
 						}
 						index++
+						path, _ := scanner.SplitPathVersion(pathVersion)
 
 						metGr.Comment("Types of package: " + pathVersion)
 						metGr.Exists(
@@ -413,10 +433,8 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 								Id("ValueEntity").Id("v"),
 							),
 							DoGroup(func(st *Group) {
+								var typeNames []string
 								for qualIndex, qual := range typeQualifiers {
-									if qualIndex > 0 {
-										st.Or()
-									}
 									source := x.GetCachedSource(qual.Path, qual.Version)
 									if source == nil {
 										Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
@@ -426,9 +444,13 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									if typ == nil {
 										Fatalf("Type not found: %q", qual.ID)
 									}
-
-									st.Id("v").Dot("getType").Call().Dot("hasQualifiedName").Call(x.CqlFormatPackagePath(qual.Path), Lit(typ.TypeName))
+									typeNames = append(typeNames, typ.TypeName)
 								}
+
+								st.Id("v").Dot("getType").Call().Dot("hasQualifiedName").Call(
+									x.CqlFormatPackagePath(path),
+									StringsToSetOrLit(typeNames...),
+								)
 							}),
 							DoGroup(func(st *Group) {
 								st.This().Eq().Id("v").Dot("getARead").Call()
