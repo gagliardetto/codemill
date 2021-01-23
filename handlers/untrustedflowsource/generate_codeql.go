@@ -3,6 +3,7 @@ package untrustedflowsource
 import (
 	"sort"
 
+	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/x"
 	. "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
@@ -117,15 +118,26 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						}
 						index++
 
+						path, _ := scanner.SplitPathVersion(pathVersion)
+
 						metGr.Comment("Methods on types of package: " + pathVersion)
 						metGr.Exists(
 							List(
+								String().Id("receiverName"),
 								String().Id("methodName"),
 								Id("Method").Id("mtd"),
 								Id("FunctionOutput").Id("outp"),
 							),
 							DoGroup(func(st *Group) {
 								st.This().Eq().Id("outp").Dot("getExitNode").Call(Id("mtd").Dot("getACall").Call())
+
+								st.And()
+
+								st.Id("mtd").Dot("hasQualifiedName").Call(
+									x.CqlFormatPackagePath(path),
+									Id("receiverName"),
+									Id("methodName"),
+								)
 							}),
 							DoGroup(func(st *Group) {
 								typeIndex := 0
@@ -158,12 +170,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 										Fatalf("Type not found: %q", receiverTypeID)
 									}
 
-									st.Commentf("Receiver: %s", typ.TypeString)
-									st.Id("mtd").Dot("hasQualifiedName").Call(
-										x.CqlFormatPackagePath(methodQualifiers[0].Path),
-										Lit(typ.TypeName),
-										Id("methodName"),
-									)
+									st.Id("receiverName").Eq().Lit(typ.TypeString)
 									st.And()
 
 									st.ParensFunc(
