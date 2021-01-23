@@ -316,6 +316,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 	return nil
 }
+
 func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Code) {
 
 	source := x.GetCachedSource(qual.Path, qual.Version)
@@ -332,84 +333,16 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Cod
 
 	for _, block := range qual.Flows.Blocks {
 		inpCodeElements := make([]Code, 0)
-		inpParameterIndexes := make([]int, 0)
-		inpResultIndexes := make([]int, 0)
-
-	InpLoop:
-		for inpPos, ok := range block.Inp {
-			if !ok {
-				continue InpLoop
-			}
-
-			inpElTyp, _, inpRelIndex, err := fn.GetRelativeElement(inpPos)
-			if err != nil {
-				Fatalf("Error while GetRelativeElement: %s", err)
-			}
-
-			switch inpElTyp {
-			case feparser.ElementReceiver:
-				{
-					inpCodeElements = append(inpCodeElements,
-						Id("inp").Dot("isReceiver").Call(),
-					)
-				}
-			case feparser.ElementParameter:
-				{
-					inpParameterIndexes = append(inpParameterIndexes,
-						inpRelIndex,
-					)
-				}
-			case feparser.ElementResult:
-				{
-					inpResultIndexes = append(inpResultIndexes,
-						inpRelIndex,
-					)
-				}
-			default:
-				panic(Sf("Unknown type: %q", inpElTyp))
-			}
+		{
+			receiver, parameterIndexes, resultIndexes := x.PosToRelativeIndexes(fn, block.Inp)
+			inpCodeElements = x.GenFunctionInputOutput("inp", fn, receiver, parameterIndexes, resultIndexes)
 		}
 
 		outCodeElements := make([]Code, 0)
-		outParameterIndexes := make([]int, 0)
-		outResultIndexes := make([]int, 0)
-	OutLoop:
-		for outPos, ok := range block.Out {
-			if !ok {
-				continue OutLoop
-			}
-
-			outElTyp, _, outRelIndex, err := fn.GetRelativeElement(outPos)
-			if err != nil {
-				Fatalf("Error while GetRelativeElement: %s", err)
-			}
-
-			switch outElTyp {
-			case feparser.ElementReceiver:
-				{
-					outCodeElements = append(outCodeElements,
-						Id("out").Dot("isReceiver").Call(),
-					)
-				}
-			case feparser.ElementParameter:
-				{
-					outParameterIndexes = append(outParameterIndexes,
-						outRelIndex,
-					)
-				}
-			case feparser.ElementResult:
-				{
-					outResultIndexes = append(outResultIndexes,
-						outRelIndex,
-					)
-				}
-			default:
-				panic(Sf("Unknown type: %q", outElTyp))
-			}
+		{
+			receiver, parameterIndexes, resultIndexes := x.PosToRelativeIndexes(fn, block.Out)
+			outCodeElements = x.GenFunctionInputOutput("out", fn, receiver, parameterIndexes, resultIndexes)
 		}
-
-		inpCodeElements = append(inpCodeElements, genFunctionInputOutput("inp", fn, inpParameterIndexes, inpResultIndexes)...)
-		outCodeElements = append(outCodeElements, genFunctionInputOutput("out", fn, outParameterIndexes, outResultIndexes)...)
 
 		codeElements = append(codeElements,
 			Parens(
@@ -429,82 +362,4 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Cod
 	}
 
 	return fn, codeElements
-}
-
-func genFunctionInputOutput(idName string, fn x.FuncInterface, parameterIndexes []int, resultIndexes []int) []Code {
-	codeElements := make([]Code, 0)
-	_, lenParams, lenResults := fn.Lengths()
-
-	if len(parameterIndexes) > 0 {
-		// If all parameters are selected,
-		// and there is more than one possible parameters,
-		// then use a `_`:
-		if lenParams == len(parameterIndexes) && lenParams > 1 {
-			codeElements = append(codeElements,
-				Id(idName).Dot("isParameter").Call(DontCare()),
-			)
-
-		} else {
-			// If multiple parameters are selected (but not all)
-			// then use a set, or just the index.
-			// If there is only one possible parameter and it is selected,
-			// then `isParameter(0)` is used.
-			codeElements = append(codeElements,
-				Id(idName).Dot("isParameter").Call(
-					DoGroup(func(callGroup *Group) {
-						if fn.GetFunc().GetOriginal().Variadic {
-
-							lits := make([]Code, 0)
-							if len(parameterIndexes) == 1 && parameterIndexes[0] == 0 {
-								lits = append(lits, DontCare())
-							} else {
-								for _, index := range parameterIndexes {
-									isLast := index == lenParams-1
-									if isLast {
-										lits = append(lits, Any(
-											Add(Int(), Id("i")),
-											Add(Id("i").Gte().Lit(index)),
-											nil,
-										))
-									} else {
-										lits = append(lits, Lit(index))
-									}
-								}
-							}
-
-							if len(parameterIndexes) == 1 {
-								callGroup.Add(lits...)
-							} else {
-								callGroup.Add(Set(lits...))
-							}
-
-						} else {
-							callGroup.Add(IntsToSetOrLit(parameterIndexes...))
-						}
-					}),
-				),
-			)
-		}
-	}
-	if len(resultIndexes) > 0 {
-		if lenResults == len(resultIndexes) {
-			if lenResults == 1 {
-				// If there is only one result possible, then use a `isResult()`:
-				codeElements = append(codeElements,
-					Id(idName).Dot("isResult").Call(),
-				)
-			} else {
-				// If there are more than one results,
-				// and all results are selected, then use a `_`:
-				codeElements = append(codeElements,
-					Id(idName).Dot("isResult").Call(DontCare()),
-				)
-			}
-		} else {
-			codeElements = append(codeElements,
-				Id(idName).Dot("isResult").Call(IntsToSetOrLit(resultIndexes...)),
-			)
-		}
-	}
-	return codeElements
 }

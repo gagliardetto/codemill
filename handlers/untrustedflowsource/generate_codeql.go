@@ -66,10 +66,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 						metGr.Exists(
 							List(
 								Id("Function").Id("fn"),
-								Id("FunctionOutput").Id("outp"),
+								Id("FunctionOutput").Id("out"),
 							),
 							DoGroup(func(st *Group) {
-								st.This().Eq().Id("outp").Dot("getExitNode").Call(Id("fn").Dot("getACall").Call())
+								st.This().Eq().Id("out").Dot("getExitNode").Call(Id("fn").Dot("getACall").Call())
 							}),
 							DoGroup(func(st *Group) {
 								for i, funcQual := range cont {
@@ -126,10 +126,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 								String().Id("receiverName"),
 								String().Id("methodName"),
 								Id("Method").Id("mtd"),
-								Id("FunctionOutput").Id("outp"),
+								Id("FunctionOutput").Id("out"),
 							),
 							DoGroup(func(st *Group) {
-								st.This().Eq().Id("outp").Dot("getExitNode").Call(Id("mtd").Dot("getACall").Call())
+								st.This().Eq().Id("out").Dot("getExitNode").Call(Id("mtd").Dot("getACall").Call())
 
 								st.And()
 
@@ -238,10 +238,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 								String().Id("interfaceName"),
 								String().Id("methodName"),
 								Id("Method").Id("mtd"),
-								Id("FunctionOutput").Id("outp"),
+								Id("FunctionOutput").Id("out"),
 							),
 							DoGroup(func(st *Group) {
-								st.This().Eq().Id("outp").Dot("getExitNode").Call(Id("mtd").Dot("getACall").Call())
+								st.This().Eq().Id("out").Dot("getExitNode").Call(Id("mtd").Dot("getACall").Call())
 
 								st.And()
 
@@ -468,6 +468,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 	return nil
 }
+
 func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Code) {
 
 	source := x.GetCachedSource(qual.Path, qual.Version)
@@ -480,117 +481,8 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, []Cod
 		Fatalf("Func not found: %q", qual.ID)
 	}
 
-	codeElements := make([]Code, 0)
-	parameterIndexes := make([]int, 0)
-	resultIndexes := make([]int, 0)
-PosLoop:
-	for pos, ok := range qual.Pos {
-		if !ok {
-			continue PosLoop
-		}
-
-		elTyp, _, relIndex, err := fn.GetRelativeElement(pos)
-		if err != nil {
-			Fatalf("Error while GetRelativeElement: %s", err)
-		}
-
-		switch elTyp {
-		case feparser.ElementReceiver:
-			{
-				codeElements = append(codeElements,
-					Id("outp").Dot("isReceiver").Call(),
-				)
-			}
-		case feparser.ElementParameter:
-			{
-				parameterIndexes = append(parameterIndexes,
-					relIndex,
-				)
-			}
-		case feparser.ElementResult:
-			{
-				resultIndexes = append(resultIndexes,
-					relIndex,
-				)
-			}
-		default:
-			panic(Sf("Unknown type: %q", elTyp))
-		}
-	}
-
-	_, lenParams, lenResults := fn.Lengths()
-
-	if len(parameterIndexes) > 0 {
-		// If all parameters are selected,
-		// and there is more than one possible parameters,
-		// then use a `_`:
-		if lenParams == len(parameterIndexes) && lenParams > 1 {
-			codeElements = append(codeElements,
-				Id("outp").Dot("isParameter").Call(DontCare()),
-			)
-
-		} else {
-			// If multiple parameters are selected (but not all)
-			// then use a set, or just the index.
-			// If there is only one possible parameter and it is selected,
-			// then `isParameter(0)` is used.
-			codeElements = append(codeElements,
-				Id("outp").Dot("isParameter").Call(
-					DoGroup(func(callGroup *Group) {
-						if fn.GetFunc().GetOriginal().Variadic {
-
-							lits := make([]Code, 0)
-							if len(parameterIndexes) == 1 && parameterIndexes[0] == 0 {
-								lits = append(lits, DontCare())
-							} else {
-								for _, index := range parameterIndexes {
-									isLast := index == lenParams-1
-									if isLast {
-										lits = append(lits, Any(
-											Add(Int(), Id("i")),
-											Add(Id("i").Gte().Lit(index)),
-											nil,
-										))
-									} else {
-										lits = append(lits, Lit(index))
-									}
-								}
-							}
-
-							if len(parameterIndexes) == 1 {
-								callGroup.Add(lits...)
-							} else {
-								callGroup.Add(Set(lits...))
-							}
-
-						} else {
-							callGroup.Add(IntsToSetOrLit(parameterIndexes...))
-						}
-					}),
-				),
-			)
-		}
-	}
-	if len(resultIndexes) > 0 {
-		if lenResults == len(resultIndexes) {
-			if lenResults == 1 {
-				// If there is only one result possible, then use a `isResult()`:
-				codeElements = append(codeElements,
-					Id("outp").Dot("isResult").Call(),
-				)
-			} else {
-				// If there are more than one results,
-				// and all results are selected, then use a `_`:
-				codeElements = append(codeElements,
-					Id("outp").Dot("isResult").Call(DontCare()),
-				)
-			}
-		} else {
-			codeElements = append(codeElements,
-				Id("outp").Dot("isResult").Call(IntsToSetOrLit(resultIndexes...)),
-			)
-		}
-	}
+	receiver, parameterIndexes, resultIndexes := x.PosToRelativeIndexes(fn, qual.Pos)
+	codeElements := x.GenFunctionInputOutput("out", fn, receiver, parameterIndexes, resultIndexes)
 
 	return fn, codeElements
 }
