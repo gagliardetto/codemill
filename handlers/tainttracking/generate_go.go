@@ -11,7 +11,6 @@ import (
 	"github.com/gagliardetto/codebox/gogentools"
 	"github.com/gagliardetto/codemill/x"
 	"github.com/gagliardetto/feparser"
-	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
 	. "github.com/gagliardetto/utilz"
 )
 
@@ -148,10 +147,8 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	}()
 
 	file := NewTestFile(true)
-	ndb := x.NewNameDB()
 
 	for _, pathVersion := range allPathVersions {
-		ndbthis := ndb.Child(pathVersion)
 		if !allInOneFile {
 			// Reset file:
 			file = NewTestFile(true)
@@ -176,9 +173,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							thing := fn.(*feparser.FEFunc)
 
 							x.AddImportsFromFunc(file, thing)
-							ndbthis.Second(pathVersion, thing.Name)
-							ndbthis.FromFETypes(thing.Parameters...)
-							ndbthis.FromFETypes(thing.Results...)
 
 							{
 								if !funcQual.Flows.Enabled {
@@ -238,7 +232,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 					}
 
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					ndbthis.First(pathVersion, typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -253,8 +246,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 										continue
 									}
 									groupCase.Comment(thing.Func.Signature)
-									ndbthis.FromFETypes(thing.Func.Parameters...)
-									ndbthis.FromFETypes(thing.Func.Results...)
 
 									blocksOfCases := generateGoTestBlock_Method(
 										file,
@@ -316,7 +307,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 					}
 
 					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-					ndbthis.First(pathVersion, typ.TypeName)
 
 					code := BlockFunc(
 						func(groupCase *Group) {
@@ -331,8 +321,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 										continue
 									}
 									groupCase.Comment(thing.Func.Signature)
-									ndbthis.FromFETypes(thing.Func.Parameters...)
-									ndbthis.FromFETypes(thing.Func.Results...)
 
 									converted := feparser.FEIToFET(thing)
 									blocksOfCases := generateGoTestBlock_Method(
@@ -370,16 +358,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		}
 
 		if !allInOneFile {
-			{
-				for _, path := range ndbthis.Paths() {
-					isStd := search.IsStandardImportPath(path)
-					if !isStd {
-						pathToTypeNames, pathToFuncAndVarNames := ndbthis.ReturnByPaths()
-						file.PackageComment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
-					}
-				}
-				file.PackageComment("//go:generate depstubber -write_module_txt")
-			}
+			file.PackageComment("//go:generate depstubber --vendor --auto")
 
 			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
 			MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
@@ -402,16 +381,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	}
 
 	if allInOneFile {
-		{
-			for _, path := range ndb.Paths() {
-				isStd := search.IsStandardImportPath(path)
-				if !isStd {
-					pathToTypeNames, pathToFuncAndVarNames := ndb.ReturnByPaths()
-					file.PackageComment(x.FormatDepstubberComment(path, pathToTypeNames[path], pathToFuncAndVarNames[path]))
-				}
-			}
-			file.PackageComment("//go:generate depstubber -write_module_txt")
-		}
+		file.PackageComment("//go:generate depstubber --vendor --auto")
 
 		pkgDstDirpath := outDir
 		MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
@@ -421,9 +391,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			Fatalf("Error while saving go file: %s", err)
 		}
 
-		pathVersions := ndb.PathVersions()
-
-		if err := x.WriteGoModFile(pkgDstDirpath, pathVersions...); err != nil {
+		if err := x.WriteGoModFile(pkgDstDirpath, allPathVersions...); err != nil {
 			Fatalf("Error while saving go.mod file: %s", err)
 		}
 		if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
