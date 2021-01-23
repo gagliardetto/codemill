@@ -79,7 +79,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 									fn, codeElements := GetFuncQualifierCodeElements(funcQual)
 									thing := fn.(*feparser.FEFunc)
-									st.Comment("Function: " + thing.Signature)
+									st.Comment("signature: " + thing.Signature)
 									st.Id("fn").Dot("hasQualifiedName").Call(x.CqlFormatPackagePath(funcQual.Path), Lit(thing.Name)).
 										And().
 										Parens(
@@ -185,7 +185,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 												parMethods.ParensFunc(
 													func(par *Group) {
-														par.Commentf("Method: %s", thing.Func.Signature)
+														par.Commentf("signature: %s", thing.Func.Signature)
 														par.Id("methodName").Eq().Lit(thing.Func.Name)
 														par.And()
 														par.Parens(
@@ -299,7 +299,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 
 												parMethods.ParensFunc(
 													func(par *Group) {
-														par.Commentf("Method: %s", thing.Func.Signature)
+														par.Commentf("signature: %s", thing.Func.Signature)
 														par.Id("methodName").Eq().Lit(thing.Func.Name)
 														par.And()
 														par.Parens(
@@ -434,7 +434,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 							),
 							DoGroup(func(st *Group) {
 								var typeNames []string
-								for qualIndex, qual := range typeQualifiers {
+								for _, qual := range typeQualifiers {
 									source := x.GetCachedSource(qual.Path, qual.Version)
 									if source == nil {
 										Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
@@ -446,6 +446,8 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									}
 									typeNames = append(typeNames, typ.TypeName)
 								}
+
+								sort.Strings(typeNames)
 
 								st.Id("v").Dot("getType").Call().Dot("hasQualifiedName").Call(
 									x.CqlFormatPackagePath(path),

@@ -74,7 +74,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 													pathCodez = append(pathCodez,
 														ParensFunc(
 															func(par *Group) {
-																par.Commentf("Function: %s", thing.Signature)
+																par.Commentf("signature: %s", thing.Signature)
 																par.This().Dot("hasQualifiedName").Call(x.CqlFormatPackagePath(funcQual.Path), Lit(thing.Name))
 																par.And()
 
@@ -168,7 +168,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																Fatalf("Type not found: %q", receiverTypeID)
 															}
 
-															mtdGroup.Commentf("Receiver: %s", typ.TypeString)
+															mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
 
 															methodIndex := 0
 															mtdGroup.ParensFunc(
@@ -187,7 +187,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 																		parMethods.ParensFunc(
 																			func(par *Group) {
-																				par.Commentf("Method: %s", thing.Func.Signature)
+																				par.Commentf("signature: %s", thing.Func.Signature)
 																				par.This().Dot("hasQualifiedName").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
 																				par.And()
 
@@ -240,7 +240,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 														if typ == nil {
 															Fatalf("Type not found: %q", receiverTypeID)
 														}
-														mtdGroup.Commentf("Receiver: %s", typ.TypeString)
+														mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
 
 														methodIndex := 0
 														mtdGroup.ParensFunc(
@@ -259,7 +259,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 																	parMethods.ParensFunc(
 																		func(par *Group) {
-																			par.Commentf("Method: %s", thing.Func.Signature)
+																			par.Commentf("signature: %s", thing.Func.Signature)
 																			par.This().Dot("implements").Call(x.CqlFormatPackagePath(methodQual.Path), Lit(thing.Receiver.TypeName), Lit(thing.Func.Name))
 																			par.And()
 
