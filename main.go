@@ -17,8 +17,6 @@ import (
 	"time"
 
 	"github.com/gagliardetto/codebox/scanner"
-	"github.com/gagliardetto/codemill/handlers/tainttracking"
-	"github.com/gagliardetto/codemill/handlers/untrustedflowsource"
 	_ "github.com/gagliardetto/codemill/statik"
 	"github.com/gagliardetto/codemill/x"
 	cqljen "github.com/gagliardetto/cqlgen/jen"
@@ -33,6 +31,10 @@ import (
 	"github.com/rakyll/statik/fs"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
+
+	"github.com/gagliardetto/codemill/handlers/http/redirect"
+	"github.com/gagliardetto/codemill/handlers/tainttracking"
+	"github.com/gagliardetto/codemill/handlers/untrustedflowsource"
 )
 
 type M map[string]interface{}
@@ -54,7 +56,7 @@ func main() {
 		Fataln(err)
 	}
 
-	{ // Add handlers for static files:
+	{ // Add http handlers for static files:
 		r.GET("/", func(c *gin.Context) {
 			reader, err := statikFS.Open("/index.html")
 			if err != nil {
@@ -126,8 +128,15 @@ func main() {
 			if err != nil {
 				Fatalf("error while registering handler: %s", err)
 			}
+
 			// tainttracking handler:
 			err = rt.RegisterHandler(tainttracking.Kind, &tainttracking.Handler{})
+			if err != nil {
+				Fatalf("error while registering handler: %s", err)
+			}
+
+			// http redirect handler:
+			err = rt.RegisterHandler(redirect.Kind, &redirect.Handler{})
 			if err != nil {
 				Fatalf("error while registering handler: %s", err)
 			}
@@ -323,6 +332,9 @@ func main() {
 	r.GET("/api/models/kinds", func(c *gin.Context) {
 		// List available model kinds:
 		kinds := x.Router().ListModelKinds()
+		sort.Slice(kinds, func(i, j int) bool {
+			return kinds[i] < kinds[j]
+		})
 		c.IndentedJSON(200, M{"results": kinds})
 	})
 

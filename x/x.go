@@ -2132,3 +2132,18 @@ func HasValidEnabledFlow(qualifiers ...*FuncQualifier) bool {
 	}
 	return false
 }
+
+// HasValidPos returns true if there is at least one Qualifier
+// that contains at least one true values in its Pos bool array.
+func HasValidPos(qualifiers ...*FuncQualifier) bool {
+	for _, qual := range qualifiers {
+		if qual.Pos == nil {
+			continue
+		}
+		// At least one true value:
+		if !AllFalse(qual.Pos...) {
+			return true
+		}
+	}
+	return false
+}
