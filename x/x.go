@@ -864,11 +864,13 @@ func HasValidFlowBlocks(blocks ...*FlowBlock) bool {
 
 // AllBlocksEmpty returns true if all blocks have all false values for
 // both Inp and Out.
+// NOTE: returns false even if only Inp or Out have at least 1 true value.
 func AllBlocksEmpty(blocks ...*FlowBlock) bool {
 	if len(blocks) == 0 {
 		return true
 	}
 	for _, block := range blocks {
+		// NOTE: This does not mean the block is valid:
 		if !AllFalse(block.Inp...) || !AllFalse(block.Out...) {
 			return false
 		}
@@ -2114,4 +2116,19 @@ func CqlFormatHeaderDoc(modules []*BasicQualifier) []string {
 			))
 	}
 	return res
+}
+
+// HasValidEnabledFlow returns true if there is at least one Enabled flow
+// which has at least one valid block.
+func HasValidEnabledFlow(qualifiers ...*FuncQualifier) bool {
+	for _, qual := range qualifiers {
+		if qual.Flows == nil || qual.Flows.Blocks == nil {
+			continue
+		}
+		// Is Enabled, and has at least one valid block:
+		if qual.Flows.Enabled && HasValidFlowBlocks(qual.Flows.Blocks...) {
+			return true
+		}
+	}
+	return false
 }

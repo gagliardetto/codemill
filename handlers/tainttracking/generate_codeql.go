@@ -65,7 +65,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 											if ok {
 												pathCodez := make([]Code, 0)
 												for _, funcQual := range cont {
-													if !funcQual.Flows.Enabled || x.AllBlocksEmpty(funcQual.Flows.Blocks...) {
+													if !x.HasValidEnabledFlow(funcQual) {
 														continue
 													}
 
@@ -153,7 +153,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 													}(cont)
 													for _, receiverTypeID := range keys {
 														methodQualifiers := cont[receiverTypeID]
-														if len(methodQualifiers) == 0 {
+														if len(methodQualifiers) == 0 || !x.HasValidEnabledFlow(methodQualifiers...) {
 															continue
 														}
 														codez := DoGroup(func(mtdGroup *Group) {
@@ -226,7 +226,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 												}(contb2itm)
 												for _, receiverTypeID := range keys {
 													methodQualifiers := contb2itm[receiverTypeID]
-													if len(methodQualifiers) == 0 {
+													if len(methodQualifiers) == 0 || !x.HasValidEnabledFlow(methodQualifiers...) {
 														continue
 													}
 													codez := DoGroup(func(mtdGroup *Group) {
