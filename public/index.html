@@ -434,7 +434,7 @@
                                 ></cm-func-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" v-if="!context.isFlow">
+                        <b-tab :title="'Structs (' + len(filteredStructs) + ')'" v-if="context.isFlow == false">
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <cm-struct-item
                                   v-for="item in filteredStructs"
@@ -443,13 +443,13 @@
                                 ></cm-struct-item>
                             </b-list-group>
                         </b-tab>
-                        <b-tab :title="'Types (' + len(filteredTypes) + ')'" v-if="!context.isFlow">
+                        <b-tab :title="'Types (' + len(filteredTypes) + ')'" v-if="context.isFlow == false">
                             <b-list-group class="text-monospace float-left text-truncate">
                                 <cm-type-item
                                   v-for="item in filteredTypes"
                                   v-bind:key="item.ID"
                                   v-bind:item="item"
-                                ></cm-struct-item>
+                                ></cm-type-item>
                             </b-list-group>
                         </b-tab>
                     </b-tabs>
@@ -844,6 +844,7 @@
                     });
             },
             setContext(xmodelName, xmethodName, isFlow) {
+              console.log(xmodelName, xmethodName, isFlow);
               // Set current context:
               this.$data.context.modelName = xmodelName;
               this.$data.context.methodName = xmethodName;
@@ -1412,6 +1413,9 @@
             loadCode: function(path, version) {
                 this.$root.loadCode(path, version);
             },
+            log: function(...elems) {
+                console.log(elems);
+            },
             fmtv: function(version) {
               return this.$root.fmtv(version);
             },
@@ -1424,10 +1428,10 @@
     });
     </script>
     <script type="text/x-template" id="cm-xselector-template">
-        <div class="xselector" v-bind:class="{ 'muted': xselector.Kind == 'Func' && xselector.Qualifier.Flows !== null && !xselector.Qualifier.Flows.Enabled }">
+        <div class="xselector" v-bind:class="{ 'muted': xselector.Kind == 'Func' && ('Flows' in xselector.Qualifier) && xselector.Qualifier.Flows !== null && !xselector.Qualifier.Flows.Enabled }">
           <div
             class="package-indication"
-            @click="setContext(xmodelName, xmethodName, xselector.Qualifier.Flows !== null); loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version)"
+            @click="setContext(xmodelName, xmethodName, ('Flows' in xselector.Qualifier) && xselector.Qualifier.Flows !== null); log(xselector.Qualifier); loadCode(xselector.Qualifier.Path,xselector.Qualifier.Version)"
             title="Click to open source view"
           >{{xselector.Qualifier.Path}}{{fmtv(xselector.Qualifier.Version)}}</div>
           <div v-if="xselector.Kind == 'Struct'">
