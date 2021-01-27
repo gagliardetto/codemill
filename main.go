@@ -33,6 +33,7 @@ import (
 	"golang.org/x/tools/go/packages"
 
 	"github.com/gagliardetto/codemill/handlers/http/redirect"
+	"github.com/gagliardetto/codemill/handlers/http/responsebody"
 	"github.com/gagliardetto/codemill/handlers/tainttracking"
 	"github.com/gagliardetto/codemill/handlers/untrustedflowsource"
 )
@@ -137,6 +138,12 @@ func main() {
 
 			// http redirect handler:
 			err = rt.RegisterHandler(redirect.Kind, &redirect.Handler{})
+			if err != nil {
+				Fatalf("error while registering handler: %s", err)
+			}
+
+			// http responsebody handler:
+			err = rt.RegisterHandler(responsebody.Kind, &responsebody.Handler{})
 			if err != nil {
 				Fatalf("error while registering handler: %s", err)
 			}
