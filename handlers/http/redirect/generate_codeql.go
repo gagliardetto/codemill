@@ -50,7 +50,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		addedCount := 0
 		funcModelsClassName := feparser.NewCodeQlName(className)
 		tmp := DoGroup(func(tempFuncsModel *Group) {
-			tempFuncsModel.Comment("Models HTTP redirects.")
+			tempFuncsModel.Doc("Models HTTP redirects.")
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 				Id("HTTP::Redirect::Range"),
 				Id("DataFlow::CallNode"),

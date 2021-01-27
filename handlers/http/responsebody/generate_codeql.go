@@ -51,7 +51,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		addedCount := 0
 		funcModelsClassName := feparser.NewCodeQlName(className)
 		tmp := DoGroup(func(tempFuncsModel *Group) {
-			tempFuncsModel.Comment("Models HTTP ResponseBody.")
+			tempFuncsModel.Doc("Models HTTP ResponseBody.")
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 				Id("HTTP::ResponseBody::Range"),
 			).BlockFunc(

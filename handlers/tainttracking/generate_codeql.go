@@ -49,7 +49,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		addedCount := 0
 		funcModelsClassName := feparser.NewCodeQlName(className, "FunctionModels")
 		tmp := DoGroup(func(tempFuncsModel *Group) {
-			tempFuncsModel.Comment("Models taint-tracking through functions.")
+			tempFuncsModel.Doc("Models taint-tracking through functions.")
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().Qual("TaintTracking", "FunctionModel").BlockFunc(
 				func(funcModelsClassGroup *Group) {
 					funcModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
@@ -127,7 +127,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		addedCount := 0
 		methodModelsClassName := feparser.NewCodeQlName(className, "MethodModels")
 		tmp := DoGroup(func(tempMethodsModel *Group) {
-			tempMethodsModel.Comment("Models taint-tracking through method calls.")
+			tempMethodsModel.Doc("Models taint-tracking through method calls.")
 			tempMethodsModel.Private().Class().Id(methodModelsClassName).Extends().List(Qual("TaintTracking", "FunctionModel"), Id("Method")).BlockFunc(
 				func(methodModelsClassGroup *Group) {
 					methodModelsClassGroup.Id("FunctionInput").Id("inp").Semicolon().Line()
