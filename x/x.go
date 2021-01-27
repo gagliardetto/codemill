@@ -739,10 +739,22 @@ func (spec *XSpec) PushModel(model *XModel) error {
 	return nil
 }
 
+type XMethodSlice []*XMethod
+
+//
+func (methods XMethodSlice) ByName(name string) *XMethod {
+	for _, v := range methods {
+		if v.Name == name {
+			return v
+		}
+	}
+	return nil
+}
+
 type XModel struct {
 	Name    string
 	Kind    ModelKind
-	Methods []*XMethod
+	Methods XMethodSlice
 }
 
 type XMethod struct {
@@ -2146,4 +2158,26 @@ func HasValidPos(qualifiers ...*FuncQualifier) bool {
 		}
 	}
 	return false
+}
+
+// MustPosToRelativeParamIndexes returns the relative parameter indexes given the
+// absolute positions. Panics if a position is not referred to a parameter.
+func MustPosToRelativeParamIndexes(fe FuncInterface, positions []bool) []int {
+	indexes := make([]int, 0)
+	for posIndex, pos := range positions {
+		if !pos {
+			continue
+		}
+
+		elTyp, _, relIndex, err := fe.GetRelativeElement(posIndex)
+		if err != nil {
+			Fatalf("Error while GetRelativeElement: %s", err)
+		}
+		if elTyp != feparser.ElementParameter {
+			Fatalf("Is not a parameter")
+		}
+
+		indexes = append(indexes, relIndex)
+	}
+	return indexes
 }

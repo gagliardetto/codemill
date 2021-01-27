@@ -318,30 +318,12 @@ func GetFunc(qual *x.FuncQualifier) x.FuncInterface {
 
 	return fn
 }
-func posToRelativeParamIndexes(fe x.FuncInterface, positions []bool) []int {
-	indexes := make([]int, 0)
-	for posIndex, pos := range positions {
-		if !pos {
-			continue
-		}
 
-		elTyp, _, relIndex, err := fe.GetRelativeElement(posIndex)
-		if err != nil {
-			Fatalf("Error while GetRelativeElement: %s", err)
-		}
-		if elTyp != feparser.ElementParameter {
-			Fatalf("Is not a parameter")
-		}
-
-		indexes = append(indexes, relIndex)
-	}
-	return indexes
-}
 func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
 
 	fn := GetFunc(qual)
 
-	parameterIndexes := posToRelativeParamIndexes(fn, qual.Pos)
+	parameterIndexes := x.MustPosToRelativeParamIndexes(fn, qual.Pos)
 	code := x.GenCqlParamQual("this", "getArgument", fn, parameterIndexes)
 
 	return fn, code

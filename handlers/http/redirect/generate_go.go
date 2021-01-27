@@ -391,7 +391,7 @@ func newStatement() *Statement {
 func generateGoTestBlock_Func(file *File, fe *feparser.FEFunc, qual *x.FuncQualifier) []Code {
 	childBlocks := make([]Code, 0)
 
-	indexes := posToRelativeParamIndexes(fe, qual.Pos)
+	indexes := x.MustPosToRelativeParamIndexes(fe, qual.Pos)
 
 	childBlock := generate_Func(
 		file,
@@ -411,7 +411,7 @@ func generateGoTestBlock_Func(file *File, fe *feparser.FEFunc, qual *x.FuncQuali
 func generateGoTestBlock_Method(file *File, fe *feparser.FETypeMethod, qual *x.FuncQualifier) []Code {
 	childBlocks := make([]Code, 0)
 
-	indexes := posToRelativeParamIndexes(fe, qual.Pos)
+	indexes := x.MustPosToRelativeParamIndexes(fe, qual.Pos)
 
 	childBlock := generate_Method(
 		file,
