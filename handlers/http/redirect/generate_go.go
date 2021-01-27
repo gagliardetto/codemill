@@ -34,8 +34,8 @@ const (
 import go
 import TestUtilities.InlineExpectationsTest
 
-class TaintTrackingTest extends InlineExpectationsTest {
-  TaintTrackingTest() { this = "TaintTrackingTest" }
+class HttpRedirectTest extends InlineExpectationsTest {
+  HttpRedirectTest() { this = "HttpRedirectTest" }
 
   override string getARelevantTag() { result = "redirectUrl" }
 
