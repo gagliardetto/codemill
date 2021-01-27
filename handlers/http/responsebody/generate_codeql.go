@@ -2,6 +2,7 @@ package responsebody
 
 import (
 	"sort"
+	"strings"
 
 	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/x"
@@ -50,14 +51,14 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		addedCount := 0
 		funcModelsClassName := feparser.NewCodeQlName(className)
 		tmp := DoGroup(func(tempFuncsModel *Group) {
-			tempFuncsModel.Comment("Models HTTP redirects.")
+			tempFuncsModel.Comment("Models HTTP ResponseBody.")
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
-				Id("HTTP::Redirect::Range"),
-				Id("DataFlow::CallNode"),
+				Id("HTTP::ResponseBody::Range"),
 			).BlockFunc(
 				func(funcModelsClassGroup *Group) {
 					funcModelsClassGroup.String().Id("package").Semicolon().Line()
-					funcModelsClassGroup.Id("DataFlow::Node").Id("urlNode").Semicolon().Line()
+					funcModelsClassGroup.Id("DataFlow::CallNode").Id("call").Semicolon().Line()
+					funcModelsClassGroup.String().Id("contentType").Semicolon().Line()
 
 					funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
 						func(funcModelsSelfMethodGroup *Group) {
@@ -80,7 +81,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															ParensFunc(
 																func(par *Group) {
 																	par.Commentf("signature: %s", thing.Signature)
-																	par.This().
+																	par.Id("call").
 																		Dot("getTarget").Call().
 																		Dot("hasQualifiedName").Call(
 																		Id("package"),
@@ -90,7 +91,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																	par.And()
 
 																	_, code := GetFuncQualifierCodeElements(funcQual)
-																	par.Id("urlNode").Eq().Add(code)
+																	par.Id("this").Eq().Add(code)
+
+																	par.And()
+
+																	par.Id("contentType").Eq().Lit(guessFuncNameToContentType(thing.Name))
 																},
 															),
 														)
@@ -148,7 +153,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																			func(par *Group) {
 																				par.Commentf("signature: %s", thing.Func.Signature)
 
-																				par.This().
+																				par.Id("call").
 																					Eq().
 																					Any(
 																						DoGroup(func(gr *Group) {
@@ -167,7 +172,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																				par.And()
 
 																				_, code := GetFuncQualifierCodeElements(methodQual)
-																				par.Id("urlNode").Eq().Add(code)
+																				par.Id("this").Eq().Add(code)
+
+																				par.And()
+
+																				par.Id("contentType").Eq().Lit(guessFuncNameToContentType(thing.Func.Name))
 																			},
 																		)
 
@@ -229,7 +238,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																			func(par *Group) {
 																				par.Commentf("signature: %s", thing.Func.Signature)
 
-																				par.This().
+																				par.Id("call").
 																					Eq().
 																					Any(
 																						DoGroup(func(gr *Group) {
@@ -248,7 +257,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																				par.And()
 
 																				_, code := GetFuncQualifierCodeElements(methodQual)
-																				par.Id("urlNode").Eq().Add(code)
+																				par.Id("this").Eq().Add(code)
+
+																				par.And()
+
+																				par.Id("contentType").Eq().Lit(guessFuncNameToContentType(thing.Func.Name))
 																			},
 																		)
 
@@ -267,7 +280,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 													groupCase.Or()
 												}
 												path, _ := scanner.SplitPathVersion(pathVersion)
-												groupCase.Commentf("HTTP redirect models for package: %s", pathVersion)
+												groupCase.Commentf("HTTP ResponseBody models for package: %s", pathVersion)
 												groupCase.Id("package").Eq().Add(x.CqlFormatPackagePath(path)).And()
 
 												groupCase.Parens(
@@ -284,9 +297,9 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 							}
 						})
 
-					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getUrl").Call().BlockFunc(
+					funcModelsClassGroup.Override().Id("string").Id("getAContentType").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
-							overrideBlockGroup.Id("result").Eq().Id("urlNode")
+							overrideBlockGroup.Id("result").Eq().Id("contentType")
 						})
 
 					funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
@@ -320,11 +333,38 @@ func GetFunc(qual *x.FuncQualifier) x.FuncInterface {
 }
 
 func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
-
 	fn := GetFunc(qual)
 
 	parameterIndexes := x.MustPosToRelativeParamIndexes(fn, qual.Pos)
-	code := x.GenCqlParamQual("this", "getArgument", fn, parameterIndexes)
+	code := x.GenCqlParamQual("call", "getArgument", fn, parameterIndexes)
 
 	return fn, code
+}
+
+func guessFuncNameToContentType(name string) string {
+	name = strings.ToLower(name)
+
+	if strings.Contains(name, "jsonp") {
+		return "application/javascript"
+	}
+	if strings.Contains(name, "json") {
+		return "application/json"
+	}
+	if strings.Contains(name, "xml") {
+		return "text/xml"
+	}
+	if strings.Contains(name, "yaml") || strings.Contains(name, "yml") {
+		return "application/x-yaml"
+	}
+	if strings.Contains(name, "html") {
+		return "text/html"
+	}
+	if strings.Contains(name, "string") || strings.Contains(name, "text") {
+		return "text/plain"
+	}
+	if strings.Contains(name, "error") {
+		// NOTE: this might be not correct.
+		return "text/plain"
+	}
+	return "TODO"
 }

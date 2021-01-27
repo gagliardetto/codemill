@@ -15,18 +15,36 @@ import (
 
 const (
 	// NOTE: hardcoded inside TestQueryContent const.
-	InlineExpectationsTestTag = "$responseBody" // Must start with a $ sign.
+	InlineExpectationsTestTagResponseBody = "$responseBody" // Must start with a $ sign.
+	InlineExpectationsTestTagContentType  = "$contentType"  // Must start with a $ sign.
 )
 
-func Tag(vals ...string) Code {
+func TagResponseBody(vals ...string) string {
 	tg := ""
 	for i, v := range vals {
 		if i > 0 {
 			tg += " "
 		}
-		tg += InlineExpectationsTestTag + "=" + v
+		tg += InlineExpectationsTestTagResponseBody + "=" + v
 	}
-	return Comment(tg)
+	return tg
+}
+
+func TagContentType(vals ...string) string {
+	tg := ""
+	for i, v := range vals {
+		if i > 0 {
+			tg += " "
+		}
+		tg += InlineExpectationsTestTagContentType + "=" + v
+	}
+	return tg
+}
+func Tag(contentTypes string, respBodies string) Code {
+	if contentTypes == "" {
+		return Comment(respBodies)
+	}
+	return Comment(contentTypes + " " + respBodies)
 }
 
 const (
@@ -34,17 +52,23 @@ const (
 import go
 import TestUtilities.InlineExpectationsTest
 
-class TaintTrackingTest extends InlineExpectationsTest {
-  TaintTrackingTest() { this = "TaintTrackingTest" }
+class HttpResponseBodyTest extends InlineExpectationsTest {
+  HttpResponseBodyTest() { this = "HttpResponseBodyTest" }
 
-  override string getARelevantTag() { result = "responseBody" }
+  override string getARelevantTag() { result = ["contentType", "responseBody"] }
 
   override predicate hasActualResult(string file, int line, string element, string tag, string value) {
-    tag = "responseBody" and
     exists(HTTP::ResponseBody rd |
       rd.hasLocationInfo(file, line, _, _, _) and
-      element = rd.getUrl().toString() and
-      value = rd.getUrl().toString()
+      (
+        element = rd.getAContentType().toString() and
+        value = rd.getAContentType().toString() and
+        tag = "contentType"
+        or
+        element = rd.toString() and
+        value = rd.toString() and
+        tag = "responseBody"
+      )
     )
   }
 }
@@ -64,7 +88,7 @@ func NewTestFile(includeBoilerplace bool) *File {
 			file.Func().Id("main").Params().Block()
 		}
 		{
-			// The `source` function returns a new URL:
+			// The `source` function:
 			code := Func().
 				Id("source").
 				Params().
@@ -104,10 +128,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	MustCreateFolderIfNotExists(outDir, os.ModePerm)
 
 	// Assuming the validation has already been done:
-	methodGetURL := mdl.Methods[0]
+	method := mdl.Methods[0]
 
-	if len(methodGetURL.Selectors) == 0 {
-		Infof("No selectors found for %q method.", methodGetURL.Name)
+	if len(method.Selectors) == 0 {
+		Infof("No selectors found for %q method.", method.Name)
 		return nil
 	}
 
@@ -130,7 +154,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		}
 		codez := make([]Code, 0)
 
-		b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(methodGetURL)
+		b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(method)
 		if err != nil {
 			Fatalf("Error while GroupFuncSelectors: %s", err)
 		}
@@ -168,7 +192,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 						}
 					})
 				codez = append(codez,
-					Comment("Redirect via function call.").
+					Comment("Set ResponseBody via function call.").
 						Line().
 						Add(code),
 				)
@@ -235,13 +259,13 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 						})
 					// TODO: what if no flows are enabled? Check that before adding the comment.
 					codezTypeMethods = append(codezTypeMethods,
-						Commentf("Redirect via method calls on %s.", typ.QualifiedName).
+						Commentf("Set ResponseBody via method calls on %s.", typ.QualifiedName).
 							Line().
 							Add(code),
 					)
 				}
 				codez = append(codez,
-					Comment("Redirect via method calls.").
+					Comment("Set ResponseBody via method calls.").
 						Line().
 						Block(codezTypeMethods...),
 				)
@@ -308,14 +332,14 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							}
 						})
 					codezIfaceMethods = append(codezIfaceMethods,
-						Commentf("Redirect via method calls on %s interface.", typ.QualifiedName).
+						Commentf("Set ResponseBody via method calls on %s interface.", typ.QualifiedName).
 							Line().
 							Add(code),
 					)
 				}
 
 				codez = append(codez,
-					Comment("Redirect via interface method calls.").
+					Comment("Set ResponseBody via interface method calls.").
 						Line().
 						Block(codezIfaceMethods...),
 				)
@@ -435,7 +459,7 @@ func generate_Func(file *File, fe *feparser.FEFunc, indexes []int) *Statement {
 	for _, index := range indexes {
 		in := fe.Parameters[index]
 
-		in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("url", in.TypeName))
+		in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", in.TypeName))
 	}
 
 	varNames := make([]string, 0)
@@ -471,7 +495,7 @@ func generate_Func(file *File, fe *feparser.FEFunc, indexes []int) *Statement {
 					}
 
 				},
-			).Add(Tag(varNames...))
+			).Add(Tag(TagContentType(guessFuncNameToContentType(fe.Name)), TagResponseBody(varNames...)))
 
 		})
 	return code
@@ -481,7 +505,7 @@ func generate_Method(file *File, fe *feparser.FETypeMethod, indexes []int) *Stat
 	for _, index := range indexes {
 		in := fe.Func.Parameters[index]
 
-		in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("url", in.TypeName))
+		in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", in.TypeName))
 	}
 
 	varNames := make([]string, 0)
@@ -500,7 +524,6 @@ func generate_Method(file *File, fe *feparser.FETypeMethod, indexes []int) *Stat
 				ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic())
 			}
 
-			Comments(groupCase, "Declare medium object/interface:")
 			groupCase.Var().Id("rece").Qual(fe.Receiver.PkgPath, fe.Receiver.TypeName)
 
 			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
@@ -522,7 +545,7 @@ func generate_Method(file *File, fe *feparser.FETypeMethod, indexes []int) *Stat
 					}
 
 				},
-			).Add(Tag(varNames...))
+			).Add(Tag(TagContentType(guessFuncNameToContentType(fe.Func.Name)), TagResponseBody(varNames...)))
 
 		})
 	return code
