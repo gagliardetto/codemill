@@ -495,7 +495,7 @@ func generate_Func(file *File, fe *feparser.FEFunc, indexes []int) *Statement {
 					}
 
 				},
-			).Add(Tag(TagContentType(guessFuncNameToContentType(fe.Name)), TagResponseBody(varNames...)))
+			).Add(Tag(TagContentType(guessContentTypeFromFuncName(fe.Name)), TagResponseBody(varNames...)))
 
 		})
 	return code
@@ -545,7 +545,7 @@ func generate_Method(file *File, fe *feparser.FETypeMethod, indexes []int) *Stat
 					}
 
 				},
-			).Add(Tag(TagContentType(guessFuncNameToContentType(fe.Func.Name)), TagResponseBody(varNames...)))
+			).Add(Tag(TagContentType(guessContentTypeFromFuncName(fe.Func.Name)), TagResponseBody(varNames...)))
 
 		})
 	return code

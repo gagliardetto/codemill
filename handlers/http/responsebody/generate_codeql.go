@@ -95,7 +95,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 																	par.And()
 
-																	par.Id("contentType").Eq().Lit(guessFuncNameToContentType(thing.Name))
+																	par.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Name))
 																},
 															),
 														)
@@ -176,7 +176,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 																				par.And()
 
-																				par.Id("contentType").Eq().Lit(guessFuncNameToContentType(thing.Func.Name))
+																				par.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
 																			},
 																		)
 
@@ -261,7 +261,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 																				par.And()
 
-																				par.Id("contentType").Eq().Lit(guessFuncNameToContentType(thing.Func.Name))
+																				par.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
 																			},
 																		)
 
@@ -341,7 +341,7 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code)
 	return fn, code
 }
 
-func guessFuncNameToContentType(name string) string {
+func guessContentTypeFromFuncName(name string) string {
 	name = strings.ToLower(name)
 
 	if strings.Contains(name, "jsonp") {
