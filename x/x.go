@@ -2192,3 +2192,20 @@ func MustPosToRelativeParamIndexes(fe FuncInterface, positions []bool) []int {
 	}
 	return indexes
 }
+func ScavengeMethods(methodNames ...string) []*XMethod {
+	methods := make([]*XMethod, 0)
+
+	for _, name := range methodNames {
+		if name == "" {
+			panic("Method name is empty")
+		}
+		methods = append(methods,
+			&XMethod{
+				Name:      name,
+				Selectors: []*XSelector{},
+			},
+		)
+	}
+
+	return methods
+}

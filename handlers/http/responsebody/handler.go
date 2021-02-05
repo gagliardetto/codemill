@@ -18,12 +18,7 @@ const (
 
 //
 func (han *Handler) ScavengeMethods() []*x.XMethod {
-	return []*x.XMethod{
-		{
-			Name:      MethodSelf,
-			Selectors: []*x.XSelector{},
-		},
-	}
+	return x.ScavengeMethods(MethodSelf)
 }
 func (han *Handler) Validate(mdl *x.XModel) error {
 	if len(mdl.Methods) != 1 {
