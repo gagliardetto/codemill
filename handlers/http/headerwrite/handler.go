@@ -9,6 +9,7 @@ import (
 // NOTE:
 // - The method (on type or interface) must write both key and value.
 // - Functions without a receiver are not supported.
+// - One method per model.
 
 const (
 	Kind x.ModelKind = "HttpHeaderWrite"
@@ -17,19 +18,19 @@ const (
 type Handler struct{}
 
 const (
-	MethodGetHeaderKey = "GetHeaderKey"
-	MethodGetHeaderVal = "GetHeaderVal"
+	MethodWriteHeaderKey = "WriteKey"
+	MethodWriteHeaderVal = "WriteVal"
 )
 
 //
 func (han *Handler) ScavengeMethods() []*x.XMethod {
 	return []*x.XMethod{
 		{
-			Name:      MethodGetHeaderKey,
+			Name:      MethodWriteHeaderKey,
 			Selectors: []*x.XSelector{},
 		},
 		{
-			Name:      MethodGetHeaderVal,
+			Name:      MethodWriteHeaderVal,
 			Selectors: []*x.XSelector{},
 		},
 	}
@@ -39,11 +40,11 @@ func (han *Handler) Validate(mdl *x.XModel) error {
 		return fmt.Errorf("wrong number of methods; expected 2, got %v", len(mdl.Methods))
 	}
 	{
-		if mdl.Methods[0].Name != MethodGetHeaderKey {
-			return fmt.Errorf("#0 method is not called %s", MethodGetHeaderKey)
+		if mdl.Methods[0].Name != MethodWriteHeaderKey {
+			return fmt.Errorf("#0 method is not called %s", MethodWriteHeaderKey)
 		}
-		if mdl.Methods[1].Name != MethodGetHeaderVal {
-			return fmt.Errorf("#1 method is not called %s", MethodGetHeaderVal)
+		if mdl.Methods[1].Name != MethodWriteHeaderVal {
+			return fmt.Errorf("#1 method is not called %s", MethodWriteHeaderVal)
 		}
 	}
 	// TODO:

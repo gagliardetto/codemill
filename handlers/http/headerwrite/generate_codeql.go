@@ -19,10 +19,15 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	}
 
 	// Assuming the validation has already been done:
-	methodGetURL := mdl.Methods[0]
+	MethodWriteHeaderKey := mdl.Methods.ByName(MethodWriteHeaderKey)
+	if len(MethodWriteHeaderKey.Selectors) == 0 {
+		Infof("No selectors found for %q method.", MethodWriteHeaderKey.Name)
+		return nil
+	}
 
-	if len(methodGetURL.Selectors) == 0 {
-		Infof("No selectors found for %q method.", methodGetURL.Name)
+	MethodWriteHeaderVal := mdl.Methods.ByName(MethodWriteHeaderVal)
+	if len(MethodWriteHeaderVal.Selectors) == 0 {
+		Infof("No selectors found for %q method.", MethodWriteHeaderVal.Name)
 		return nil
 	}
 
@@ -42,22 +47,27 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		return res
 	}()
 
-	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(methodGetURL)
+	_, b2tmKey, b2itmKey, err := x.GroupFuncSelectors(MethodWriteHeaderKey)
 	if err != nil {
 		Fatalf("Error while GroupFuncSelectors: %s", err)
 	}
+	_, b2tmVal, b2itmVal, err := x.GroupFuncSelectors(MethodWriteHeaderVal)
+	if err != nil {
+		Fatalf("Error while GroupFuncSelectors: %s", err)
+	}
+
 	{
 		addedCount := 0
 		funcModelsClassName := feparser.NewCodeQlName(className)
 		tmp := DoGroup(func(tempFuncsModel *Group) {
-			tempFuncsModel.Doc("Models HTTP redirects.")
+			tempFuncsModel.Doc("Models HTTP header writes.")
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
-				Id("HTTP::Redirect::Range"),
+				Id("HTTP::HeaderWrite::Range"),
 				Id("DataFlow::CallNode"),
 			).BlockFunc(
 				func(funcModelsClassGroup *Group) {
-					funcModelsClassGroup.String().Id("package").Semicolon().Line()
-					funcModelsClassGroup.Id("DataFlow::Node").Id("urlNode").Semicolon().Line()
+					funcModelsClassGroup.Id("DataFlow::Node").Id("nameNode").Semicolon().Line()
+					funcModelsClassGroup.Id("DataFlow::Node").Id("valueNode").Semicolon().Line()
 
 					funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
 						func(funcModelsSelfMethodGroup *Group) {
@@ -66,41 +76,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 									func(groupCase *Group) {
 										for _, pathVersion := range allPathVersions {
 											pathCodez := make([]Code, 0)
-											// Functions:
-											{
-												cont, ok := b2fe[pathVersion]
-												if ok {
-													for _, funcQual := range cont {
-														if AllFalse(funcQual.Pos...) {
-															continue
-														}
-														fn := GetFunc(funcQual)
-														thing := fn.(*feparser.FEFunc)
-														pathCodez = append(pathCodez,
-															ParensFunc(
-																func(par *Group) {
-																	par.Commentf("signature: %s", thing.Signature)
-																	par.This().
-																		Dot("getTarget").Call().
-																		Dot("hasQualifiedName").Call(
-																		Id("package"),
-																		Lit(thing.Name),
-																	)
 
-																	par.And()
-
-																	_, code := GetFuncQualifierCodeElements(funcQual)
-																	par.Id("urlNode").Eq().Add(code)
-																},
-															),
-														)
-													}
-
-												}
-											}
 											// Type methods:
 											{
-												cont, ok := b2tm[pathVersion]
+												cont, ok := b2tmKey[pathVersion]
 												if ok {
 													keys := func(v map[string]x.FuncQualifierSlice) []string {
 														res := make([]string, 0)
@@ -132,8 +111,8 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															methodIndex := 0
 															mtdGroup.ParensFunc(
 																func(parMethods *Group) {
-																	for _, methodQual := range methodQualifiers {
-																		if AllFalse(methodQual.Pos...) {
+																	for _, keyMethodQual := range methodQualifiers {
+																		if AllFalse(keyMethodQual.Pos...) {
 																			continue
 																		}
 																		if methodIndex > 0 {
@@ -141,8 +120,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																		}
 																		methodIndex++
 
-																		fn := GetFunc(methodQual)
+																		fn := GetFunc(keyMethodQual)
 																		thing := fn.(*feparser.FETypeMethod)
+
+																		// TODO:
+																		// - Check if found.
+																		valMethodQual := b2tmVal[pathVersion][receiverTypeID].ByBasicQualifier(keyMethodQual.BasicQualifier)
 
 																		parMethods.ParensFunc(
 																			func(par *Group) {
@@ -155,8 +138,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																							gr.Id("Method").Id("m")
 																						}),
 																						DoGroup(func(gr *Group) {
+																							path, _ := scanner.SplitPathVersion(pathVersion)
+
 																							gr.Id("m").Dot("hasQualifiedName").Call(
-																								Id("package"),
+																								x.CqlFormatPackagePath(path),
 																								Lit(thing.Receiver.TypeName),
 																								Lit(thing.Func.Name),
 																							)
@@ -166,8 +151,15 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 																				par.And()
 
-																				_, code := GetFuncQualifierCodeElements(methodQual)
-																				par.Id("urlNode").Eq().Add(code)
+																				{
+																					_, code := GetFuncQualifierCodeElements(keyMethodQual)
+																					par.Id("nameNode").Eq().Add(code).And()
+																				}
+
+																				{
+																					_, code := GetFuncQualifierCodeElements(valMethodQual)
+																					par.Id("valNode").Eq().Add(code)
+																				}
 																			},
 																		)
 
@@ -182,7 +174,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 											}
 											// Interface methods:
 											{
-												contb2itm, ok := b2itm[pathVersion]
+												contb2itm, ok := b2itmKey[pathVersion]
 												if ok {
 													keys := func(v map[string]x.FuncQualifierSlice) []string {
 														res := make([]string, 0)
@@ -213,8 +205,8 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															methodIndex := 0
 															mtdGroup.ParensFunc(
 																func(parMethods *Group) {
-																	for _, methodQual := range methodQualifiers {
-																		if AllFalse(methodQual.Pos...) {
+																	for _, keyMethodQual := range methodQualifiers {
+																		if AllFalse(keyMethodQual.Pos...) {
 																			continue
 																		}
 																		if methodIndex > 0 {
@@ -222,8 +214,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																		}
 																		methodIndex++
 
-																		fn := GetFunc(methodQual)
+																		fn := GetFunc(keyMethodQual)
 																		thing := fn.(*feparser.FEInterfaceMethod)
+
+																		// TODO:
+																		// - Check if found.
+																		valMethodQual := b2itmVal[pathVersion][receiverTypeID].ByBasicQualifier(keyMethodQual.BasicQualifier)
 
 																		parMethods.ParensFunc(
 																			func(par *Group) {
@@ -247,8 +243,15 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 																				par.And()
 
-																				_, code := GetFuncQualifierCodeElements(methodQual)
-																				par.Id("urlNode").Eq().Add(code)
+																				{
+																					_, code := GetFuncQualifierCodeElements(keyMethodQual)
+																					par.Id("urlNode").Eq().Add(code).And()
+																				}
+
+																				{
+																					_, code := GetFuncQualifierCodeElements(valMethodQual)
+																					par.Id("valNode").Eq().Add(code)
+																				}
 																			},
 																		)
 
@@ -266,9 +269,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 												if addedCount > 0 {
 													groupCase.Or()
 												}
-												path, _ := scanner.SplitPathVersion(pathVersion)
-												groupCase.Commentf("HTTP redirect models for package: %s", pathVersion)
-												groupCase.Id("package").Eq().Add(x.CqlFormatPackagePath(path)).And()
+												groupCase.Commentf("HTTP header write model for package: %s", pathVersion)
 
 												groupCase.Parens(
 													Join(
@@ -284,9 +285,13 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 							}
 						})
 
-					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getUrl").Call().BlockFunc(
+					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getName").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
-							overrideBlockGroup.Id("result").Eq().Id("urlNode")
+							overrideBlockGroup.Id("result").Eq().Id("nameNode")
+						})
+					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getValue").Call().BlockFunc(
+						func(overrideBlockGroup *Group) {
+							overrideBlockGroup.Id("result").Eq().Id("valueNode")
 						})
 
 					funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(

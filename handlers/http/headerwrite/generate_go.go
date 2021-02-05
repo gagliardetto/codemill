@@ -109,15 +109,15 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	MustCreateFolderIfNotExists(outDir, os.ModePerm)
 
 	// Assuming the validation has already been done:
-	methodGetHeaderKey := mdl.Methods.ByName(MethodGetHeaderKey)
-	if len(methodGetHeaderKey.Selectors) == 0 {
-		Infof("No selectors found for %q method.", methodGetHeaderKey.Name)
+	MethodWriteHeaderKey := mdl.Methods.ByName(MethodWriteHeaderKey)
+	if len(MethodWriteHeaderKey.Selectors) == 0 {
+		Infof("No selectors found for %q method.", MethodWriteHeaderKey.Name)
 		return nil
 	}
 
-	methodGetHeaderVal := mdl.Methods.ByName(MethodGetHeaderVal)
-	if len(methodGetHeaderVal.Selectors) == 0 {
-		Infof("No selectors found for %q method.", methodGetHeaderVal.Name)
+	MethodWriteHeaderVal := mdl.Methods.ByName(MethodWriteHeaderVal)
+	if len(MethodWriteHeaderVal.Selectors) == 0 {
+		Infof("No selectors found for %q method.", MethodWriteHeaderVal.Name)
 		return nil
 	}
 
@@ -140,11 +140,11 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		}
 		codez := make([]Code, 0)
 
-		_, b2tmKey, b2itmKey, err := x.GroupFuncSelectors(methodGetHeaderKey)
+		_, b2tmKey, b2itmKey, err := x.GroupFuncSelectors(MethodWriteHeaderKey)
 		if err != nil {
 			Fatalf("Error while GroupFuncSelectors: %s", err)
 		}
-		_, b2tmVal, b2itmVal, err := x.GroupFuncSelectors(methodGetHeaderVal)
+		_, b2tmVal, b2itmVal, err := x.GroupFuncSelectors(MethodWriteHeaderVal)
 		if err != nil {
 			Fatalf("Error while GroupFuncSelectors: %s", err)
 		}
