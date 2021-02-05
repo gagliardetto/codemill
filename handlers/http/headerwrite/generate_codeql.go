@@ -61,7 +61,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		funcModelsClassName := feparser.NewCodeQlName(className)
 		for _, pathVersion := range allPathVersions {
 			tmp := DoGroup(func(tempFuncsModel *Group) {
-				tempFuncsModel.Doc(Sf("Models HTTP header writers model for package: %s", pathVersion))
+				tempFuncsModel.Doc(Sf("Models a HTTP header writer model for package: %s", pathVersion))
 				tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 					Id("HTTP::HeaderWrite::Range"),
 					Id("DataFlow::CallNode"),
