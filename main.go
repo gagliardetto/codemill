@@ -180,11 +180,13 @@ func main() {
 			panic(err)
 		}
 		if !doGen {
-			Ln(LimeBG("Completed."))
+			Ln(LimeBG(">>> Completed without generation <<<"))
 			os.Exit(0)
 		}
+		// >>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>
 		// NOTE: after this point, any modification to globalSpec will be volatile,
 		// i.e. discarded the instant this program hits os.Exit.
+		// <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<
 
 		// Sort stuff for visual convenience in the generated code:
 		globalSpec.Sort()
@@ -305,7 +307,7 @@ func main() {
 			}
 		}
 
-		Ln(LimeBG("Completed."))
+		Ln(LimeBG(">>> Generation completed <<<"))
 		os.Exit(0)
 	}
 
