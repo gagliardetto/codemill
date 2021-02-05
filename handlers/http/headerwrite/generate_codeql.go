@@ -158,7 +158,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 																				{
 																					_, code := GetFuncQualifierCodeElements(valMethodQual)
-																					par.Id("valNode").Eq().Add(code)
+																					par.Id("valueNode").Eq().Add(code)
 																				}
 																			},
 																		)

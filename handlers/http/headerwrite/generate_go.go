@@ -33,6 +33,9 @@ func Tag(keyVarName, valVarName string) Code {
 
 const (
 	TestQueryContent = `
+import go
+import TestUtilities.InlineExpectationsTest
+
 class HttpHeaderWriteTest extends InlineExpectationsTest {
   HttpHeaderWriteTest() { this = "HttpHeaderWriteTest" }
 
