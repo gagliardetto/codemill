@@ -59,22 +59,22 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	{
 		addedCount := 0
 		funcModelsClassName := feparser.NewCodeQlName(className)
-		tmp := DoGroup(func(tempFuncsModel *Group) {
-			tempFuncsModel.Doc("Models HTTP header writes.")
-			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
-				Id("HTTP::HeaderWrite::Range"),
-				Id("DataFlow::CallNode"),
-			).BlockFunc(
-				func(funcModelsClassGroup *Group) {
-					funcModelsClassGroup.Id("DataFlow::Node").Id("nameNode").Semicolon().Line()
-					funcModelsClassGroup.Id("DataFlow::Node").Id("valueNode").Semicolon().Line()
+		for _, pathVersion := range allPathVersions {
+			tmp := DoGroup(func(tempFuncsModel *Group) {
+				tempFuncsModel.Doc(Sf("Models HTTP header writers model for package: %s", pathVersion))
+				tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
+					Id("HTTP::HeaderWrite::Range"),
+					Id("DataFlow::CallNode"),
+				).BlockFunc(
+					func(funcModelsClassGroup *Group) {
+						funcModelsClassGroup.Id("DataFlow::Node").Id("nameNode").Semicolon().Line()
+						funcModelsClassGroup.Id("DataFlow::Node").Id("valueNode").Semicolon().Line()
 
-					funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
-						func(funcModelsSelfMethodGroup *Group) {
-							{
-								funcModelsSelfMethodGroup.DoGroup(
-									func(groupCase *Group) {
-										for _, pathVersion := range allPathVersions {
+						funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
+							func(funcModelsSelfMethodGroup *Group) {
+								{
+									funcModelsSelfMethodGroup.DoGroup(
+										func(groupCase *Group) {
 											pathCodez := make([]Code, 0)
 
 											// Type methods:
@@ -269,7 +269,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 												if addedCount > 0 {
 													groupCase.Or()
 												}
-												groupCase.Commentf("HTTP header write model for package: %s", pathVersion)
 
 												groupCase.Parens(
 													Join(
@@ -280,29 +279,28 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 												addedCount++
 											}
-										}
-									})
-							}
-						})
+										})
+								}
+							})
 
-					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getName").Call().BlockFunc(
-						func(overrideBlockGroup *Group) {
-							overrideBlockGroup.Id("result").Eq().Id("nameNode")
-						})
-					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getValue").Call().BlockFunc(
-						func(overrideBlockGroup *Group) {
-							overrideBlockGroup.Id("result").Eq().Id("valueNode")
-						})
+						funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getName").Call().BlockFunc(
+							func(overrideBlockGroup *Group) {
+								overrideBlockGroup.Id("result").Eq().Id("nameNode")
+							})
+						funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getValue").Call().BlockFunc(
+							func(overrideBlockGroup *Group) {
+								overrideBlockGroup.Id("result").Eq().Id("valueNode")
+							})
 
-					funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
-						func(overrideBlockGroup *Group) {
-							overrideBlockGroup.None()
-						})
-				})
-		})
-		if addedCount > 0 {
-
-			rootModuleGroup.Add(tmp)
+						funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+							func(overrideBlockGroup *Group) {
+								overrideBlockGroup.None()
+							})
+					})
+			})
+			if addedCount > 0 {
+				rootModuleGroup.Add(tmp)
+			}
 		}
 	}
 
