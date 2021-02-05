@@ -759,7 +759,6 @@ type XModel struct {
 
 type XMethod struct {
 	Name      string
-	IsSelf    bool
 	Selectors []*XSelector
 }
 

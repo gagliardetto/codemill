@@ -1,7 +1,6 @@
 package responsebody
 
 import (
-	"errors"
 	"fmt"
 
 	"github.com/gagliardetto/codemill/x"
@@ -22,7 +21,6 @@ func (han *Handler) ScavengeMethods() []*x.XMethod {
 	return []*x.XMethod{
 		{
 			Name:      MethodSelf,
-			IsSelf:    true,
 			Selectors: []*x.XSelector{},
 		},
 	}
@@ -32,9 +30,6 @@ func (han *Handler) Validate(mdl *x.XModel) error {
 		return fmt.Errorf("wrong number of methods; expected 1, got %v", len(mdl.Methods))
 	}
 	{
-		if !mdl.Methods[0].IsSelf {
-			return errors.New("#0 method must be self")
-		}
 		if mdl.Methods[0].Name != MethodSelf {
 			return fmt.Errorf("#0 method is not called %s", MethodSelf)
 		}
