@@ -169,7 +169,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			cont, ok := b2tm[pathVersion]
 			if ok {
 				codezTypeMethods := make([]Code, 0)
-				keys := func(v map[string][]*x.FuncQualifier) []string {
+				keys := func(v map[string]x.FuncQualifierSlice) []string {
 					res := make([]string, 0)
 					for key := range v {
 						res = append(res, key)
@@ -229,7 +229,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			cont, ok := b2itm[pathVersion]
 			if ok {
 				codezIfaceMethods := make([]Code, 0)
-				keys := func(v map[string][]*x.FuncQualifier) []string {
+				keys := func(v map[string]x.FuncQualifierSlice) []string {
 					res := make([]string, 0)
 					for key := range v {
 						res = append(res, key)

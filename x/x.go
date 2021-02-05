@@ -1440,16 +1440,28 @@ func FindTypeByID(fe *feparser.FEPackage, id string) *feparser.FEType {
 	return nil
 }
 
+type FuncQualifierSlice []*FuncQualifier
+
+//
+func (qualifiers FuncQualifierSlice) ByBasicQualifier(qual BasicQualifier) *FuncQualifier {
+	for _, v := range qualifiers {
+		if v.IsEqual(&qual) {
+			return v
+		}
+	}
+	return nil
+}
+
 // Func selectors:
 type (
 	// For each PathVersionClean, there is an array of FEFunc.
-	BasicToFEFuncs map[string][]*FuncQualifier
+	BasicToFEFuncs map[string]FuncQualifierSlice
 
 	// For each PathVersionClean, there is a map of TypeIDs; for each TypeID, there is an array of methods.
-	BasicToTypeIDToMethods map[string]map[string][]*FuncQualifier
+	BasicToTypeIDToMethods map[string]map[string]FuncQualifierSlice
 
 	// For each PathVersionClean, there is a map of InterfaceIDs (TypeID); for each TypeID, there is an array of methods.
-	BasicToInterfaceIDToMethods map[string]map[string][]*FuncQualifier
+	BasicToInterfaceIDToMethods map[string]map[string]FuncQualifierSlice
 )
 
 // Struct selectors:
@@ -1499,7 +1511,7 @@ func GroupFuncSelectors(mtd *XMethod) (b2fe BasicToFEFuncs, b2tm BasicToTypeIDTo
 		case *feparser.FETypeMethod:
 			{
 				if _, ok := b2tm[pathVersion]; !ok {
-					b2tm[pathVersion] = make(map[string][]*FuncQualifier)
+					b2tm[pathVersion] = make(map[string]FuncQualifierSlice)
 				}
 				typeID := thing.Receiver.ID
 				if _, ok := b2tm[pathVersion][typeID]; !ok {
@@ -1510,7 +1522,7 @@ func GroupFuncSelectors(mtd *XMethod) (b2fe BasicToFEFuncs, b2tm BasicToTypeIDTo
 		case *feparser.FEInterfaceMethod:
 			{
 				if _, ok := b2itm[pathVersion]; !ok {
-					b2itm[pathVersion] = make(map[string][]*FuncQualifier)
+					b2itm[pathVersion] = make(map[string]FuncQualifierSlice)
 				}
 				interfaceID := thing.Receiver.ID
 				if _, ok := b2itm[pathVersion][interfaceID]; !ok {

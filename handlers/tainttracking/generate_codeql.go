@@ -143,7 +143,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 											{
 												cont, ok := b2tm[pathVersion]
 												if ok {
-													keys := func(v map[string][]*x.FuncQualifier) []string {
+													keys := func(v map[string]x.FuncQualifierSlice) []string {
 														res := make([]string, 0)
 														for key := range v {
 															res = append(res, key)
@@ -216,7 +216,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 											}
 											contb2itm, ok := b2itm[pathVersion]
 											if ok {
-												keys := func(v map[string][]*x.FuncQualifier) []string {
+												keys := func(v map[string]x.FuncQualifierSlice) []string {
 													res := make([]string, 0)
 													for key := range v {
 														res = append(res, key)
