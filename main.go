@@ -32,6 +32,7 @@ import (
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 
+	"github.com/gagliardetto/codemill/handlers/http/headerwrite"
 	"github.com/gagliardetto/codemill/handlers/http/redirect"
 	"github.com/gagliardetto/codemill/handlers/http/responsebody"
 	"github.com/gagliardetto/codemill/handlers/tainttracking"
@@ -144,6 +145,12 @@ func main() {
 
 			// http responsebody handler:
 			err = rt.RegisterHandler(responsebody.Kind, &responsebody.Handler{})
+			if err != nil {
+				Fatalf("error while registering handler: %s", err)
+			}
+
+			// http headerwrite handler:
+			err = rt.RegisterHandler(headerwrite.Kind, &headerwrite.Handler{})
 			if err != nil {
 				Fatalf("error while registering handler: %s", err)
 			}
