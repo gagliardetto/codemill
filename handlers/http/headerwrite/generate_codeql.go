@@ -19,15 +19,15 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	}
 
 	// Assuming the validation has already been done:
-	MethodWriteHeaderKey := mdl.Methods.ByName(MethodWriteHeaderKey)
-	if len(MethodWriteHeaderKey.Selectors) == 0 {
-		Infof("No selectors found for %q method.", MethodWriteHeaderKey.Name)
+	methodWriteHeaderKey := mdl.Methods.ByName(MethodWriteHeaderKey)
+	if len(methodWriteHeaderKey.Selectors) == 0 {
+		Infof("No selectors found for %q method.", methodWriteHeaderKey.Name)
 		return nil
 	}
 
-	MethodWriteHeaderVal := mdl.Methods.ByName(MethodWriteHeaderVal)
-	if len(MethodWriteHeaderVal.Selectors) == 0 {
-		Infof("No selectors found for %q method.", MethodWriteHeaderVal.Name)
+	methodWriteHeaderVal := mdl.Methods.ByName(MethodWriteHeaderVal)
+	if len(methodWriteHeaderKey.Selectors) == 0 {
+		Infof("No selectors found for %q method.", methodWriteHeaderKey.Name)
 		return nil
 	}
 
@@ -47,11 +47,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		return res
 	}()
 
-	_, b2tmKey, b2itmKey, err := x.GroupFuncSelectors(MethodWriteHeaderKey)
+	_, b2tmKey, b2itmKey, err := x.GroupFuncSelectors(methodWriteHeaderKey)
 	if err != nil {
 		Fatalf("Error while GroupFuncSelectors: %s", err)
 	}
-	_, b2tmVal, b2itmVal, err := x.GroupFuncSelectors(MethodWriteHeaderVal)
+	_, b2tmVal, b2itmVal, err := x.GroupFuncSelectors(methodWriteHeaderVal)
 	if err != nil {
 		Fatalf("Error while GroupFuncSelectors: %s", err)
 	}
@@ -67,8 +67,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 					Id("DataFlow::CallNode"),
 				).BlockFunc(
 					func(funcModelsClassGroup *Group) {
-						funcModelsClassGroup.Id("DataFlow::Node").Id("nameNode").Semicolon().Line()
-						funcModelsClassGroup.Id("DataFlow::Node").Id("valueNode").Semicolon().Line()
 
 						funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
 							func(funcModelsSelfMethodGroup *Group) {
@@ -149,16 +147,22 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																						nil,
 																					).Dot("getACall").Call()
 
-																				par.And()
-
 																				{
 																					_, code := GetFuncQualifierCodeElements(keyMethodQual)
-																					par.Id("nameNode").Eq().Add(code).And()
+
+																					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getName").Call().BlockFunc(
+																						func(overrideBlockGroup *Group) {
+																							overrideBlockGroup.Id("result").Eq().Add(code)
+																						})
 																				}
 
 																				{
 																					_, code := GetFuncQualifierCodeElements(valMethodQual)
-																					par.Id("valueNode").Eq().Add(code)
+
+																					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getValue").Call().BlockFunc(
+																						func(overrideBlockGroup *Group) {
+																							overrideBlockGroup.Id("result").Eq().Add(code)
+																						})
 																				}
 																			},
 																		)
@@ -281,15 +285,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 											}
 										})
 								}
-							})
-
-						funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getName").Call().BlockFunc(
-							func(overrideBlockGroup *Group) {
-								overrideBlockGroup.Id("result").Eq().Id("nameNode")
-							})
-						funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getValue").Call().BlockFunc(
-							func(overrideBlockGroup *Group) {
-								overrideBlockGroup.Id("result").Eq().Id("valueNode")
 							})
 
 						funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
