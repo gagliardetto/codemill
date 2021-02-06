@@ -57,7 +57,7 @@ func NewScavengeMethods(kind ModelKind) []*XMethod {
 }
 
 type XSpec struct {
-	Name   string // Name of the module
+	Name   string // Name of the module, user-defined.
 	Models []*XModel
 	*sync.RWMutex
 }
@@ -474,13 +474,6 @@ func (mdl *XModel) Validate() error {
 		return fmt.Errorf("model kind not valid: %q", mdl.Kind)
 	}
 
-	// Normalize and validate names of methods:
-	for _, mtd := range mdl.Methods {
-		err := mtd.NormalizeName()
-		if err != nil {
-			return fmt.Errorf("error for model %q: %s", mtd.Name, err)
-		}
-	}
 	{
 		// Check whether method names are unique:
 		var names []string
@@ -542,18 +535,10 @@ func (mdl *XModel) ListModules() []*BasicQualifier {
 	return qualifiers
 }
 
-func (mtd *XMethod) NormalizeName() error {
-	mtd.Name = ToCamel(mtd.Name)
-	if mtd.Name == "" {
-		return errors.New("Name is not valid")
-	}
-	return nil
-}
-
 // Validate validates a method.
 func (mtd *XMethod) Validate() error {
-	if err := mtd.NormalizeName(); err != nil {
-		return err
+	if strings.TrimSpace(mtd.Name) == "" {
+		return errors.New("Name is empty")
 	}
 
 	{ // Validate selectors:
@@ -752,13 +737,13 @@ func (methods XMethodSlice) ByName(name string) *XMethod {
 }
 
 type XModel struct {
-	Name    string
+	Name    string // Name is user-defined.
 	Kind    ModelKind
 	Methods XMethodSlice
 }
 
 type XMethod struct {
-	Name      string
+	Name      string // Name is immutable, system-defined.
 	Selectors []*XSelector
 }
 
@@ -2192,19 +2177,28 @@ func MustPosToRelativeParamIndexes(fe FuncInterface, positions []bool) []int {
 	}
 	return indexes
 }
+
 func ScavengeMethods(methodNames ...string) []*XMethod {
 	methods := make([]*XMethod, 0)
 
+	usedNames := make([]string, 0)
+
 	for _, name := range methodNames {
+		name = strings.TrimSpace(name)
 		if name == "" {
 			panic("Method name is empty")
 		}
+		usedNames = append(usedNames, name)
 		methods = append(methods,
 			&XMethod{
 				Name:      name,
 				Selectors: []*XSelector{},
 			},
 		)
+	}
+
+	if len(Deduplicate(usedNames)) != len(usedNames) {
+		panic(Sf("Contains duplicate method names: %v", usedNames))
 	}
 
 	return methods
