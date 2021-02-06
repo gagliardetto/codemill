@@ -6,12 +6,13 @@ require (
 	github.com/bitly/go-simplejson v0.5.0 // indirect
 	github.com/bmizerany/assert v0.0.0-20160611221934-b7ed37b82869 // indirect
 	github.com/dave/jennifer v1.4.1
-	github.com/gagliardetto/codebox v0.0.0-20201220013551-d86eba3ded4e
+	github.com/gagliardetto/codebox v0.0.0-20210206132303-5da677f8f7eb
 	github.com/gagliardetto/cqlgen v0.0.0-20201215233039-505040a2410c
-	github.com/gagliardetto/feparser v0.0.0-20201214231530-92a9da271a57
+	github.com/gagliardetto/feparser v0.0.0-20210206133331-3d1269ed8bb8
 	github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814
+	github.com/gagliardetto/ref v0.0.0-20210206133004-be4e0e122a03
 	github.com/gagliardetto/request v0.8.0
-	github.com/gagliardetto/utilz v0.0.0-20201214201314-ad74031c81e7
+	github.com/gagliardetto/utilz v0.0.0-20210206133039-f73d84130f65
 	github.com/gin-gonic/gin v1.6.3
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.2 // indirect

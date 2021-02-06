@@ -24,6 +24,7 @@ import (
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/get"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/search"
 	"github.com/gagliardetto/golang-go/cmd/go/not-internal/web"
+	"github.com/gagliardetto/ref"
 	. "github.com/gagliardetto/utilz"
 	"golang.org/x/mod/modfile"
 )
@@ -412,7 +413,7 @@ func (spec *XSpec) ListModules() []*BasicQualifier {
 	}
 
 	// Deduplicate:
-	qualifiers = DeduplicateSlice(qualifiers, func(i int) string {
+	qualifiers = ref.DeduplicateSlice(qualifiers, func(i int) string {
 		return FormatPathVersion(qualifiers[i].Path, qualifiers[i].Version)
 	}).([]*BasicQualifier)
 
@@ -528,7 +529,7 @@ func (mdl *XModel) ListModules() []*BasicQualifier {
 	}
 
 	// Deduplicate:
-	qualifiers = DeduplicateSlice(qualifiers, func(i int) string {
+	qualifiers = ref.DeduplicateSlice(qualifiers, func(i int) string {
 		return FormatPathVersion(qualifiers[i].Path, qualifiers[i].Version)
 	}).([]*BasicQualifier)
 
@@ -743,8 +744,9 @@ type XModel struct {
 }
 
 type XMethod struct {
-	Name      string // Name is immutable, system-defined.
-	Selectors []*XSelector
+	Name        string // Name is immutable, system-defined.
+	Description string `json:",omitempty"` // Description is immutable, system-defined.
+	Selectors   []*XSelector
 }
 
 type XSelector struct {
@@ -2189,10 +2191,41 @@ func ScavengeMethods(methodNames ...string) []*XMethod {
 			panic("Method name is empty")
 		}
 		usedNames = append(usedNames, name)
+
 		methods = append(methods,
 			&XMethod{
 				Name:      name,
 				Selectors: []*XSelector{},
+			},
+		)
+	}
+
+	if len(Deduplicate(usedNames)) != len(usedNames) {
+		panic(Sf("Contains duplicate method names: %v", usedNames))
+	}
+
+	return methods
+}
+
+func ScavengeMethodsWithNameDescription(nameDescs ...string) []*XMethod {
+	methods := make([]*XMethod, 0)
+
+	names, descriptions := ToStringKeyVals(nameDescs...)
+
+	usedNames := make([]string, 0)
+
+	for nameIndex, name := range names {
+		name = strings.TrimSpace(name)
+		if name == "" {
+			panic("Method name is empty")
+		}
+		usedNames = append(usedNames, name)
+
+		methods = append(methods,
+			&XMethod{
+				Name:        name,
+				Description: descriptions[nameIndex],
+				Selectors:   []*XSelector{},
 			},
 		)
 	}
