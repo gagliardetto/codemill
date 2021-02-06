@@ -20,10 +20,9 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	}
 
 	// Assuming the validation has already been done:
-	method := mdl.Methods.ByName(MethodSelf)
-
-	if len(method.Selectors) == 0 {
-		Infof("No selectors found for %q method.", method.Name)
+	mtdBodyWithCtFromFuncName := mdl.Methods.ByName(MethodBodyWithCtFromFuncName)
+	if len(mtdBodyWithCtFromFuncName.Selectors) == 0 {
+		Infof("No selectors found for %q method.", mtdBodyWithCtFromFuncName.Name)
 		return nil
 	}
 
@@ -43,7 +42,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		return res
 	}()
 
-	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(method)
+	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(mtdBodyWithCtFromFuncName)
 	if err != nil {
 		Fatalf("Error while GroupFuncSelectors: %s", err)
 	}
