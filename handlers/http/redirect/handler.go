@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	Kind x.ModelKind = "HttpRedirect"
+	Kind x.ModelKind = "HTTP::Redirect"
 )
 
 type Handler struct{}

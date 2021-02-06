@@ -7,7 +7,7 @@ import (
 )
 
 const (
-	Kind x.ModelKind = "HttpResponseBody"
+	Kind x.ModelKind = "HTTP::ResponseBody"
 )
 
 type Handler struct{}

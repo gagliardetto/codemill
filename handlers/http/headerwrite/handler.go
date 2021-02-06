@@ -12,7 +12,7 @@ import (
 // - One method per model.
 
 const (
-	Kind x.ModelKind = "HttpHeaderWrite"
+	Kind x.ModelKind = "HTTP::HeaderWrite"
 )
 
 type Handler struct{}
