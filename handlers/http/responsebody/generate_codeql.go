@@ -1391,13 +1391,13 @@ func cql_body_ct(mdl *x.XModel, pathVersion string) []Code {
 	}
 
 	res := Parens(
-		// Body writers:
+		// Independent Body writers:
 		Join(
 			Or(),
 			bodyCodez...,
 		),
 		And(),
-		// Content-type writers:
+		// Independent Content-Type writers:
 		Parens(
 			Join(
 				Or(),
