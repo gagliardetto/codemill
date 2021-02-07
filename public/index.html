@@ -379,7 +379,7 @@
             <template>
                 <b-modal id="modal-show-code" scrollable hide-footer title="Code" size="xl" lazy no-close-on-backdrop @hidden="loadCachedVersionList">
                     <template #modal-title>
-                        Source of <b>{{currentPackage.path}}{{fmtv(currentPackage.version)}}</b>
+                        Source of <b>{{currentPackage.path}}{{fmtv(currentPackage.version)}} <a :href="fmtPkgDev(currentPackage.path,currentPackage.version)" target="_blank" rel="noopener noreferrer" title="Open documentation on pkg.go.dev"><b-icon icon="info-circle"></b-icon></a></b>
                         <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
                         <br>
                         <span class="text-muted d-flex">
@@ -681,7 +681,12 @@
             revf: revf,
             fmtv(version) {
               // Format version:
-              return version!="local"?"@"+version:""
+              let noVer = version=="local" || version=="";
+              return noVer ? "" : "@"+version
+            },
+            fmtPkgDev(path, version){
+              let dst = 'https://pkg.go.dev/'+path+this.fmtv(version);
+              return dst
             },
             getFilterCtx(){
               let path = this.$data.currentPackage.path;
@@ -1554,6 +1559,9 @@
             },
             fmtv: function(version) {
               return this.$root.fmtv(version);
+            },
+            fmtPkgDev: function(path, version) {
+              return this.$root.fmtPkgDev(path, version);
             }
         },
         props: ['cached'],
@@ -1564,6 +1572,7 @@
         <b-list-group-item v-bind:key="cached.Path + cached.Version">
           <b-button variant="success" size="sm" @click="loadCode(cached.Path,cached.Version)">Open</b-button>
           <b class="text-monospace bold">{{cached.Path}}{{fmtv(cached.Version)}}</b>
+          <a :href="fmtPkgDev(cached.Path,cached.Version)" target="_blank" rel="noopener noreferrer" title="Open documentation on pkg.go.dev"><b-icon icon="info-circle"></b-icon></a>
         </b-list-group-item>
     </script>
 
@@ -1581,7 +1590,10 @@
             cc: cc,
             len: len,
             marshal: marshal,
-            revf: revf
+            revf: revf,
+            fmtPkgDev: function(path, version) {
+              return this.$root.fmtPkgDev(path, version);
+            }
         }
     });
     </script>
@@ -1591,6 +1603,7 @@
               <b-col align-self="start">
                   <span class="text-monospace float-left d-inline-block text-truncate">
                       <b-icon icon="box-seam" variant="primary"></b-icon> <b>{{item.path}}</b> as "{{item.name}}"
+                      <a :href="fmtPkgDev(item.path,'')" target="_blank" rel="noopener noreferrer" title="Open documentation on pkg.go.dev"><b-icon icon="info-circle"></b-icon></a>
                   </span>
                   <span class="float-right">
                       <span :title="'Imported '+item.import_count+' times'">{{item.import_count}} <b-icon icon="box-arrow-in-down-left" variant="warning"></b-icon></span><span :title="'Starred '+item.stars+' times'" v-if="item.stars"> | {{item.stars}} <b-icon icon="star-fill" variant="warning"></b-icon></span>
