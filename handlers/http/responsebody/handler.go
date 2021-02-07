@@ -6,6 +6,9 @@ import (
 	"github.com/gagliardetto/codemill/x"
 )
 
+// NOTES:
+// - Assumes all selectors are added because they work in the same context.
+
 const (
 	Kind x.ModelKind = "HTTP::ResponseBody"
 )

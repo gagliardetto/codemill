@@ -57,11 +57,15 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 										pathCodez := make([]Code, 0)
 										for _, pathVersion := range allPathVersions {
 											{
-												pc := cql_MethodBodyWithCtFromFuncName(mdl, pathVersion, groupCase)
+												pc := cql_MethodBodyWithCtFromFuncName(mdl, pathVersion)
 												pathCodez = append(pathCodez, pc...)
 											}
 											{
-												pc := cql_MethodBodyWithCt(mdl, pathVersion, groupCase)
+												pc := cql_MethodBodyWithCt(mdl, pathVersion)
+												pathCodez = append(pathCodez, pc...)
+											}
+											{
+												pc := cql_body_ct(mdl, pathVersion)
 												pathCodez = append(pathCodez, pc...)
 											}
 
@@ -121,11 +125,19 @@ func GetFunc(qual *x.FuncQualifier) x.FuncInterface {
 	return fn
 }
 
-func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
+func GetBodySetterFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
 	fn := GetFunc(qual)
 
 	parameterIndexes := x.MustPosToRelativeParamIndexes(fn, qual.Pos)
 	code := x.GenCqlParamQual("bodySetterCall", "getArgument", fn, parameterIndexes)
+
+	return fn, code
+}
+func GetContentTypeSetterFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
+	fn := GetFunc(qual)
+
+	parameterIndexes := x.MustPosToRelativeParamIndexes(fn, qual.Pos)
+	code := x.GenCqlParamQual("contentTypeSetterCall", "getArgument", fn, parameterIndexes)
 
 	return fn, code
 }
@@ -159,7 +171,7 @@ func guessContentTypeFromFuncName(name string) string {
 }
 
 // cql_MethodBodyWithCtFromFuncName generates model statements for MethodBodyWithCtFromFuncName
-func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string, groupCase *Group) []Code {
+func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 
 	// Assuming the validation has already been done:
 	mtdBodyWithCtFromFuncName := mdl.Methods.ByName(MethodBodyWithCtFromFuncName)
@@ -197,7 +209,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string, groupCa
 
 							par.And()
 
-							_, code := GetFuncQualifierCodeElements(funcQual)
+							_, code := GetBodySetterFuncQualifierCodeElements(funcQual)
 							par.Id("this").Eq().Add(code)
 
 							par.And()
@@ -278,7 +290,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string, groupCa
 
 										par.And()
 
-										_, code := GetFuncQualifierCodeElements(methodQual)
+										_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
 										par.Id("this").Eq().Add(code)
 
 										par.And()
@@ -363,7 +375,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string, groupCa
 
 										par.And()
 
-										_, code := GetFuncQualifierCodeElements(methodQual)
+										_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
 										par.Id("this").Eq().Add(code)
 
 										par.And()
@@ -386,7 +398,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string, groupCa
 }
 
 // cql_MethodBodyWithCt generates model statements combining MethodBodyWithCtIsBody and MethodBodyWithCtIsCt.
-func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string, groupCase *Group) []Code {
+func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 
 	mtdBodyWithCtIsBody := mdl.Methods.ByName(MethodBodyWithCtIsBody)
 	if len(mtdBodyWithCtIsBody.Selectors) == 0 {
@@ -434,14 +446,14 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string, groupCase *Group) [
 
 							par.And()
 
-							_, code := GetFuncQualifierCodeElements(funcQual)
+							_, code := GetBodySetterFuncQualifierCodeElements(funcQual)
 							par.Id("this").Eq().Add(code)
 
 							par.And()
 
 							{
 								ctQual := b2feCt[pathVersion].ByBasicQualifier(funcQual.BasicQualifier)
-								_, code := GetFuncQualifierCodeElements(ctQual)
+								_, code := GetBodySetterFuncQualifierCodeElements(ctQual)
 								par.Id("contentType").Eq().Add(code)
 							}
 						},
@@ -519,14 +531,14 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string, groupCase *Group) [
 
 										par.And()
 
-										_, code := GetFuncQualifierCodeElements(methodQual)
+										_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
 										par.Id("this").Eq().Add(code)
 
 										par.And()
 
 										{
 											ctQual := b2tmCt[pathVersion][receiverTypeID].ByBasicQualifier(methodQual.BasicQualifier)
-											_, code := GetFuncQualifierCodeElements(ctQual)
+											_, code := GetBodySetterFuncQualifierCodeElements(ctQual)
 											par.Id("contentType").Eq().Add(code)
 										}
 									},
@@ -608,14 +620,14 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string, groupCase *Group) [
 
 										par.And()
 
-										_, code := GetFuncQualifierCodeElements(methodQual)
+										_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
 										par.Id("this").Eq().Add(code)
 
 										par.And()
 
 										{
 											ctQual := b2itmCt[pathVersion][receiverTypeID].ByBasicQualifier(methodQual.BasicQualifier)
-											_, code := GetFuncQualifierCodeElements(ctQual)
+											_, code := GetBodySetterFuncQualifierCodeElements(ctQual)
 											par.Id("contentType").Eq().Add(code)
 										}
 									},
@@ -632,4 +644,766 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string, groupCase *Group) [
 	}
 
 	return pathCodez
+}
+func cql_MethodBody(mdl *x.XModel, pathVersion string) []Code {
+
+	// Assuming the validation has already been done:
+	mtdBody := mdl.Methods.ByName(MethodBody)
+	if len(mtdBody.Selectors) == 0 {
+		Infof("No selectors found for %q method.", mtdBody.Name)
+		return nil
+	}
+
+	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(mtdBody)
+	if err != nil {
+		Fatalf("Error while GroupFuncSelectors: %s", err)
+	}
+
+	pathCodez := make([]Code, 0)
+	// Functions:
+	{
+		cont, ok := b2fe[pathVersion]
+		if ok {
+			for _, funcQual := range cont {
+				if AllFalse(funcQual.Pos...) {
+					continue
+				}
+				fn := GetFunc(funcQual)
+				thing := fn.(*feparser.FEFunc)
+				pathCodez = append(pathCodez,
+					ParensFunc(
+						func(par *Group) {
+							par.Commentf("signature: %s", thing.Signature)
+							par.Id("bodySetterCall").
+								Dot("getTarget").Call().
+								Dot("hasQualifiedName").Call(
+								Id("package"),
+								Lit(thing.Name),
+							)
+
+							par.And()
+
+							_, code := GetBodySetterFuncQualifierCodeElements(funcQual)
+							par.Id("this").Eq().Add(code)
+						},
+					),
+				)
+			}
+
+		}
+	}
+	// Type methods:
+	{
+		cont, ok := b2tm[pathVersion]
+		if ok {
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(cont)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := cont[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+				codez := DoGroup(func(mtdGroup *Group) {
+					qual := methodQualifiers[0]
+					source := x.GetCachedSource(qual.Path, qual.Version)
+					if source == nil {
+						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+					}
+					// Find receiver type:
+					typ := x.FindTypeByID(source, receiverTypeID)
+					if typ == nil {
+						Fatalf("Type not found: %q", receiverTypeID)
+					}
+
+					mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
+
+					methodIndex := 0
+					mtdGroup.ParensFunc(
+						func(parMethods *Group) {
+							for _, methodQual := range methodQualifiers {
+								if AllFalse(methodQual.Pos...) {
+									continue
+								}
+								if methodIndex > 0 {
+									parMethods.Or()
+								}
+								methodIndex++
+
+								fn := GetFunc(methodQual)
+								thing := fn.(*feparser.FETypeMethod)
+
+								parMethods.ParensFunc(
+									func(par *Group) {
+										par.Commentf("signature: %s", thing.Func.Signature)
+
+										par.Id("bodySetterCall").
+											Eq().
+											Any(
+												DoGroup(func(gr *Group) {
+													gr.Id("Method").Id("m")
+												}),
+												DoGroup(func(gr *Group) {
+													gr.Id("m").Dot("hasQualifiedName").Call(
+														Id("package"),
+														Lit(thing.Receiver.TypeName),
+														Lit(thing.Func.Name),
+													)
+												}),
+												nil,
+											).Dot("getACall").Call()
+
+										par.And()
+
+										_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
+										par.Id("this").Eq().Add(code)
+									},
+								)
+
+							}
+						},
+					)
+
+				})
+				pathCodez = append(pathCodez, codez)
+			}
+		}
+	}
+	// Interface methods:
+	{
+		contb2itm, ok := b2itm[pathVersion]
+		if ok {
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(contb2itm)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := contb2itm[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+				codez := DoGroup(func(mtdGroup *Group) {
+					qual := methodQualifiers[0]
+					source := x.GetCachedSource(qual.Path, qual.Version)
+					if source == nil {
+						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+					}
+					// Find receiver type:
+					typ := x.FindTypeByID(source, receiverTypeID)
+					if typ == nil {
+						Fatalf("Type not found: %q", receiverTypeID)
+					}
+					mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
+
+					methodIndex := 0
+					mtdGroup.ParensFunc(
+						func(parMethods *Group) {
+							for _, methodQual := range methodQualifiers {
+								if AllFalse(methodQual.Pos...) {
+									continue
+								}
+								if methodIndex > 0 {
+									parMethods.Or()
+								}
+								methodIndex++
+
+								fn := GetFunc(methodQual)
+								thing := fn.(*feparser.FEInterfaceMethod)
+
+								parMethods.ParensFunc(
+									func(par *Group) {
+										par.Commentf("signature: %s", thing.Func.Signature)
+
+										par.Id("bodySetterCall").
+											Eq().
+											Any(
+												DoGroup(func(gr *Group) {
+													gr.Id("Method").Id("m")
+												}),
+												DoGroup(func(gr *Group) {
+													gr.Id("m").Dot("implements").Call(
+														Id("package"),
+														Lit(thing.Receiver.TypeName),
+														Lit(thing.Func.Name),
+													)
+												}),
+												nil,
+											).Dot("getACall").Call()
+
+										par.And()
+
+										_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
+										par.Id("this").Eq().Add(code)
+									},
+								)
+
+							}
+						},
+					)
+
+				})
+				pathCodez = append(pathCodez, codez)
+			}
+		}
+	}
+
+	return pathCodez
+}
+
+func cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
+
+	mtdCt := mdl.Methods.ByName(MethodCt)
+	if len(mtdCt.Selectors) == 0 {
+		Infof("No selectors found for %q method.", mtdCt.Name)
+		return nil
+	}
+
+	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(mtdCt)
+	if err != nil {
+		Fatalf("Error while GroupFuncSelectors: %s", err)
+	}
+
+	pathCodez := make([]Code, 0)
+	// Functions:
+	{
+		cont, ok := b2fe[pathVersion]
+		if ok {
+			for _, funcQual := range cont {
+				if AllFalse(funcQual.Pos...) {
+					continue
+				}
+				fn := GetFunc(funcQual)
+				thing := fn.(*feparser.FEFunc)
+				pathCodez = append(pathCodez,
+					ParensFunc(
+						func(par *Group) {
+
+							par.Commentf("signature: %s", thing.Signature)
+							par.Exists(
+								List(
+									Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+								),
+								DoGroup(func(st *Group) {
+
+									st.Id("contentTypeSetterCall").
+										Eq().
+										Any(
+											DoGroup(func(gr *Group) {
+												gr.Id("Function").Id("fn")
+											}),
+											DoGroup(func(gr *Group) {
+												gr.Id("fn").Dot("hasQualifiedName").Call(
+													Id("package"),
+													Lit(thing.Name),
+												)
+											}),
+											nil,
+										).Dot("getACall").Call()
+
+									st.And()
+
+									st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+										Eq().
+										Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+								}),
+								DoGroup(func(st *Group) {
+									{
+										_, code := GetContentTypeSetterFuncQualifierCodeElements(funcQual)
+										st.Id("contentType").Eq().Add(code)
+									}
+								}),
+							)
+
+						},
+					),
+				)
+			}
+
+		}
+	}
+	// Type methods:
+	{
+		cont, ok := b2tm[pathVersion]
+		if ok {
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(cont)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := cont[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+				codez := DoGroup(func(mtdGroup *Group) {
+					qual := methodQualifiers[0]
+					source := x.GetCachedSource(qual.Path, qual.Version)
+					if source == nil {
+						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+					}
+					// Find receiver type:
+					typ := x.FindTypeByID(source, receiverTypeID)
+					if typ == nil {
+						Fatalf("Type not found: %q", receiverTypeID)
+					}
+
+					mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
+
+					methodIndex := 0
+					mtdGroup.ParensFunc(
+						func(parMethods *Group) {
+							for _, methodQual := range methodQualifiers {
+								if AllFalse(methodQual.Pos...) {
+									continue
+								}
+								if methodIndex > 0 {
+									parMethods.Or()
+								}
+								methodIndex++
+
+								fn := GetFunc(methodQual)
+								thing := fn.(*feparser.FETypeMethod)
+
+								parMethods.Commentf("signature: %s", thing.Func.Signature)
+								parMethods.Exists(
+									List(
+										Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+									),
+									DoGroup(func(st *Group) {
+
+										st.Id("contentTypeSetterCall").
+											Eq().
+											Any(
+												DoGroup(func(gr *Group) {
+													gr.Id("Method").Id("m")
+												}),
+												DoGroup(func(gr *Group) {
+													gr.Id("m").Dot("hasQualifiedName").Call(
+														Id("package"),
+														Lit(thing.Receiver.TypeName),
+														Lit(thing.Func.Name),
+													)
+												}),
+												nil,
+											).Dot("getACall").Call()
+
+										st.And()
+
+										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+											Eq().
+											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+									}),
+									DoGroup(func(st *Group) {
+										{
+											_, code := GetContentTypeSetterFuncQualifierCodeElements(methodQual)
+											st.Id("contentType").Eq().Add(code)
+										}
+									}),
+								)
+
+							}
+						},
+					)
+
+				})
+				pathCodez = append(pathCodez, codez)
+			}
+		}
+	}
+	// Interface methods:
+	{
+		contb2itm, ok := b2itm[pathVersion]
+		if ok {
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(contb2itm)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := contb2itm[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+				codez := DoGroup(func(mtdGroup *Group) {
+					qual := methodQualifiers[0]
+					source := x.GetCachedSource(qual.Path, qual.Version)
+					if source == nil {
+						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+					}
+					// Find receiver type:
+					typ := x.FindTypeByID(source, receiverTypeID)
+					if typ == nil {
+						Fatalf("Type not found: %q", receiverTypeID)
+					}
+					mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
+
+					methodIndex := 0
+					mtdGroup.ParensFunc(
+						func(parMethods *Group) {
+							for _, methodQual := range methodQualifiers {
+								if AllFalse(methodQual.Pos...) {
+									continue
+								}
+								if methodIndex > 0 {
+									parMethods.Or()
+								}
+								methodIndex++
+
+								fn := GetFunc(methodQual)
+								thing := fn.(*feparser.FEInterfaceMethod)
+
+								parMethods.Commentf("signature: %s", thing.Func.Signature)
+								parMethods.Exists(
+									List(
+										Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+									),
+									DoGroup(func(st *Group) {
+
+										st.Id("contentTypeSetterCall").
+											Eq().
+											Any(
+												DoGroup(func(gr *Group) {
+													gr.Id("Method").Id("m")
+												}),
+												DoGroup(func(gr *Group) {
+													gr.Id("m").Dot("hasQualifiedName").Call(
+														Id("package"),
+														Lit(thing.Receiver.TypeName),
+														Lit(thing.Func.Name),
+													)
+												}),
+												nil,
+											).Dot("getACall").Call()
+
+										st.And()
+
+										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+											Eq().
+											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+									}),
+									DoGroup(func(st *Group) {
+										{
+											_, code := GetContentTypeSetterFuncQualifierCodeElements(methodQual)
+											st.Id("contentType").Eq().Add(code)
+										}
+									}),
+								)
+
+							}
+						},
+					)
+
+				})
+				pathCodez = append(pathCodez, codez)
+			}
+		}
+	}
+
+	return pathCodez
+}
+
+func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
+
+	mtdCtFromFuncName := mdl.Methods.ByName(MethodCtFromFuncName)
+	if len(mtdCtFromFuncName.Selectors) == 0 {
+		Infof("No selectors found for %q method.", mtdCtFromFuncName.Name)
+		return nil
+	}
+
+	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(mtdCtFromFuncName)
+	if err != nil {
+		Fatalf("Error while GroupFuncSelectors: %s", err)
+	}
+
+	pathCodez := make([]Code, 0)
+	// Functions:
+	{
+		cont, ok := b2fe[pathVersion]
+		if ok {
+			for _, funcQual := range cont {
+				if AllFalse(funcQual.Pos...) {
+					continue
+				}
+				fn := GetFunc(funcQual)
+				thing := fn.(*feparser.FEFunc)
+				pathCodez = append(pathCodez,
+					ParensFunc(
+						func(par *Group) {
+
+							par.Commentf("signature: %s", thing.Signature)
+							par.Exists(
+								List(
+									Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+								),
+								DoGroup(func(st *Group) {
+
+									st.Id("contentTypeSetterCall").
+										Eq().
+										Any(
+											DoGroup(func(gr *Group) {
+												gr.Id("Function").Id("fn")
+											}),
+											DoGroup(func(gr *Group) {
+												gr.Id("fn").Dot("hasQualifiedName").Call(
+													Id("package"),
+													Lit(thing.Name),
+												)
+											}),
+											nil,
+										).Dot("getACall").Call()
+
+									st.And()
+
+									st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+										Eq().
+										Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+								}),
+								DoGroup(func(st *Group) {
+									st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Name))
+								}),
+							)
+
+						},
+					),
+				)
+			}
+
+		}
+	}
+	// Type methods:
+	{
+		cont, ok := b2tm[pathVersion]
+		if ok {
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(cont)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := cont[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+				codez := DoGroup(func(mtdGroup *Group) {
+					qual := methodQualifiers[0]
+					source := x.GetCachedSource(qual.Path, qual.Version)
+					if source == nil {
+						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+					}
+					// Find receiver type:
+					typ := x.FindTypeByID(source, receiverTypeID)
+					if typ == nil {
+						Fatalf("Type not found: %q", receiverTypeID)
+					}
+
+					mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
+
+					methodIndex := 0
+					mtdGroup.ParensFunc(
+						func(parMethods *Group) {
+							for _, methodQual := range methodQualifiers {
+								if AllFalse(methodQual.Pos...) {
+									continue
+								}
+								if methodIndex > 0 {
+									parMethods.Or()
+								}
+								methodIndex++
+
+								fn := GetFunc(methodQual)
+								thing := fn.(*feparser.FETypeMethod)
+
+								parMethods.Commentf("signature: %s", thing.Func.Signature)
+								parMethods.Exists(
+									List(
+										Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+									),
+									DoGroup(func(st *Group) {
+
+										st.Id("contentTypeSetterCall").
+											Eq().
+											Any(
+												DoGroup(func(gr *Group) {
+													gr.Id("Method").Id("m")
+												}),
+												DoGroup(func(gr *Group) {
+													gr.Id("m").Dot("hasQualifiedName").Call(
+														Id("package"),
+														Lit(thing.Receiver.TypeName),
+														Lit(thing.Func.Name),
+													)
+												}),
+												nil,
+											).Dot("getACall").Call()
+
+										st.And()
+
+										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+											Eq().
+											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+									}),
+									DoGroup(func(st *Group) {
+										st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
+									}),
+								)
+
+							}
+						},
+					)
+
+				})
+				pathCodez = append(pathCodez, codez)
+			}
+		}
+	}
+	// Interface methods:
+	{
+		contb2itm, ok := b2itm[pathVersion]
+		if ok {
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(contb2itm)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := contb2itm[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+				codez := DoGroup(func(mtdGroup *Group) {
+					qual := methodQualifiers[0]
+					source := x.GetCachedSource(qual.Path, qual.Version)
+					if source == nil {
+						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+					}
+					// Find receiver type:
+					typ := x.FindTypeByID(source, receiverTypeID)
+					if typ == nil {
+						Fatalf("Type not found: %q", receiverTypeID)
+					}
+					mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
+
+					methodIndex := 0
+					mtdGroup.ParensFunc(
+						func(parMethods *Group) {
+							for _, methodQual := range methodQualifiers {
+								if AllFalse(methodQual.Pos...) {
+									continue
+								}
+								if methodIndex > 0 {
+									parMethods.Or()
+								}
+								methodIndex++
+
+								fn := GetFunc(methodQual)
+								thing := fn.(*feparser.FEInterfaceMethod)
+
+								parMethods.Commentf("signature: %s", thing.Func.Signature)
+								parMethods.Exists(
+									List(
+										Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+									),
+									DoGroup(func(st *Group) {
+
+										st.Id("contentTypeSetterCall").
+											Eq().
+											Any(
+												DoGroup(func(gr *Group) {
+													gr.Id("Method").Id("m")
+												}),
+												DoGroup(func(gr *Group) {
+													gr.Id("m").Dot("hasQualifiedName").Call(
+														Id("package"),
+														Lit(thing.Receiver.TypeName),
+														Lit(thing.Func.Name),
+													)
+												}),
+												nil,
+											).Dot("getACall").Call()
+
+										st.And()
+
+										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+											Eq().
+											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+									}),
+									DoGroup(func(st *Group) {
+										st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
+									}),
+								)
+
+							}
+						},
+					)
+
+				})
+				pathCodez = append(pathCodez, codez)
+			}
+		}
+	}
+
+	return pathCodez
+}
+
+func cql_body_ct(mdl *x.XModel, pathVersion string) []Code {
+	// TODO:
+	// - Group functions:
+	// 		- Get body setters (MethodBody)
+	// 		- Get ct setters (MethodCt)
+	// 		- Get ct setters (MethodCtFromFuncName)
+
+	// - Group methods by func receiver:
+	// 		- Get body setters (MethodBody)
+	// 		- Get ct setters (MethodCt)
+	// 		- Get ct setters (MethodCtFromFuncName)
+
+	bodyCodez := cql_MethodBody(mdl, pathVersion)
+
+	ctCodezAll := make([]Code, 0)
+	{
+		ctCodez := cql_MethodCt(mdl, pathVersion)
+		ctCodezAll = append(ctCodezAll, ctCodez...)
+	}
+	{
+		ctCodez := cql_MethodCtFromFuncName(mdl, pathVersion)
+		ctCodezAll = append(ctCodezAll, ctCodez...)
+	}
+
+	res := Parens(
+		// Body writers:
+		Join(
+			Or(),
+			bodyCodez...,
+		),
+		And(),
+		// Content-type writers:
+		Parens(
+			Join(
+				Or(),
+				ctCodezAll...,
+			),
+		),
+	)
+	return []Code{res}
 }
