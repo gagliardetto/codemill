@@ -172,6 +172,7 @@ func guessContentTypeFromFuncName(name string) string {
 
 // cql_MethodBodyWithCtFromFuncName generates model statements for MethodBodyWithCtFromFuncName
 func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
+	comment := "One call sets both body and content-type (which is implicit in the func name)."
 
 	// Assuming the validation has already been done:
 	mtdBodyWithCtFromFuncName := mdl.Methods.ByName(MethodBodyWithCtFromFuncName)
@@ -199,6 +200,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 				pathCodez = append(pathCodez,
 					ParensFunc(
 						func(par *Group) {
+							par.Comment(comment)
 							par.Commentf("signature: %s", thing.Signature)
 							par.Id("bodySetterCall").
 								Dot("getTarget").Call().
@@ -240,6 +242,8 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 					continue
 				}
 				codez := DoGroup(func(mtdGroup *Group) {
+					mtdGroup.Comment(comment)
+
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
 					if source == nil {
@@ -326,6 +330,8 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 					continue
 				}
 				codez := DoGroup(func(mtdGroup *Group) {
+					mtdGroup.Comment(comment)
+
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
 					if source == nil {
@@ -400,6 +406,8 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 // cql_MethodBodyWithCt generates model statements combining MethodBodyWithCtIsBody and MethodBodyWithCtIsCt.
 func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 
+	comment := "One call sets both body and content-type (both are parameters in the func call)."
+
 	mtdBodyWithCtIsBody := mdl.Methods.ByName(MethodBodyWithCtIsBody)
 	if len(mtdBodyWithCtIsBody.Selectors) == 0 {
 		Infof("No selectors found for %q method.", mtdBodyWithCtIsBody.Name)
@@ -436,6 +444,7 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 				pathCodez = append(pathCodez,
 					ParensFunc(
 						func(par *Group) {
+							par.Comment(comment)
 							par.Commentf("signature: %s", thing.Signature)
 							par.Id("bodySetterCall").
 								Dot("getTarget").Call().
@@ -481,6 +490,8 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 					continue
 				}
 				codez := DoGroup(func(mtdGroup *Group) {
+					mtdGroup.Comment(comment)
+
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
 					if source == nil {
@@ -571,6 +582,8 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 					continue
 				}
 				codez := DoGroup(func(mtdGroup *Group) {
+					mtdGroup.Comment(comment)
+
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
 					if source == nil {
@@ -1081,7 +1094,7 @@ func cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 													gr.Id("Method").Id("m")
 												}),
 												DoGroup(func(gr *Group) {
-													gr.Id("m").Dot("hasQualifiedName").Call(
+													gr.Id("m").Dot("implements").Call(
 														Id("package"),
 														Lit(thing.Receiver.TypeName),
 														Lit(thing.Func.Name),
@@ -1333,7 +1346,7 @@ func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 													gr.Id("Method").Id("m")
 												}),
 												DoGroup(func(gr *Group) {
-													gr.Id("m").Dot("hasQualifiedName").Call(
+													gr.Id("m").Dot("implements").Call(
 														Id("package"),
 														Lit(thing.Receiver.TypeName),
 														Lit(thing.Func.Name),
@@ -1389,21 +1402,24 @@ func cql_body_ct(mdl *x.XModel, pathVersion string) []Code {
 		ctCodez := cql_MethodCtFromFuncName(mdl, pathVersion)
 		ctCodezAll = append(ctCodezAll, ctCodez...)
 	}
+	comment := "Two calls, one to set the response body and one to set the content-type."
 
-	res := Parens(
-		// Independent Body writers:
-		Join(
-			Or(),
-			bodyCodez...,
-		),
-		And(),
-		// Independent Content-Type writers:
+	res :=
 		Parens(
+			Comment(comment),
+			// Independent Body writers:
 			Join(
 				Or(),
-				ctCodezAll...,
+				bodyCodez...,
 			),
-		),
-	)
+			And(),
+			// Independent Content-Type writers:
+			Parens(
+				Join(
+					Or(),
+					ctCodezAll...,
+				),
+			),
+		)
 	return []Code{res}
 }
