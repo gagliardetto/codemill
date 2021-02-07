@@ -158,6 +158,7 @@ func guessContentTypeFromFuncName(name string) string {
 	return "TODO"
 }
 
+// cql_MethodBodyWithCtFromFuncName generates model statements for MethodBodyWithCtFromFuncName
 func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string, groupCase *Group) []Code {
 
 	// Assuming the validation has already been done:
@@ -384,6 +385,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string, groupCa
 	return pathCodez
 }
 
+// cql_MethodBodyWithCt generates model statements combining MethodBodyWithCtIsBody and MethodBodyWithCtIsCt.
 func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string, groupCase *Group) []Code {
 
 	mtdBodyWithCtIsBody := mdl.Methods.ByName(MethodBodyWithCtIsBody)
