@@ -256,55 +256,57 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 					}
 
 					mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
+					mtdGroup.Exists(
+						List(
+							String().Id("methodName"),
+							Id("Method").Id("m"),
+						),
+						DoGroup(func(st *Group) {
+							st.Id("m").Dot("hasQualifiedName").Call(
+								Id("package"),
+								Lit(typ.TypeName),
+								Id("methodName"),
+							)
 
-					methodIndex := 0
-					mtdGroup.ParensFunc(
-						func(parMethods *Group) {
+							st.And()
+
+							st.Id("bodySetterCall").Eq().Id("m").Dot("getACall").Call()
+
+						}),
+						DoGroup(func(st *Group) {
+							methodIndex := 0
 							for _, methodQual := range methodQualifiers {
 								if AllFalse(methodQual.Pos...) {
 									continue
 								}
 								if methodIndex > 0 {
-									parMethods.Or()
+									st.Or()
 								}
 								methodIndex++
 
 								fn := GetFunc(methodQual)
 								thing := fn.(*feparser.FETypeMethod)
 
-								parMethods.ParensFunc(
+								st.ParensFunc(
 									func(par *Group) {
 										par.Commentf("signature: %s", thing.Func.Signature)
 
-										par.Id("bodySetterCall").
-											Eq().
-											Any(
-												DoGroup(func(gr *Group) {
-													gr.Id("Method").Id("m")
-												}),
-												DoGroup(func(gr *Group) {
-													gr.Id("m").Dot("hasQualifiedName").Call(
-														Id("package"),
-														Lit(thing.Receiver.TypeName),
-														Lit(thing.Func.Name),
-													)
-												}),
-												nil,
-											).Dot("getACall").Call()
+										par.Id("methodName").Eq().Lit(thing.Func.Name)
 
 										par.And()
 
-										_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
-										par.Id("this").Eq().Add(code)
+										{
+											_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
+											par.This().Eq().Add(code)
+										}
 
 										par.And()
 
 										par.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
 									},
 								)
-
 							}
-						},
+						}),
 					)
 
 				})
@@ -342,56 +344,59 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 					if typ == nil {
 						Fatalf("Type not found: %q", receiverTypeID)
 					}
-					mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
 
-					methodIndex := 0
-					mtdGroup.ParensFunc(
-						func(parMethods *Group) {
+					mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
+					mtdGroup.Exists(
+						List(
+							String().Id("methodName"),
+							Id("Method").Id("m"),
+						),
+						DoGroup(func(st *Group) {
+							st.Id("m").Dot("implements").Call(
+								Id("package"),
+								Lit(typ.TypeName),
+								Id("methodName"),
+							)
+
+							st.And()
+
+							st.Id("bodySetterCall").Eq().Id("m").Dot("getACall").Call()
+
+						}),
+						DoGroup(func(st *Group) {
+							methodIndex := 0
 							for _, methodQual := range methodQualifiers {
 								if AllFalse(methodQual.Pos...) {
 									continue
 								}
 								if methodIndex > 0 {
-									parMethods.Or()
+									st.Or()
 								}
 								methodIndex++
 
 								fn := GetFunc(methodQual)
-								thing := fn.(*feparser.FEInterfaceMethod)
+								thing := fn.(*feparser.FETypeMethod)
 
-								parMethods.ParensFunc(
+								st.ParensFunc(
 									func(par *Group) {
 										par.Commentf("signature: %s", thing.Func.Signature)
 
-										par.Id("bodySetterCall").
-											Eq().
-											Any(
-												DoGroup(func(gr *Group) {
-													gr.Id("Method").Id("m")
-												}),
-												DoGroup(func(gr *Group) {
-													gr.Id("m").Dot("implements").Call(
-														Id("package"),
-														Lit(thing.Receiver.TypeName),
-														Lit(thing.Func.Name),
-													)
-												}),
-												nil,
-											).Dot("getACall").Call()
+										par.Id("methodName").Eq().Lit(thing.Func.Name)
 
 										par.And()
 
-										_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
-										par.Id("this").Eq().Add(code)
+										{
+											_, code := GetBodySetterFuncQualifierCodeElements(methodQual)
+											par.This().Eq().Add(code)
+										}
 
 										par.And()
 
 										par.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
 									},
 								)
-
 							}
-						},
+						}),
 					)
 
 				})

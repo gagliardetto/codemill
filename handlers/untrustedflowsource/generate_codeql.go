@@ -73,6 +73,9 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 							}),
 							DoGroup(func(st *Group) {
 								for i, funcQual := range cont {
+									if AllFalse(funcQual.Pos...) {
+										continue
+									}
 									if i > 0 {
 										st.Or()
 									}
@@ -176,6 +179,9 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									st.ParensFunc(
 										func(parMethods *Group) {
 											for i, methodQual := range methodQualifiers {
+												if AllFalse(methodQual.Pos...) {
+													continue
+												}
 												if i > 0 {
 													parMethods.Or()
 												}
@@ -290,6 +296,9 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, module
 									st.ParensFunc(
 										func(parMethods *Group) {
 											for i, methodQual := range methodQualifiers {
+												if AllFalse(methodQual.Pos...) {
+													continue
+												}
 												if i > 0 {
 													parMethods.Or()
 												}
