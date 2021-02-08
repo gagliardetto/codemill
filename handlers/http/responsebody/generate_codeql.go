@@ -878,7 +878,7 @@ func cql_MethodBody(mdl *x.XModel, pathVersion string) []Code {
 	return pathCodez
 }
 
-func cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
+func par_cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 
 	mtdCt := mdl.Methods.ByName(MethodCt)
 	if len(mtdCt.Selectors) == 0 {
@@ -1136,7 +1136,7 @@ func cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 	return pathCodez
 }
 
-func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
+func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 
 	mtdCtFromFuncName := mdl.Methods.ByName(MethodCtFromFuncName)
 	if len(mtdCtFromFuncName.Selectors) == 0 {
@@ -1408,11 +1408,11 @@ func cql_body_ct(mdl *x.XModel, pathVersion string) []Code {
 
 	ctCodezAll := make([]Code, 0)
 	{
-		ctCodez := cql_MethodCt(mdl, pathVersion)
+		ctCodez := par_cql_MethodCt(mdl, pathVersion)
 		ctCodezAll = append(ctCodezAll, ctCodez...)
 	}
 	{
-		ctCodez := cql_MethodCtFromFuncName(mdl, pathVersion)
+		ctCodez := par_cql_MethodCtFromFuncName(mdl, pathVersion)
 		ctCodezAll = append(ctCodezAll, ctCodez...)
 	}
 	comment := "Two calls, one to set the response body and one to set the content-type."
