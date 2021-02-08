@@ -104,6 +104,35 @@ var (
 	IncludeCommentsInGeneratedGo bool
 )
 
+// Comments adds comments to a Group (if enabled), and returns the group.
+func Comments(group *Group, comments ...string) *Group {
+	if IncludeCommentsInGeneratedGo {
+		for _, comment := range comments {
+			group.Line().Comment(comment)
+		}
+	}
+	return group
+}
+
+func newStatement() *Statement {
+	return &Statement{}
+}
+
+// declare `name := source(1).(Type)`
+func ComposeTypeAssertion(file *File, group *Group, varName string, typ types.Type, isVariadic bool) {
+	assertContent := newStatement()
+	if isVariadic {
+		if slice, ok := typ.(*types.Slice); ok {
+			gogentools.ComposeTypeDeclaration(file, assertContent, slice.Elem())
+		} else {
+			gogentools.ComposeTypeDeclaration(file, assertContent, typ)
+		}
+	} else {
+		gogentools.ComposeTypeDeclaration(file, assertContent, typ)
+	}
+	group.Id(varName).Op(":=").Id("source").Call().Assert(assertContent)
+}
+
 func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	if err := mdl.Validate(); err != nil {
 		return err
@@ -237,7 +266,7 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 							}
 							groupCase.Comment(thing.Signature)
 
-							blocksOfCases := generateGoTestBlock_Func(
+							blocksOfCases := par_MethodBodyWithCtFromFuncName_generateGoTestBlock(
 								file,
 								thing,
 								funcQual,
@@ -303,7 +332,7 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 								}
 								groupCase.Comment(thing.Func.Signature)
 
-								blocksOfCases := generateGoTestBlock_Method(
+								blocksOfCases := par_MethodBodyWithCtFromFuncName_generateGoTestBlock(
 									file,
 									thing,
 									methodQual,
@@ -378,7 +407,7 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 								groupCase.Comment(thing.Func.Signature)
 
 								converted := feparser.FEIToFET(thing)
-								blocksOfCases := generateGoTestBlock_Method(
+								blocksOfCases := par_MethodBodyWithCtFromFuncName_generateGoTestBlock(
 									file,
 									converted,
 									methodQual,
@@ -408,48 +437,14 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 	return codez
 }
 
-// Comments adds comments to a Group (if enabled), and returns the group.
-func Comments(group *Group, comments ...string) *Group {
-	if IncludeCommentsInGeneratedGo {
-		for _, comment := range comments {
-			group.Line().Comment(comment)
-		}
-	}
-	return group
-}
-
-func newStatement() *Statement {
-	return &Statement{}
-}
-
-func generateGoTestBlock_Func(file *File, fe *feparser.FEFunc, qual *x.FuncQualifier) []Code {
+func par_MethodBodyWithCtFromFuncName_generateGoTestBlock(file *File, fn x.FuncInterface, qual *x.FuncQualifier) []Code {
 	childBlocks := make([]Code, 0)
 
-	indexes := x.MustPosToRelativeParamIndexes(fe, qual.Pos)
+	indexes := x.MustPosToRelativeParamIndexes(fn, qual.Pos)
 
-	childBlock := generate_Func(
+	childBlock := par_MethodBodyWithCtFromFuncName_generate(
 		file,
-		fe,
-		indexes,
-	)
-	{
-		if childBlock != nil {
-			childBlocks = append(childBlocks, childBlock)
-		} else {
-			Warnf(Sf("NOTHING GENERATED; pos %v, param indexes %v", qual.Pos, indexes))
-		}
-	}
-
-	return childBlocks
-}
-func generateGoTestBlock_Method(file *File, fe *feparser.FETypeMethod, qual *x.FuncQualifier) []Code {
-	childBlocks := make([]Code, 0)
-
-	indexes := x.MustPosToRelativeParamIndexes(fe, qual.Pos)
-
-	childBlock := generate_Method(
-		file,
-		fe,
+		fn,
 		indexes,
 	)
 	{
@@ -464,116 +459,64 @@ func generateGoTestBlock_Method(file *File, fe *feparser.FETypeMethod, qual *x.F
 }
 
 ////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-func generate_Func(file *File, fe *feparser.FEFunc, indexes []int) *Statement {
+
+func par_MethodBodyWithCtFromFuncName_generate(file *File, fn x.FuncInterface, indexes []int) *Statement {
 
 	for _, index := range indexes {
-		in := fe.Parameters[index]
+		in := fn.GetFunc().Parameters[index]
 
 		in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", in.TypeName))
 	}
 
 	varNames := make([]string, 0)
 	for _, index := range indexes {
-		in := fe.Parameters[index]
+		in := fn.GetFunc().Parameters[index]
 
 		varNames = append(varNames, in.VarName)
 	}
+
+	hasReceiver := fn.GetReceiver() != nil
 
 	code := BlockFunc(
 		func(groupCase *Group) {
 
 			for _, index := range indexes {
-				in := fe.Parameters[index]
+				in := fn.GetFunc().Parameters[index]
 
 				ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic())
 			}
 
-			groupCase.Qual(fe.PkgPath, fe.Name).CallFunc(
+			if hasReceiver {
+				groupCase.Var().Id("rece").Qual(fn.GetReceiver().PkgPath, fn.GetReceiver().TypeName)
+			}
+
+			gogentools.ImportPackage(file, fn.GetFunc().PkgPath, fn.GetFunc().PkgName)
+
+			if hasReceiver {
+				groupCase.Id("rece").Dot(fn.GetFunc().Name)
+			} else {
+				groupCase.Qual(fn.GetFunc().PkgPath, fn.GetFunc().Name)
+			}
+
+			groupCase.CallFunc(
 				func(call *Group) {
 
-					tpFun := fe.GetOriginal().GetType().(*types.Signature)
+					tpFun := fn.GetFunc().GetOriginal().GetType().(*types.Signature)
 
-					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.GetOriginal().IsVariadic())
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fn.GetFunc().GetOriginal().IsVariadic())
 
 					for i, zero := range zeroVals {
 						isConsidered := IntSliceContains(indexes, i)
 						if isConsidered {
-							call.Id(fe.Parameters[i].VarName)
+							call.Id(fn.GetFunc().Parameters[i].VarName)
 						} else {
 							call.Add(zero)
 						}
 					}
 
 				},
-			).Add(Tag(TagContentType(guessContentTypeFromFuncName(fe.Name)), TagResponseBody(varNames...)))
+			).Add(Tag(TagContentType(guessContentTypeFromFuncName(fn.GetFunc().Name)), TagResponseBody(varNames...)))
 
 		})
 	return code
-}
-func generate_Method(file *File, fe *feparser.FETypeMethod, indexes []int) *Statement {
-
-	for _, index := range indexes {
-		in := fe.Func.Parameters[index]
-
-		in.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", in.TypeName))
-	}
-
-	varNames := make([]string, 0)
-	for _, index := range indexes {
-		in := fe.Func.Parameters[index]
-
-		varNames = append(varNames, in.VarName)
-	}
-
-	code := BlockFunc(
-		func(groupCase *Group) {
-
-			for _, index := range indexes {
-				in := fe.Func.Parameters[index]
-
-				ComposeTypeAssertion(file, groupCase, in.VarName, in.GetOriginal().GetType(), in.GetOriginal().IsVariadic())
-			}
-
-			groupCase.Var().Id("rece").Qual(fe.Receiver.PkgPath, fe.Receiver.TypeName)
-
-			gogentools.ImportPackage(file, fe.Func.PkgPath, fe.Func.PkgName)
-
-			groupCase.Id("rece").Dot(fe.Func.Name).CallFunc(
-				func(call *Group) {
-
-					tpFun := fe.Func.GetOriginal().GetType().(*types.Signature)
-
-					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fe.Func.GetOriginal().IsVariadic())
-
-					for i, zero := range zeroVals {
-						isConsidered := IntSliceContains(indexes, i)
-						if isConsidered {
-							call.Id(fe.Func.Parameters[i].VarName)
-						} else {
-							call.Add(zero)
-						}
-					}
-
-				},
-			).Add(Tag(TagContentType(guessContentTypeFromFuncName(fe.Func.Name)), TagResponseBody(varNames...)))
-
-		})
-	return code
-}
-
-////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-
-// declare `name := source(1).(Type)`
-func ComposeTypeAssertion(file *File, group *Group, varName string, typ types.Type, isVariadic bool) {
-	assertContent := newStatement()
-	if isVariadic {
-		if slice, ok := typ.(*types.Slice); ok {
-			gogentools.ComposeTypeDeclaration(file, assertContent, slice.Elem())
-		} else {
-			gogentools.ComposeTypeDeclaration(file, assertContent, typ)
-		}
-	} else {
-		gogentools.ComposeTypeDeclaration(file, assertContent, typ)
-	}
-	group.Id(varName).Op(":=").Id("source").Call().Assert(assertContent)
 }
