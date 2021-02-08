@@ -924,9 +924,9 @@ func cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 
 									st.And()
 
-									st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+									st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
 										Eq().
-										Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+										Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
 								}),
 								DoGroup(func(st *Group) {
 									{
@@ -1014,9 +1014,9 @@ func cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 
 										st.And()
 
-										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
 											Eq().
-											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
 									}),
 									DoGroup(func(st *Group) {
 										{
@@ -1105,9 +1105,9 @@ func cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 
 										st.And()
 
-										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
 											Eq().
-											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
 									}),
 									DoGroup(func(st *Group) {
 										{
@@ -1182,9 +1182,9 @@ func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 
 									st.And()
 
-									st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+									st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
 										Eq().
-										Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+										Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
 								}),
 								DoGroup(func(st *Group) {
 									st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Name))
@@ -1269,9 +1269,9 @@ func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 
 										st.And()
 
-										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
 											Eq().
-											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
 									}),
 									DoGroup(func(st *Group) {
 										st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
@@ -1357,9 +1357,9 @@ func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 
 										st.And()
 
-										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call().
+										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
 											Eq().
-											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Id("*").Call()
+											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
 									}),
 									DoGroup(func(st *Group) {
 										st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
