@@ -183,6 +183,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				pc := go_MethodBodyWithCt(mdl, file, pathVersion)
 				pathCodez = append(pathCodez, pc...)
 			}
+			{
+				pc := go_body_ct(mdl, file, pathVersion)
+				pathCodez = append(pathCodez, pc...)
+			}
 		}
 
 		{
@@ -847,4 +851,10 @@ func par_MethodBodyWithCt_generate(file *File, fn x.FuncInterface, bodyIndex int
 
 		})
 	return code
+}
+
+func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
+	codez := make([]Code, 0)
+
+	return codez
 }
