@@ -492,13 +492,14 @@ func par_MethodBodyWithCtFromFuncName_generate(file *File, fn x.FuncInterface, i
 
 			gogentools.ImportPackage(file, fn.GetFunc().PkgPath, fn.GetFunc().PkgName)
 
+			var after *Statement
 			if hasReceiver {
-				groupCase.Id("rece").Dot(fn.GetFunc().Name)
+				after = groupCase.Id("rece").Dot(fn.GetFunc().Name)
 			} else {
-				groupCase.Qual(fn.GetFunc().PkgPath, fn.GetFunc().Name)
+				after = groupCase.Qual(fn.GetFunc().PkgPath, fn.GetFunc().Name)
 			}
 
-			groupCase.CallFunc(
+			after.CallFunc(
 				func(call *Group) {
 
 					tpFun := fn.GetFunc().GetOriginal().GetType().(*types.Signature)
