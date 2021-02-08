@@ -127,14 +127,6 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	outDir := filepath.Join(parentDir, feparser.NewCodeQlName(mdl.Name))
 	MustCreateFolderIfNotExists(outDir, os.ModePerm)
 
-	// Assuming the validation has already been done:
-	method := mdl.Methods[0]
-
-	if len(method.Selectors) == 0 {
-		Infof("No selectors found for %q method.", method.Name)
-		return nil
-	}
-
 	allPathVersions := func() []string {
 		res := make([]string, 0)
 		mods := mdl.ListModules()
@@ -152,203 +144,17 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			// Reset file:
 			file = NewTestFile(true)
 		}
-		codez := make([]Code, 0)
-
-		b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(method)
-		if err != nil {
-			Fatalf("Error while GroupFuncSelectors: %s", err)
-		}
-
+		pathCodez := make([]Code, 0)
 		{
-			cont, ok := b2fe[pathVersion]
-			if ok && x.HasValidPos(cont...) {
-				code := BlockFunc(
-					func(groupCase *Group) {
-
-						for _, funcQual := range cont {
-							fn := x.GetFuncQualifier(funcQual)
-							thing := fn.(*feparser.FEFunc)
-
-							x.AddImportsFromFunc(file, thing)
-
-							{
-								if AllFalse(funcQual.Pos...) {
-									continue
-								}
-								groupCase.Comment(thing.Signature)
-
-								blocksOfCases := generateGoTestBlock_Func(
-									file,
-									thing,
-									funcQual,
-								)
-								if len(blocksOfCases) == 1 {
-									groupCase.Add(blocksOfCases...)
-								} else {
-									groupCase.Block(blocksOfCases...)
-								}
-							}
-
-						}
-					})
-				codez = append(codez,
-					Comment("Set ResponseBody via function call.").
-						Line().
-						Add(code),
-				)
-			}
-		}
-		{
-			cont, ok := b2tm[pathVersion]
-			if ok {
-				codezTypeMethods := make([]Code, 0)
-				keys := func(v map[string]x.FuncQualifierSlice) []string {
-					res := make([]string, 0)
-					for key := range v {
-						res = append(res, key)
-					}
-					sort.Strings(res)
-					return res
-				}(cont)
-				for _, receiverTypeID := range keys {
-					methodQualifiers := cont[receiverTypeID]
-					if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-						continue
-					}
-
-					qual := methodQualifiers[0]
-					source := x.GetCachedSource(qual.Path, qual.Version)
-					if source == nil {
-						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-					}
-					// Find receiver type:
-					typ := x.FindTypeByID(source, receiverTypeID)
-					if typ == nil {
-						Fatalf("Type not found: %q", receiverTypeID)
-					}
-
-					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-
-					code := BlockFunc(
-						func(groupCase *Group) {
-
-							for _, methodQual := range methodQualifiers {
-								fn := x.GetFuncQualifier(methodQual)
-								thing := fn.(*feparser.FETypeMethod)
-								x.AddImportsFromFunc(file, fn)
-
-								{
-									if AllFalse(methodQual.Pos...) {
-										continue
-									}
-									groupCase.Comment(thing.Func.Signature)
-
-									blocksOfCases := generateGoTestBlock_Method(
-										file,
-										thing,
-										methodQual,
-									)
-									if len(blocksOfCases) == 1 {
-										groupCase.Add(blocksOfCases...)
-									} else {
-										groupCase.Block(blocksOfCases...)
-									}
-								}
-
-							}
-						})
-					// TODO: what if no flows are enabled? Check that before adding the comment.
-					codezTypeMethods = append(codezTypeMethods,
-						Commentf("Set ResponseBody via method calls on %s.", typ.QualifiedName).
-							Line().
-							Add(code),
-					)
-				}
-				codez = append(codez,
-					Comment("Set ResponseBody via method calls.").
-						Line().
-						Block(codezTypeMethods...),
-				)
-			}
-		}
-
-		{
-			cont, ok := b2itm[pathVersion]
-			if ok {
-				codezIfaceMethods := make([]Code, 0)
-				keys := func(v map[string]x.FuncQualifierSlice) []string {
-					res := make([]string, 0)
-					for key := range v {
-						res = append(res, key)
-					}
-					sort.Strings(res)
-					return res
-				}(cont)
-				for _, receiverTypeID := range keys {
-					methodQualifiers := cont[receiverTypeID]
-					if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-						continue
-					}
-
-					qual := methodQualifiers[0]
-					source := x.GetCachedSource(qual.Path, qual.Version)
-					if source == nil {
-						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-					}
-					// Find receiver type:
-					typ := x.FindTypeByID(source, receiverTypeID)
-					if typ == nil {
-						Fatalf("Type not found: %q", receiverTypeID)
-					}
-
-					gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
-
-					code := BlockFunc(
-						func(groupCase *Group) {
-
-							for _, methodQual := range methodQualifiers {
-								fn := x.GetFuncQualifier(methodQual)
-								thing := fn.(*feparser.FEInterfaceMethod)
-								x.AddImportsFromFunc(file, fn)
-
-								{
-									if AllFalse(methodQual.Pos...) {
-										continue
-									}
-									groupCase.Comment(thing.Func.Signature)
-
-									converted := feparser.FEIToFET(thing)
-									blocksOfCases := generateGoTestBlock_Method(
-										file,
-										converted,
-										methodQual,
-									)
-									if len(blocksOfCases) == 1 {
-										groupCase.Add(blocksOfCases...)
-									} else {
-										groupCase.Block(blocksOfCases...)
-									}
-								}
-							}
-						})
-					codezIfaceMethods = append(codezIfaceMethods,
-						Commentf("Set ResponseBody via method calls on %s interface.", typ.QualifiedName).
-							Line().
-							Add(code),
-					)
-				}
-
-				codez = append(codez,
-					Comment("Set ResponseBody via interface method calls.").
-						Line().
-						Block(codezIfaceMethods...),
-				)
+			{
+				pc := go_MethodBodyWithCtFromFuncName(mdl, file, pathVersion)
+				pathCodez = append(pathCodez, pc...)
 			}
 		}
 
 		{
 			file.Commentf("Package %s", pathVersion)
-			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(codez...)
+			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(pathCodez...)
 		}
 
 		if !allInOneFile {
@@ -396,6 +202,210 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		}
 	}
 	return nil
+}
+
+func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion string) []Code {
+
+	method := mdl.Methods.ByName(MethodBodyWithCtFromFuncName)
+
+	if len(method.Selectors) == 0 {
+		Infof("No selectors found for %q method.", method.Name)
+		return nil
+	}
+
+	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(method)
+	if err != nil {
+		Fatalf("Error while GroupFuncSelectors: %s", err)
+	}
+
+	codez := make([]Code, 0)
+	{
+		cont, ok := b2fe[pathVersion]
+		if ok && x.HasValidPos(cont...) {
+			code := BlockFunc(
+				func(groupCase *Group) {
+
+					for _, funcQual := range cont {
+						fn := x.GetFuncQualifier(funcQual)
+						thing := fn.(*feparser.FEFunc)
+
+						x.AddImportsFromFunc(file, thing)
+
+						{
+							if AllFalse(funcQual.Pos...) {
+								continue
+							}
+							groupCase.Comment(thing.Signature)
+
+							blocksOfCases := generateGoTestBlock_Func(
+								file,
+								thing,
+								funcQual,
+							)
+							if len(blocksOfCases) == 1 {
+								groupCase.Add(blocksOfCases...)
+							} else {
+								groupCase.Block(blocksOfCases...)
+							}
+						}
+
+					}
+				})
+			codez = append(codez,
+				Comment("Set ResponseBody via function call.").
+					Line().
+					Add(code),
+			)
+		}
+	}
+	{
+		cont, ok := b2tm[pathVersion]
+		if ok {
+			codezTypeMethods := make([]Code, 0)
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(cont)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := cont[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+
+				qual := methodQualifiers[0]
+				source := x.GetCachedSource(qual.Path, qual.Version)
+				if source == nil {
+					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+				}
+				// Find receiver type:
+				typ := x.FindTypeByID(source, receiverTypeID)
+				if typ == nil {
+					Fatalf("Type not found: %q", receiverTypeID)
+				}
+
+				gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+
+				code := BlockFunc(
+					func(groupCase *Group) {
+
+						for _, methodQual := range methodQualifiers {
+							fn := x.GetFuncQualifier(methodQual)
+							thing := fn.(*feparser.FETypeMethod)
+							x.AddImportsFromFunc(file, fn)
+
+							{
+								if AllFalse(methodQual.Pos...) {
+									continue
+								}
+								groupCase.Comment(thing.Func.Signature)
+
+								blocksOfCases := generateGoTestBlock_Method(
+									file,
+									thing,
+									methodQual,
+								)
+								if len(blocksOfCases) == 1 {
+									groupCase.Add(blocksOfCases...)
+								} else {
+									groupCase.Block(blocksOfCases...)
+								}
+							}
+
+						}
+					})
+				// TODO: what if no flows are enabled? Check that before adding the comment.
+				codezTypeMethods = append(codezTypeMethods,
+					Commentf("Set ResponseBody via method calls on %s.", typ.QualifiedName).
+						Line().
+						Add(code),
+				)
+			}
+			codez = append(codez,
+				Comment("Set ResponseBody via method calls.").
+					Line().
+					Block(codezTypeMethods...),
+			)
+		}
+	}
+
+	{
+		cont, ok := b2itm[pathVersion]
+		if ok {
+			codezIfaceMethods := make([]Code, 0)
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(cont)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := cont[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+
+				qual := methodQualifiers[0]
+				source := x.GetCachedSource(qual.Path, qual.Version)
+				if source == nil {
+					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+				}
+				// Find receiver type:
+				typ := x.FindTypeByID(source, receiverTypeID)
+				if typ == nil {
+					Fatalf("Type not found: %q", receiverTypeID)
+				}
+
+				gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+
+				code := BlockFunc(
+					func(groupCase *Group) {
+
+						for _, methodQual := range methodQualifiers {
+							fn := x.GetFuncQualifier(methodQual)
+							thing := fn.(*feparser.FEInterfaceMethod)
+							x.AddImportsFromFunc(file, fn)
+
+							{
+								if AllFalse(methodQual.Pos...) {
+									continue
+								}
+								groupCase.Comment(thing.Func.Signature)
+
+								converted := feparser.FEIToFET(thing)
+								blocksOfCases := generateGoTestBlock_Method(
+									file,
+									converted,
+									methodQual,
+								)
+								if len(blocksOfCases) == 1 {
+									groupCase.Add(blocksOfCases...)
+								} else {
+									groupCase.Block(blocksOfCases...)
+								}
+							}
+						}
+					})
+				codezIfaceMethods = append(codezIfaceMethods,
+					Commentf("Set ResponseBody via method calls on %s interface.", typ.QualifiedName).
+						Line().
+						Add(code),
+				)
+			}
+
+			codez = append(codez,
+				Comment("Set ResponseBody via interface method calls.").
+					Line().
+					Block(codezIfaceMethods...),
+			)
+		}
+	}
+	return codez
 }
 
 // Comments adds comments to a Group (if enabled), and returns the group.
