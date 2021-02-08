@@ -179,6 +179,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				pc := go_MethodBodyWithCtFromFuncName(mdl, file, pathVersion)
 				pathCodez = append(pathCodez, pc...)
 			}
+			{
+				pc := go_MethodBodyWithCt(mdl, file, pathVersion)
+				pathCodez = append(pathCodez, pc...)
+			}
 		}
 
 		{
@@ -281,7 +285,7 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 					}
 				})
 			codez = append(codez,
-				Comment("Set ResponseBody via function call.").
+				Comment("Set the response body via a function call (the content-type is implicit in the function name).").
 					Line().
 					Add(code),
 			)
@@ -348,13 +352,13 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 					})
 				// TODO: what if no flows are enabled? Check that before adding the comment.
 				codezTypeMethods = append(codezTypeMethods,
-					Commentf("Set ResponseBody via method calls on %s.", typ.QualifiedName).
+					Commentf("Set the response body via a method call on the %s type (the content-type is implicit in the method name).", typ.QualifiedName).
 						Line().
 						Add(code),
 				)
 			}
 			codez = append(codez,
-				Comment("Set ResponseBody via method calls.").
+				Comment("Set the response body via a method call (the content-type is implicit in the method name).").
 					Line().
 					Block(codezTypeMethods...),
 			)
@@ -421,14 +425,14 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 						}
 					})
 				codezIfaceMethods = append(codezIfaceMethods,
-					Commentf("Set ResponseBody via method calls on %s interface.", typ.QualifiedName).
+					Commentf("Set the response body via a method call on the %s interface (the content-type is implicit in the method name).", typ.QualifiedName).
 						Line().
 						Add(code),
 				)
 			}
 
 			codez = append(codez,
-				Comment("Set ResponseBody via interface method calls.").
+				Comment("Set the response body via an interface method call (the content-type is implicit in the method name).").
 					Line().
 					Block(codezIfaceMethods...),
 			)
@@ -517,6 +521,329 @@ func par_MethodBodyWithCtFromFuncName_generate(file *File, fn x.FuncInterface, i
 
 				},
 			).Add(Tag(TagContentType(guessContentTypeFromFuncName(fn.GetFunc().Name)), TagResponseBody(varNames...)))
+
+		})
+	return code
+}
+
+////////////////
+
+func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
+
+	mtdBodyWithCtIsBody := mdl.Methods.ByName(MethodBodyWithCtIsBody)
+	if len(mtdBodyWithCtIsBody.Selectors) == 0 {
+		Infof("No selectors found for %q method.", mtdBodyWithCtIsBody.Name)
+		return nil
+	}
+
+	b2feBody, b2tmBody, b2itmBody, err := x.GroupFuncSelectors(mtdBodyWithCtIsBody)
+	if err != nil {
+		Fatalf("Error while GroupFuncSelectors: %s", err)
+	}
+	//
+	mtdBodyWithCtIsCt := mdl.Methods.ByName(MethodBodyWithCtIsCt)
+	if len(mtdBodyWithCtIsCt.Selectors) == 0 {
+		Infof("No selectors found for %q method.", mtdBodyWithCtIsCt.Name)
+		return nil
+	}
+
+	b2feCt, b2tmCt, b2itmCt, err := x.GroupFuncSelectors(mtdBodyWithCtIsCt)
+	if err != nil {
+		Fatalf("Error while GroupFuncSelectors: %s", err)
+	}
+
+	codez := make([]Code, 0)
+	{
+		cont, ok := b2feBody[pathVersion]
+		if ok && x.HasValidPos(cont...) {
+			code := BlockFunc(
+				func(groupCase *Group) {
+
+					for _, bodyQual := range cont {
+						fn := x.GetFuncQualifier(bodyQual)
+						thing := fn.(*feparser.FEFunc)
+
+						x.AddImportsFromFunc(file, thing)
+
+						{
+							if AllFalse(bodyQual.Pos...) {
+								continue
+							}
+							groupCase.Comment(thing.Signature)
+
+							ctQual := b2feCt[pathVersion].ByBasicQualifier(bodyQual.BasicQualifier)
+
+							blocksOfCases := par_MethodBodyWithCt_generateGoTestBlock(
+								file,
+								thing,
+								bodyQual,
+								ctQual,
+							)
+							if len(blocksOfCases) == 1 {
+								groupCase.Add(blocksOfCases...)
+							} else {
+								groupCase.Block(blocksOfCases...)
+							}
+						}
+
+					}
+				})
+			codez = append(codez,
+				Comment("Set both response body and content-type via a single call of a function.").
+					Line().
+					Add(code),
+			)
+		}
+	}
+	{
+		cont, ok := b2tmBody[pathVersion]
+		if ok {
+			codezTypeMethods := make([]Code, 0)
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(cont)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := cont[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+
+				qual := methodQualifiers[0]
+				source := x.GetCachedSource(qual.Path, qual.Version)
+				if source == nil {
+					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+				}
+				// Find receiver type:
+				typ := x.FindTypeByID(source, receiverTypeID)
+				if typ == nil {
+					Fatalf("Type not found: %q", receiverTypeID)
+				}
+
+				gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+
+				code := BlockFunc(
+					func(groupCase *Group) {
+
+						for _, bodyQual := range methodQualifiers {
+							fn := x.GetFuncQualifier(bodyQual)
+							thing := fn.(*feparser.FETypeMethod)
+							x.AddImportsFromFunc(file, fn)
+
+							{
+								if AllFalse(bodyQual.Pos...) {
+									continue
+								}
+								groupCase.Comment(thing.Func.Signature)
+
+								ctQual := b2tmCt[pathVersion][receiverTypeID].ByBasicQualifier(bodyQual.BasicQualifier)
+
+								blocksOfCases := par_MethodBodyWithCt_generateGoTestBlock(
+									file,
+									thing,
+									bodyQual,
+									ctQual,
+								)
+								if len(blocksOfCases) == 1 {
+									groupCase.Add(blocksOfCases...)
+								} else {
+									groupCase.Block(blocksOfCases...)
+								}
+							}
+
+						}
+					})
+				// TODO: what if no flows are enabled? Check that before adding the comment.
+				codezTypeMethods = append(codezTypeMethods,
+					Commentf("Set both response body and content-type via a single call of a method on the %s type.", typ.QualifiedName).
+						Line().
+						Add(code),
+				)
+			}
+			codez = append(codez,
+				Comment("Set both response body and content-type via a single call of a method.").
+					Line().
+					Block(codezTypeMethods...),
+			)
+		}
+	}
+
+	{
+		cont, ok := b2itmBody[pathVersion]
+		if ok {
+			codezIfaceMethods := make([]Code, 0)
+			keys := func(v map[string]x.FuncQualifierSlice) []string {
+				res := make([]string, 0)
+				for key := range v {
+					res = append(res, key)
+				}
+				sort.Strings(res)
+				return res
+			}(cont)
+			for _, receiverTypeID := range keys {
+				methodQualifiers := cont[receiverTypeID]
+				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
+					continue
+				}
+
+				qual := methodQualifiers[0]
+				source := x.GetCachedSource(qual.Path, qual.Version)
+				if source == nil {
+					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+				}
+				// Find receiver type:
+				typ := x.FindTypeByID(source, receiverTypeID)
+				if typ == nil {
+					Fatalf("Type not found: %q", receiverTypeID)
+				}
+
+				gogentools.ImportPackage(file, typ.PkgPath, typ.PkgName)
+
+				code := BlockFunc(
+					func(groupCase *Group) {
+
+						for _, bodyQual := range methodQualifiers {
+							fn := x.GetFuncQualifier(bodyQual)
+							thing := fn.(*feparser.FEInterfaceMethod)
+							x.AddImportsFromFunc(file, fn)
+
+							{
+								if AllFalse(bodyQual.Pos...) {
+									continue
+								}
+								groupCase.Comment(thing.Func.Signature)
+
+								converted := feparser.FEIToFET(thing)
+
+								ctQual := b2itmCt[pathVersion][receiverTypeID].ByBasicQualifier(bodyQual.BasicQualifier)
+
+								blocksOfCases := par_MethodBodyWithCt_generateGoTestBlock(
+									file,
+									converted,
+									bodyQual,
+									ctQual,
+								)
+								if len(blocksOfCases) == 1 {
+									groupCase.Add(blocksOfCases...)
+								} else {
+									groupCase.Block(blocksOfCases...)
+								}
+							}
+						}
+					})
+				codezIfaceMethods = append(codezIfaceMethods,
+					Commentf("Set both response body and content-type via a single call of a method on the %s interface.", typ.QualifiedName).
+						Line().
+						Add(code),
+				)
+			}
+
+			codez = append(codez,
+				Comment("Set both response body and content-type via a single call of an interface method.").
+					Line().
+					Block(codezIfaceMethods...),
+			)
+		}
+	}
+	return codez
+}
+
+func par_MethodBodyWithCt_generateGoTestBlock(
+	file *File,
+	fn x.FuncInterface,
+	bodyQual *x.FuncQualifier,
+	ctQual *x.FuncQualifier,
+) []Code {
+	childBlocks := make([]Code, 0)
+
+	// TODO: support here multiple bodies, too?
+	bodyIndexes := x.MustPosToRelativeParamIndexes(fn, bodyQual.Pos)
+	if len(bodyIndexes) != 1 {
+		Fatalf("bodyIndexes len is not 1: %v", bodyQual)
+	}
+	ctIndexes := x.MustPosToRelativeParamIndexes(fn, ctQual.Pos)
+	if len(ctIndexes) != 1 {
+		Fatalf("ctIndexes len is not 1: %v", ctQual)
+	}
+
+	childBlock := par_MethodBodyWithCt_generate(
+		file,
+		fn,
+		bodyIndexes[0],
+		ctIndexes[0],
+	)
+	{
+		if childBlock != nil {
+			childBlocks = append(childBlocks, childBlock)
+		} else {
+			Warnf(Sf("NOTHING GENERATED; bodyQual %v, ctQual %v", bodyQual, ctQual))
+		}
+	}
+
+	return childBlocks
+}
+
+////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
+
+func par_MethodBodyWithCt_generate(file *File, fn x.FuncInterface, bodyIndex int, ctIndex int) *Statement {
+
+	bodyParam := fn.GetFunc().Parameters[bodyIndex]
+	bodyParam.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", bodyParam.TypeName))
+
+	ctParam := fn.GetFunc().Parameters[ctIndex]
+	ctParam.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("contentType", ctParam.TypeName))
+
+	hasReceiver := fn.GetReceiver() != nil
+
+	ctValue := "application/json"
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+
+			ComposeTypeAssertion(file, groupCase, bodyParam.VarName, bodyParam.GetOriginal().GetType(), bodyParam.GetOriginal().IsVariadic())
+
+			if ctParam.GetOriginal().TypeString() == "string" {
+				groupCase.Id(ctParam.VarName).Op(":=").Lit(ctValue)
+			} else {
+				ComposeTypeAssertion(file, groupCase, ctParam.VarName, ctParam.GetOriginal().GetType(), ctParam.GetOriginal().IsVariadic())
+				groupCase.Id(ctParam.VarName).Op("=").Lit(ctValue)
+			}
+
+			if hasReceiver {
+				groupCase.Var().Id("rece").Qual(fn.GetReceiver().PkgPath, fn.GetReceiver().TypeName)
+			}
+
+			gogentools.ImportPackage(file, fn.GetFunc().PkgPath, fn.GetFunc().PkgName)
+
+			var after *Statement
+			if hasReceiver {
+				after = groupCase.Id("rece").Dot(fn.GetFunc().Name)
+			} else {
+				after = groupCase.Qual(fn.GetFunc().PkgPath, fn.GetFunc().Name)
+			}
+
+			after.CallFunc(
+				func(call *Group) {
+
+					tpFun := fn.GetFunc().GetOriginal().GetType().(*types.Signature)
+
+					zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), fn.GetFunc().GetOriginal().IsVariadic())
+
+					for i, zero := range zeroVals {
+						isConsidered := IntSliceContains([]int{bodyIndex, ctIndex}, i)
+						if isConsidered {
+							call.Id(fn.GetFunc().Parameters[i].VarName)
+						} else {
+							call.Add(zero)
+						}
+					}
+
+				},
+			).Add(Tag(TagContentType(ctValue), TagResponseBody(bodyParam.VarName)))
 
 		})
 	return code
