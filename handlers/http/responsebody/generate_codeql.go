@@ -913,6 +913,8 @@ func cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 					st.And()
 
 					st.Id("contentTypeSetterCall").Eq().Id("fn").Dot("getACall").Call()
+
+					// TODO: same root? a same parameter?
 				}),
 				DoGroup(func(st *Group) {
 					for _, funcQual := range cont {
@@ -1152,52 +1154,55 @@ func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 	{
 		cont, ok := b2fe[pathVersion]
 		if ok {
-			for _, funcQual := range cont {
-				if AllFalse(funcQual.Pos...) {
-					continue
-				}
-				fn := GetFunc(funcQual)
-				thing := fn.(*feparser.FEFunc)
-				pathCodez = append(pathCodez,
-					ParensFunc(
-						func(par *Group) {
+			addedCount := 0
 
-							par.Commentf("signature: %s", thing.Signature)
-							par.Exists(
-								List(
-									Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
-								),
-								DoGroup(func(st *Group) {
+			tmp := Exists(
+				List(
+					String().Id("funcName"),
+					Id("Function").Id("fn"),
+					Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+				),
+				DoGroup(func(st *Group) {
+					st.Id("fn").Dot("hasQualifiedName").Call(
+						Id("package"),
+						Id("funcName"),
+					)
 
-									st.Id("contentTypeSetterCall").
-										Eq().
-										Any(
-											DoGroup(func(gr *Group) {
-												gr.Id("Function").Id("fn")
-											}),
-											DoGroup(func(gr *Group) {
-												gr.Id("fn").Dot("hasQualifiedName").Call(
-													Id("package"),
-													Lit(thing.Name),
-												)
-											}),
-											nil,
-										).Dot("getACall").Call()
+					st.And()
 
-									st.And()
+					st.Id("contentTypeSetterCall").Eq().Id("fn").Dot("getACall").Call()
 
-									st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
-										Eq().
-										Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
-								}),
-								DoGroup(func(st *Group) {
-									st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Name))
-								}),
-							)
+					// TODO: same root? a same parameter?
+				}),
+				DoGroup(func(st *Group) {
+					for _, funcQual := range cont {
+						if AllFalse(funcQual.Pos...) {
+							continue
+						}
+						if addedCount > 0 {
+							st.Or()
+						}
+						addedCount++
 
-						},
-					),
-				)
+						fn := GetFunc(funcQual)
+
+						st.ParensFunc(
+							func(par *Group) {
+								par.Commentf("signature: %s", fn.GetFunc().Signature)
+
+								par.Id("funcName").Eq().Lit(fn.GetFunc().Name)
+
+								par.And()
+
+								par.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(fn.GetFunc().Name))
+							},
+						)
+					}
+				}),
+			)
+
+			if addedCount > 0 {
+				pathCodez = append(pathCodez, tmp)
 			}
 
 		}
@@ -1233,58 +1238,60 @@ func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 
 					mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
 
-					methodIndex := 0
-					mtdGroup.ParensFunc(
-						func(parMethods *Group) {
+					addedCount := 0
+
+					tmp := Exists(
+						List(
+							String().Id("methodName"),
+							Id("Method").Id("m"),
+							Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+						),
+						DoGroup(func(st *Group) {
+							st.Id("m").Dot("hasQualifiedName").Call(
+								Id("package"),
+								Lit(typ.TypeName),
+								Id("methodName"),
+							)
+
+							st.And()
+
+							st.Id("contentTypeSetterCall").Eq().Id("m").Dot("getACall").Call()
+
+							st.And()
+
+							st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
+								Eq().
+								Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
+						}),
+						DoGroup(func(st *Group) {
 							for _, methodQual := range methodQualifiers {
 								if AllFalse(methodQual.Pos...) {
 									continue
 								}
-								if methodIndex > 0 {
-									parMethods.Or()
+								if addedCount > 0 {
+									st.Or()
 								}
-								methodIndex++
+								addedCount++
 
 								fn := GetFunc(methodQual)
-								thing := fn.(*feparser.FETypeMethod)
 
-								parMethods.Commentf("signature: %s", thing.Func.Signature)
-								parMethods.Exists(
-									List(
-										Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
-									),
-									DoGroup(func(st *Group) {
+								{
+									st.Commentf("signature: %s", fn.GetFunc().Signature)
 
-										st.Id("contentTypeSetterCall").
-											Eq().
-											Any(
-												DoGroup(func(gr *Group) {
-													gr.Id("Method").Id("m")
-												}),
-												DoGroup(func(gr *Group) {
-													gr.Id("m").Dot("hasQualifiedName").Call(
-														Id("package"),
-														Lit(thing.Receiver.TypeName),
-														Lit(thing.Func.Name),
-													)
-												}),
-												nil,
-											).Dot("getACall").Call()
+									st.Id("methodName").Eq().Lit(fn.GetFunc().Name)
 
-										st.And()
+									st.And()
 
-										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
-											Eq().
-											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
-									}),
-									DoGroup(func(st *Group) {
-										st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
-									}),
-								)
+									st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(fn.GetFunc().Name))
+								}
 
 							}
-						},
+						}),
 					)
+
+					if addedCount > 0 {
+						mtdGroup.Add(tmp)
+					}
 
 				})
 				pathCodez = append(pathCodez, codez)
@@ -1321,58 +1328,60 @@ func cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 					}
 					mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
 
-					methodIndex := 0
-					mtdGroup.ParensFunc(
-						func(parMethods *Group) {
+					addedCount := 0
+
+					tmp := Exists(
+						List(
+							String().Id("methodName"),
+							Id("Method").Id("m"),
+							Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
+						),
+						DoGroup(func(st *Group) {
+							st.Id("m").Dot("implements").Call(
+								Id("package"),
+								Lit(typ.TypeName),
+								Id("methodName"),
+							)
+
+							st.And()
+
+							st.Id("contentTypeSetterCall").Eq().Id("m").Dot("getACall").Call()
+
+							st.And()
+
+							st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
+								Eq().
+								Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
+						}),
+						DoGroup(func(st *Group) {
 							for _, methodQual := range methodQualifiers {
 								if AllFalse(methodQual.Pos...) {
 									continue
 								}
-								if methodIndex > 0 {
-									parMethods.Or()
+								if addedCount > 0 {
+									st.Or()
 								}
-								methodIndex++
+								addedCount++
 
 								fn := GetFunc(methodQual)
-								thing := fn.(*feparser.FEInterfaceMethod)
 
-								parMethods.Commentf("signature: %s", thing.Func.Signature)
-								parMethods.Exists(
-									List(
-										Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
-									),
-									DoGroup(func(st *Group) {
+								{
+									st.Commentf("signature: %s", fn.GetFunc().Signature)
 
-										st.Id("contentTypeSetterCall").
-											Eq().
-											Any(
-												DoGroup(func(gr *Group) {
-													gr.Id("Method").Id("m")
-												}),
-												DoGroup(func(gr *Group) {
-													gr.Id("m").Dot("implements").Call(
-														Id("package"),
-														Lit(thing.Receiver.TypeName),
-														Lit(thing.Func.Name),
-													)
-												}),
-												nil,
-											).Dot("getACall").Call()
+									st.Id("methodName").Eq().Lit(fn.GetFunc().Name)
 
-										st.And()
+									st.And()
 
-										st.Id("contentTypeSetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call().
-											Eq().
-											Id("bodySetterCall").Dot("getReceiver").Call().Dot("getAPredecessor").Op("*").Call()
-									}),
-									DoGroup(func(st *Group) {
-										st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(thing.Func.Name))
-									}),
-								)
+									st.Id("contentType").Eq().Lit(guessContentTypeFromFuncName(fn.GetFunc().Name))
+								}
 
 							}
-						},
+						}),
 					)
+
+					if addedCount > 0 {
+						mtdGroup.Add(tmp)
+					}
 
 				})
 				pathCodez = append(pathCodez, codez)
