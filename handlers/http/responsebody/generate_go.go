@@ -133,6 +133,20 @@ func ComposeTypeAssertion(file *File, group *Group, varName string, typ types.Ty
 	group.Id(varName).Op(":=").Id("source").Call().Assert(assertContent)
 }
 
+// TODO: verify
+func getTypeContent(file *File, group *Group, varName string, typ types.Type, isVariadic bool) *Statement {
+	assertContent := newStatement()
+	if isVariadic {
+		if slice, ok := typ.(*types.Slice); ok {
+			gogentools.ComposeTypeDeclaration(file, assertContent, slice.Elem())
+		} else {
+			gogentools.ComposeTypeDeclaration(file, assertContent, typ)
+		}
+	} else {
+		gogentools.ComposeTypeDeclaration(file, assertContent, typ)
+	}
+	return assertContent
+}
 func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	if err := mdl.Validate(); err != nil {
 		return err
@@ -799,7 +813,6 @@ func par_MethodBodyWithCt_generate(file *File, fn x.FuncInterface, bodyIndex int
 	bodyParam.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", bodyParam.TypeName))
 
 	ctParam := fn.GetFunc().Parameters[ctIndex]
-	ctParam.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("contentType", ctParam.TypeName))
 
 	hasReceiver := fn.GetReceiver() != nil
 
@@ -809,13 +822,6 @@ func par_MethodBodyWithCt_generate(file *File, fn x.FuncInterface, bodyIndex int
 		func(groupCase *Group) {
 
 			ComposeTypeAssertion(file, groupCase, bodyParam.VarName, bodyParam.GetOriginal().GetType(), bodyParam.GetOriginal().IsVariadic())
-
-			if ctParam.GetOriginal().TypeString() == "string" {
-				groupCase.Id(ctParam.VarName).Op(":=").Lit(ctValue)
-			} else {
-				ComposeTypeAssertion(file, groupCase, ctParam.VarName, ctParam.GetOriginal().GetType(), ctParam.GetOriginal().IsVariadic())
-				groupCase.Id(ctParam.VarName).Op("=").Lit(ctValue)
-			}
 
 			if hasReceiver {
 				groupCase.Var().Id("rece").Qual(fn.GetReceiver().PkgPath, fn.GetReceiver().TypeName)
@@ -840,7 +846,17 @@ func par_MethodBodyWithCt_generate(file *File, fn x.FuncInterface, bodyIndex int
 					for i, zero := range zeroVals {
 						isConsidered := IntSliceContains([]int{bodyIndex, ctIndex}, i)
 						if isConsidered {
-							call.Id(fn.GetFunc().Parameters[i].VarName)
+							if ctIndex == i {
+								if ctParam.GetOriginal().TypeString() == "string" {
+									call.Lit(ctValue)
+								} else {
+									// try to convert string to the desired type; NOTE: might not be possible.
+									typ := getTypeContent(file, groupCase, ctParam.VarName, ctParam.GetOriginal().GetType(), ctParam.GetOriginal().IsVariadic())
+									call.Add(typ).Call(Lit(ctValue))
+								}
+							} else {
+								call.Id(fn.GetFunc().Parameters[i].VarName)
+							}
 						} else {
 							call.Add(zero)
 						}
@@ -1184,7 +1200,6 @@ func par_go_body_plus_ct_generate(
 	bodyParam.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", bodyParam.TypeName))
 
 	ctParam := ctFn.GetFunc().Parameters[ctIndex]
-	ctParam.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("contentType", ctParam.TypeName))
 
 	bodyFnHasReceiver := bodyFn.GetReceiver() != nil
 	ctFnHasReceiver := ctFn.GetReceiver() != nil
@@ -1196,13 +1211,6 @@ func par_go_body_plus_ct_generate(
 		func(groupCase *Group) {
 
 			ComposeTypeAssertion(file, groupCase, bodyParam.VarName, bodyParam.GetOriginal().GetType(), bodyParam.GetOriginal().IsVariadic())
-
-			if ctParam.GetOriginal().TypeString() == "string" {
-				groupCase.Id(ctParam.VarName).Op(":=").Lit(ctValue)
-			} else {
-				ComposeTypeAssertion(file, groupCase, ctParam.VarName, ctParam.GetOriginal().GetType(), ctParam.GetOriginal().IsVariadic())
-				groupCase.Id(ctParam.VarName).Op("=").Lit(ctValue)
-			}
 
 			if bodyFnHasReceiver {
 				groupCase.Var().Id("rece").Qual(bodyFn.GetReceiver().PkgPath, bodyFn.GetReceiver().TypeName)
@@ -1229,7 +1237,17 @@ func par_go_body_plus_ct_generate(
 						for i, zero := range zeroVals {
 							isConsidered := IntSliceContains([]int{ctIndex}, i)
 							if isConsidered {
-								call.Id(ctFn.GetFunc().Parameters[i].VarName)
+								if ctIndex == i {
+									if ctParam.GetOriginal().TypeString() == "string" {
+										call.Lit(ctValue)
+									} else {
+										// try to convert string to the desired type; NOTE: might not be possible.
+										typ := getTypeContent(file, groupCase, ctParam.VarName, ctParam.GetOriginal().GetType(), ctParam.GetOriginal().IsVariadic())
+										call.Add(typ).Call(Lit(ctValue))
+									}
+								} else {
+									call.Id(ctFn.GetFunc().Parameters[i].VarName)
+								}
 							} else {
 								call.Add(zero)
 							}
