@@ -920,6 +920,20 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 										groupCase.Block(blocksOfCases...)
 									}
 								}
+
+								// Create a test for each combination of body and ctFromName:
+								for _, ctQual := range b2feCtFromFuncName[pathVersion] {
+									blocksOfCases := par_go_body_plus_ctFromFuncName(
+										file,
+										bodyQual,
+										ctQual,
+									)
+									if len(blocksOfCases) == 1 {
+										groupCase.Add(blocksOfCases...)
+									} else {
+										groupCase.Block(blocksOfCases...)
+									}
+								}
 							}
 
 						}
@@ -982,6 +996,20 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 									// Create a test for each combination of body and ct:
 									for _, ctQual := range b2tmCt[pathVersion][receiverTypeID] {
 										blocksOfCases := par_go_body_plus_ct(
+											file,
+											bodyQual,
+											ctQual,
+										)
+										if len(blocksOfCases) == 1 {
+											groupCase.Add(blocksOfCases...)
+										} else {
+											groupCase.Block(blocksOfCases...)
+										}
+									}
+
+									// Create a test for each combination of body and ctFromName:
+									for _, ctQual := range b2tmCtFromFuncName[pathVersion][receiverTypeID] {
+										blocksOfCases := par_go_body_plus_ctFromFuncName(
 											file,
 											bodyQual,
 											ctQual,
@@ -1062,6 +1090,20 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 									// Create a test for each combination of body and ct:
 									for _, ctQual := range b2itmCt[pathVersion][receiverTypeID] {
 										blocksOfCases := par_go_body_plus_ct(
+											file,
+											bodyQual,
+											ctQual,
+										)
+										if len(blocksOfCases) == 1 {
+											groupCase.Add(blocksOfCases...)
+										} else {
+											groupCase.Block(blocksOfCases...)
+										}
+									}
+
+									// Create a test for each combination of body and ctFromName:
+									for _, ctQual := range b2itmCtFromFuncName[pathVersion][receiverTypeID] {
+										blocksOfCases := par_go_body_plus_ctFromFuncName(
 											file,
 											bodyQual,
 											ctQual,
@@ -1221,6 +1263,105 @@ func par_go_body_plus_ct_generate(
 
 					},
 				).Add(Tag(TagContentType(ctValue), TagResponseBody(bodyParam.VarName)))
+			}
+
+		})
+	return code
+}
+func par_go_body_plus_ctFromFuncName(
+	file *File,
+	bodyQual *x.FuncQualifier,
+	ctQual *x.FuncQualifier,
+) []Code {
+
+	childBlocks := make([]Code, 0)
+
+	bodyFn := GetFunc(bodyQual)
+	ctFn := GetFunc(ctQual)
+	// TODO: support here multiple bodies, too?
+	bodyIndexes := x.MustPosToRelativeParamIndexes(bodyFn, bodyQual.Pos)
+	if len(bodyIndexes) != 1 {
+		Fatalf("bodyIndexes len is not 1: %v", bodyQual)
+	}
+
+	childBlock := par_go_body_plus_ctFromFuncName_generate(
+		file,
+		bodyFn,
+		ctFn,
+		bodyIndexes[0],
+	)
+	{
+		if childBlock != nil {
+			childBlocks = append(childBlocks, childBlock)
+		} else {
+			Warnf(Sf("NOTHING GENERATED; bodyQual %v, ctQual %v", bodyQual, ctQual))
+		}
+	}
+
+	return childBlocks
+}
+func par_go_body_plus_ctFromFuncName_generate(
+	file *File,
+	bodyFn x.FuncInterface,
+	ctFn x.FuncInterface,
+	bodyIndex int,
+) *Statement {
+
+	bodyParam := bodyFn.GetFunc().Parameters[bodyIndex]
+	bodyParam.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", bodyParam.TypeName))
+
+	bodyFnHasReceiver := bodyFn.GetReceiver() != nil
+	ctFnHasReceiver := ctFn.GetReceiver() != nil
+	// TODO: they must have the same receiver?
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+
+			ComposeTypeAssertion(file, groupCase, bodyParam.VarName, bodyParam.GetOriginal().GetType(), bodyParam.GetOriginal().IsVariadic())
+
+			if bodyFnHasReceiver {
+				groupCase.Var().Id("rece").Qual(bodyFn.GetReceiver().PkgPath, bodyFn.GetReceiver().TypeName)
+			}
+
+			gogentools.ImportPackage(file, bodyFn.GetFunc().PkgPath, bodyFn.GetFunc().PkgName)
+			gogentools.ImportPackage(file, ctFn.GetFunc().PkgPath, ctFn.GetFunc().PkgName)
+
+			{
+				var afterCt *Statement
+				if ctFnHasReceiver {
+					// NOTE: this assumes that both functions are methods on the same receiver.
+					afterCt = groupCase.Id("rece").Dot(ctFn.GetFunc().Name)
+				} else {
+					afterCt = groupCase.Qual(ctFn.GetFunc().PkgPath, ctFn.GetFunc().Name)
+				}
+				afterCt.Call()
+			}
+
+			{
+				var afterBody *Statement
+				if bodyFnHasReceiver {
+					afterBody = groupCase.Id("rece").Dot(bodyFn.GetFunc().Name)
+				} else {
+					afterBody = groupCase.Qual(bodyFn.GetFunc().PkgPath, bodyFn.GetFunc().Name)
+				}
+				afterBody.CallFunc(
+					func(call *Group) {
+
+						tpFun := bodyFn.GetFunc().GetOriginal().GetType().(*types.Signature)
+
+						zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), bodyFn.GetFunc().GetOriginal().IsVariadic())
+
+						for i, zero := range zeroVals {
+							isConsidered := IntSliceContains([]int{bodyIndex}, i)
+							if isConsidered {
+								call.Id(bodyFn.GetFunc().Parameters[i].VarName)
+							} else {
+								call.Add(zero)
+							}
+						}
+
+					},
+				).Add(Tag(TagContentType(guessContentTypeFromFuncName(ctFn.GetFunc().Name)), TagResponseBody(bodyParam.VarName)))
 			}
 
 		})
