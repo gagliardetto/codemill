@@ -1630,7 +1630,7 @@ func GroupTypeSelectors(mtd *XMethod) (b2typ BasicToTypes, err error) {
 	return
 }
 
-func GetFuncQualifier(qual *FuncQualifier) FuncInterface {
+func GetFuncByQualifier(qual *FuncQualifier) FuncInterface {
 	source := GetCachedSource(qual.Path, qual.Version)
 	if source == nil {
 		Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
@@ -2235,4 +2235,47 @@ func ScavengeMethodsWithNameDescription(nameDescs ...string) []*XMethod {
 	}
 
 	return methods
+}
+
+//
+func (b2tm BasicToTypeIDToMethods) IterValid(
+	pathVersion string,
+	iterator func(receiverTypeID string, methodQualifiers FuncQualifierSlice),
+) {
+	iterValid(b2tm, pathVersion, iterator)
+}
+
+//
+func (b2itm BasicToInterfaceIDToMethods) IterValid(
+	pathVersion string,
+	iterator func(receiverTypeID string, methodQualifiers FuncQualifierSlice),
+) {
+	iterValid(b2itm, pathVersion, iterator)
+}
+
+func iterValid(
+	m map[string]map[string]FuncQualifierSlice,
+	pathVersion string,
+	iterator func(receiverTypeID string, methodQualifiers FuncQualifierSlice),
+) {
+	cont, ok := m[pathVersion]
+	if !ok {
+		return
+	}
+	keys := func(v map[string]FuncQualifierSlice) []string {
+		res := make([]string, 0)
+		for key := range v {
+			res = append(res, key)
+		}
+		sort.Strings(res)
+		return res
+	}(cont)
+
+	for _, receiverTypeID := range keys {
+		methodQualifiers := cont[receiverTypeID]
+		if len(methodQualifiers) == 0 || !HasValidPos(methodQualifiers...) {
+			continue
+		}
+		iterator(receiverTypeID, methodQualifiers)
+	}
 }

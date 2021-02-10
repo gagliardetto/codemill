@@ -187,7 +187,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 						func(groupCase *Group) {
 
 							for _, keyMethodQual := range methodQualifiers {
-								fn := x.GetFuncQualifier(keyMethodQual)
+								fn := x.GetFuncByQualifier(keyMethodQual)
 								thing := fn.(*feparser.FETypeMethod)
 								x.AddImportsFromFunc(file, fn)
 
@@ -266,7 +266,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 						func(groupCase *Group) {
 
 							for _, keyMethodQual := range methodQualifiers {
-								fn := x.GetFuncQualifier(keyMethodQual)
+								fn := x.GetFuncByQualifier(keyMethodQual)
 								thing := fn.(*feparser.FEInterfaceMethod)
 								x.AddImportsFromFunc(file, fn)
 

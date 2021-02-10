@@ -146,7 +146,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 					func(groupCase *Group) {
 
 						for _, funcQual := range cont {
-							fn := x.GetFuncQualifier(funcQual)
+							fn := x.GetFuncByQualifier(funcQual)
 							thing := fn.(*feparser.FEFunc)
 
 							gogentools.ImportPackage(file, thing.PkgPath, thing.PkgName)
@@ -200,7 +200,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 						func(groupCase *Group) {
 
 							for _, methodQual := range methodQualifiers {
-								fn := x.GetFuncQualifier(methodQual)
+								fn := x.GetFuncByQualifier(methodQual)
 								thing := fn.(*feparser.FETypeMethod)
 
 								x.AddImportsFromFunc(file, thing)
@@ -260,7 +260,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 						func(groupCase *Group) {
 
 							for _, methodQual := range methodQualifiers {
-								fn := x.GetFuncQualifier(methodQual)
+								fn := x.GetFuncByQualifier(methodQual)
 								thing := fn.(*feparser.FEInterfaceMethod)
 
 								x.AddImportsFromFunc(file, thing)

@@ -277,7 +277,7 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 				func(groupCase *Group) {
 
 					for _, funcQual := range cont {
-						fn := x.GetFuncQualifier(funcQual)
+						fn := x.GetFuncByQualifier(funcQual)
 						thing := fn.(*feparser.FEFunc)
 
 						x.AddImportsFromFunc(file, thing)
@@ -344,7 +344,7 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 					func(groupCase *Group) {
 
 						for _, methodQual := range methodQualifiers {
-							fn := x.GetFuncQualifier(methodQual)
+							fn := x.GetFuncByQualifier(methodQual)
 							thing := fn.(*feparser.FETypeMethod)
 							x.AddImportsFromFunc(file, fn)
 
@@ -418,7 +418,7 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 					func(groupCase *Group) {
 
 						for _, methodQual := range methodQualifiers {
-							fn := x.GetFuncQualifier(methodQual)
+							fn := x.GetFuncByQualifier(methodQual)
 							thing := fn.(*feparser.FEInterfaceMethod)
 							x.AddImportsFromFunc(file, fn)
 
@@ -578,7 +578,7 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 				func(groupCase *Group) {
 
 					for _, bodyQual := range cont {
-						fn := x.GetFuncQualifier(bodyQual)
+						fn := x.GetFuncByQualifier(bodyQual)
 						thing := fn.(*feparser.FEFunc)
 
 						x.AddImportsFromFunc(file, thing)
@@ -614,23 +614,9 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 		}
 	}
 	{
-		cont, ok := b2tmBody[pathVersion]
-		if ok {
-			codezTypeMethods := make([]Code, 0)
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
-
+		codezTypeMethods := make([]Code, 0)
+		b2tmBody.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				qual := methodQualifiers[0]
 				source := x.GetCachedSource(qual.Path, qual.Version)
 				if source == nil {
@@ -646,9 +632,8 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 
 				code := BlockFunc(
 					func(groupCase *Group) {
-
 						for _, bodyQual := range methodQualifiers {
-							fn := x.GetFuncQualifier(bodyQual)
+							fn := x.GetFuncByQualifier(bodyQual)
 							thing := fn.(*feparser.FETypeMethod)
 							x.AddImportsFromFunc(file, fn)
 
@@ -681,33 +666,18 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 						Line().
 						Add(code),
 				)
-			}
-			codez = append(codez,
-				Comment("Response body and content-type are both set via a single call of a method.").
-					Line().
-					Block(codezTypeMethods...),
-			)
-		}
+			})
+		codez = append(codez,
+			Comment("Response body and content-type are both set via a single call of a method.").
+				Line().
+				Block(codezTypeMethods...),
+		)
 	}
 
 	{
-		cont, ok := b2itmBody[pathVersion]
-		if ok {
-			codezIfaceMethods := make([]Code, 0)
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
-
+		codezIfaceMethods := make([]Code, 0)
+		b2itmBody.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				qual := methodQualifiers[0]
 				source := x.GetCachedSource(qual.Path, qual.Version)
 				if source == nil {
@@ -725,7 +695,7 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 					func(groupCase *Group) {
 
 						for _, bodyQual := range methodQualifiers {
-							fn := x.GetFuncQualifier(bodyQual)
+							fn := x.GetFuncByQualifier(bodyQual)
 							thing := fn.(*feparser.FEInterfaceMethod)
 							x.AddImportsFromFunc(file, fn)
 
@@ -758,14 +728,13 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 						Line().
 						Add(code),
 				)
-			}
+			})
 
-			codez = append(codez,
-				Comment("Response body and content-type are both set via a single call of an interface method.").
-					Line().
-					Block(codezIfaceMethods...),
-			)
-		}
+		codez = append(codez,
+			Comment("Response body and content-type are both set via a single call of an interface method.").
+				Line().
+				Block(codezIfaceMethods...),
+		)
 	}
 	return codez
 }
@@ -911,7 +880,7 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 				func(groupCase *Group) {
 
 					for _, bodyQual := range cont {
-						fn := x.GetFuncQualifier(bodyQual)
+						fn := x.GetFuncByQualifier(bodyQual)
 						thing := fn.(*feparser.FEFunc)
 
 						x.AddImportsFromFunc(file, thing)
@@ -998,7 +967,7 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 					func(groupCase *Group) {
 
 						for _, bodyQual := range methodQualifiers {
-							fn := x.GetFuncQualifier(bodyQual)
+							fn := x.GetFuncByQualifier(bodyQual)
 							thing := fn.(*feparser.FETypeMethod)
 							x.AddImportsFromFunc(file, fn)
 
@@ -1092,7 +1061,7 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 					func(groupCase *Group) {
 
 						for _, bodyQual := range methodQualifiers {
-							fn := x.GetFuncQualifier(bodyQual)
+							fn := x.GetFuncByQualifier(bodyQual)
 							thing := fn.(*feparser.FEInterfaceMethod)
 							x.AddImportsFromFunc(file, fn)
 
