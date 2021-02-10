@@ -273,6 +273,7 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 	{
 		cont, ok := b2fe[pathVersion]
 		if ok && x.HasValidPos(cont...) {
+			addedCount := 0
 			code := BlockFunc(
 				func(groupCase *Group) {
 
@@ -298,34 +299,24 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 							} else {
 								groupCase.Block(blocksOfCases...)
 							}
+							addedCount++
 						}
 
 					}
 				})
-			codez = append(codez,
-				Comment("Response body is set via a function call (the content-type is implicit in the function name).").
-					Line().
-					Add(code),
-			)
+			if addedCount > 0 {
+				codez = append(codez,
+					Comment("Response body is set via a function call (the content-type is implicit in the function name).").
+						Line().
+						Add(code),
+				)
+			}
 		}
 	}
 	{
-		cont, ok := b2tm[pathVersion]
-		if ok {
-			codezTypeMethods := make([]Code, 0)
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		codezTypeMethods := make([]Code, 0)
+		b2tm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 				qual := methodQualifiers[0]
 				source := x.GetCachedSource(qual.Path, qual.Version)
@@ -374,7 +365,8 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 						Line().
 						Add(code),
 				)
-			}
+			})
+		if len(codezTypeMethods) > 0 {
 			codez = append(codez,
 				Comment("Response body is set via a method call (the content-type is implicit in the method name).").
 					Line().
@@ -384,23 +376,9 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 	}
 
 	{
-		cont, ok := b2itm[pathVersion]
-		if ok {
-			codezIfaceMethods := make([]Code, 0)
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
-
+		codezIfaceMethods := make([]Code, 0)
+		b2itm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				qual := methodQualifiers[0]
 				source := x.GetCachedSource(qual.Path, qual.Version)
 				if source == nil {
@@ -447,8 +425,9 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 						Line().
 						Add(code),
 				)
-			}
+			})
 
+		if len(codezIfaceMethods) > 0 {
 			codez = append(codez,
 				Comment("Response body is set via an interface method call (the content-type is implicit in the method name).").
 					Line().
@@ -574,6 +553,7 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 	{
 		cont, ok := b2feBody[pathVersion]
 		if ok && x.HasValidPos(cont...) {
+			addedCount := 0
 			code := BlockFunc(
 				func(groupCase *Group) {
 
@@ -602,15 +582,18 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 							} else {
 								groupCase.Block(blocksOfCases...)
 							}
+							addedCount++
 						}
 
 					}
 				})
-			codez = append(codez,
-				Comment("Response body and content-type are both set via a single call of a function.").
-					Line().
-					Add(code),
-			)
+			if addedCount > 0 {
+				codez = append(codez,
+					Comment("Response body and content-type are both set via a single call of a function.").
+						Line().
+						Add(code),
+				)
+			}
 		}
 	}
 	{
@@ -667,11 +650,13 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 						Add(code),
 				)
 			})
-		codez = append(codez,
-			Comment("Response body and content-type are both set via a single call of a method.").
-				Line().
-				Block(codezTypeMethods...),
-		)
+		if len(codezTypeMethods) > 0 {
+			codez = append(codez,
+				Comment("Response body and content-type are both set via a single call of a method.").
+					Line().
+					Block(codezTypeMethods...),
+			)
+		}
 	}
 
 	{
@@ -730,11 +715,13 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 				)
 			})
 
-		codez = append(codez,
-			Comment("Response body and content-type are both set via a single call of an interface method.").
-				Line().
-				Block(codezIfaceMethods...),
-		)
+		if len(codezIfaceMethods) > 0 {
+			codez = append(codez,
+				Comment("Response body and content-type are both set via a single call of an interface method.").
+					Line().
+					Block(codezIfaceMethods...),
+			)
+		}
 	}
 	return codez
 }
@@ -876,6 +863,7 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 	{
 		cont, ok := b2feBody[pathVersion]
 		if ok && x.HasValidPos(cont...) {
+			addedCount := 0
 			code := BlockFunc(
 				func(groupCase *Group) {
 
@@ -904,6 +892,7 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 									} else {
 										groupCase.Block(blocksOfCases...)
 									}
+									addedCount++
 								}
 
 								// Create a test for each combination of body and ctFromName:
@@ -918,6 +907,7 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 									} else {
 										groupCase.Block(blocksOfCases...)
 									}
+									addedCount++
 								}
 							}
 
@@ -925,30 +915,19 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 
 					}
 				})
-			codez = append(codez,
-				Comment("Response body and content-type are set via calls of different functions.").
-					Line().
-					Add(code),
-			)
+			if addedCount > 0 {
+				codez = append(codez,
+					Comment("Response body and content-type are set via calls of different functions.").
+						Line().
+						Add(code),
+				)
+			}
 		}
 	}
 	{
-		cont, ok := b2tmBody[pathVersion]
-		if ok {
-			codezTypeMethods := make([]Code, 0)
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		codezTypeMethods := make([]Code, 0)
+		b2tmBody.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 				qual := methodQualifiers[0]
 				source := x.GetCachedSource(qual.Path, qual.Version)
@@ -1017,7 +996,8 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 						Line().
 						Add(code),
 				)
-			}
+			})
+		if len(codezTypeMethods) > 0 {
 			codez = append(codez,
 				Comment("Response body and content-type are set via calls of different methods.").
 					Line().
@@ -1027,22 +1007,9 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 	}
 
 	{
-		cont, ok := b2itmBody[pathVersion]
-		if ok {
-			codezIfaceMethods := make([]Code, 0)
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		codezIfaceMethods := make([]Code, 0)
+		b2itmBody.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 				qual := methodQualifiers[0]
 				source := x.GetCachedSource(qual.Path, qual.Version)
@@ -1108,8 +1075,9 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 						Line().
 						Add(code),
 				)
-			}
+			})
 
+		if len(codezIfaceMethods) > 0 {
 			codez = append(codez,
 				Comment("Response body and content-type are set via calls of different interface methods.").
 					Line().

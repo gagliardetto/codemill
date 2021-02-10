@@ -151,24 +151,12 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		if err != nil {
 			Fatalf("Error while GroupFuncSelectors: %s", err)
 		}
+		// TODO: consider also header writes done with a function?
 
 		{
-			cont, ok := b2tmKey[pathVersion]
-			if ok {
-				codezTypeMethods := make([]Code, 0)
-				keys := func(v map[string]x.FuncQualifierSlice) []string {
-					res := make([]string, 0)
-					for key := range v {
-						res = append(res, key)
-					}
-					sort.Strings(res)
-					return res
-				}(cont)
-				for _, receiverTypeID := range keys {
-					methodQualifiers := cont[receiverTypeID]
-					if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-						continue
-					}
+			codezTypeMethods := make([]Code, 0)
+			b2tmKey.IterValid(pathVersion,
+				func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -222,7 +210,8 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							Line().
 							Add(code),
 					)
-				}
+				})
+			if len(codezTypeMethods) > 0 {
 				codez = append(codez,
 					Comment("Header write via method calls.").
 						Line().
@@ -232,22 +221,9 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		}
 
 		{
-			cont, ok := b2itmKey[pathVersion]
-			if ok {
-				codezIfaceMethods := make([]Code, 0)
-				keys := func(v map[string]x.FuncQualifierSlice) []string {
-					res := make([]string, 0)
-					for key := range v {
-						res = append(res, key)
-					}
-					sort.Strings(res)
-					return res
-				}(cont)
-				for _, receiverTypeID := range keys {
-					methodQualifiers := cont[receiverTypeID]
-					if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-						continue
-					}
+			codezIfaceMethods := make([]Code, 0)
+			b2itmKey.IterValid(pathVersion,
+				func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -300,8 +276,9 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							Line().
 							Add(code),
 					)
-				}
+				})
 
+			if len(codezIfaceMethods) > 0 {
 				codez = append(codez,
 					Comment("Header write via interface method calls.").
 						Line().

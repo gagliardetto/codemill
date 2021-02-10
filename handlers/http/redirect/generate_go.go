@@ -138,6 +138,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		{
 			cont, ok := b2fe[pathVersion]
 			if ok && x.HasValidPos(cont...) {
+				addedCount := 0
 				code := BlockFunc(
 					func(groupCase *Group) {
 
@@ -163,34 +164,24 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 								} else {
 									groupCase.Block(blocksOfCases...)
 								}
+								addedCount++
 							}
 
 						}
 					})
-				codez = append(codez,
-					Comment("Redirect via function call.").
-						Line().
-						Add(code),
-				)
+				if addedCount > 0 {
+					codez = append(codez,
+						Comment("Redirect via function call.").
+							Line().
+							Add(code),
+					)
+				}
 			}
 		}
 		{
-			cont, ok := b2tm[pathVersion]
-			if ok {
-				codezTypeMethods := make([]Code, 0)
-				keys := func(v map[string]x.FuncQualifierSlice) []string {
-					res := make([]string, 0)
-					for key := range v {
-						res = append(res, key)
-					}
-					sort.Strings(res)
-					return res
-				}(cont)
-				for _, receiverTypeID := range keys {
-					methodQualifiers := cont[receiverTypeID]
-					if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-						continue
-					}
+			codezTypeMethods := make([]Code, 0)
+			b2tm.IterValid(pathVersion,
+				func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -239,7 +230,8 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							Line().
 							Add(code),
 					)
-				}
+				})
+			if len(codezTypeMethods) > 0 {
 				codez = append(codez,
 					Comment("Redirect via method calls.").
 						Line().
@@ -249,23 +241,9 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		}
 
 		{
-			cont, ok := b2itm[pathVersion]
-			if ok {
-				codezIfaceMethods := make([]Code, 0)
-				keys := func(v map[string]x.FuncQualifierSlice) []string {
-					res := make([]string, 0)
-					for key := range v {
-						res = append(res, key)
-					}
-					sort.Strings(res)
-					return res
-				}(cont)
-				for _, receiverTypeID := range keys {
-					methodQualifiers := cont[receiverTypeID]
-					if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-						continue
-					}
-
+			codezIfaceMethods := make([]Code, 0)
+			b2itm.IterValid(pathVersion,
+				func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
 					if source == nil {
@@ -312,8 +290,9 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 							Line().
 							Add(code),
 					)
-				}
+				})
 
+			if len(codezIfaceMethods) > 0 {
 				codez = append(codez,
 					Comment("Redirect via interface method calls.").
 						Line().

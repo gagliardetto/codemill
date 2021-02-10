@@ -2273,7 +2273,7 @@ func iterValid(
 
 	for _, receiverTypeID := range keys {
 		methodQualifiers := cont[receiverTypeID]
-		if len(methodQualifiers) == 0 || !HasValidPos(methodQualifiers...) {
+		if len(methodQualifiers) == 0 || (!HasValidPos(methodQualifiers...) && !HasValidEnabledFlow(methodQualifiers...)) {
 			continue
 		}
 		iterator(receiverTypeID, methodQualifiers)
