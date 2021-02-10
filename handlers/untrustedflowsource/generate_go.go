@@ -105,14 +105,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		return nil
 	}
 
-	allPathVersions := func() []string {
-		res := make([]string, 0)
-		mods := mdl.ListModules()
-		for _, mod := range mods {
-			res = append(res, mod.PathVersionClean())
-		}
-		return res
-	}()
+	allPathVersions := mdl.ListAllPathVersions()
 
 	file := NewTestFile(true)
 

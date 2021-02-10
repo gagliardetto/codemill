@@ -5,7 +5,6 @@ import (
 	"go/types"
 	"os"
 	"path/filepath"
-	"sort"
 
 	. "github.com/dave/jennifer/jen"
 	"github.com/gagliardetto/codebox/gogentools"
@@ -136,15 +135,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		return nil
 	}
 
-	allPathVersions := func() []string {
-		res := make([]string, 0)
-		mods := mdl.ListModules()
-		for _, mod := range mods {
-			res = append(res, mod.PathVersionClean())
-		}
-		sort.Strings(res)
-		return res
-	}()
+	allPathVersions := mdl.ListAllPathVersions()
 
 	file := NewTestFile(true)
 

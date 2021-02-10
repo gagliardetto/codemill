@@ -536,6 +536,16 @@ func (mdl *XModel) ListModules() []*BasicQualifier {
 	return qualifiers
 }
 
+func (mdl *XModel) ListAllPathVersions() []string {
+	res := make([]string, 0)
+	mods := mdl.ListModules()
+	for _, mod := range mods {
+		res = append(res, mod.PathVersionClean())
+	}
+	sort.Strings(res)
+	return res
+}
+
 // Validate validates a method.
 func (mtd *XMethod) Validate() error {
 	if strings.TrimSpace(mtd.Name) == "" {

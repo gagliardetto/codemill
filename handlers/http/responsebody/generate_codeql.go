@@ -1,7 +1,6 @@
 package responsebody
 
 import (
-	"sort"
 	"strings"
 
 	"github.com/gagliardetto/codebox/scanner"
@@ -25,15 +24,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	}
 
 	className := mdl.Name
-	allPathVersions := func() []string {
-		res := make([]string, 0)
-		mods := mdl.ListModules()
-		for _, mod := range mods {
-			res = append(res, mod.PathVersionClean())
-		}
-		sort.Strings(res)
-		return res
-	}()
+	allPathVersions := mdl.ListAllPathVersions()
 
 	{
 		addedCount := 0

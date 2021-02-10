@@ -1,8 +1,6 @@
 package headerwrite
 
 import (
-	"sort"
-
 	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/x"
 	. "github.com/gagliardetto/cqlgen/jen"
@@ -37,15 +35,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	}
 
 	className := mdl.Name
-	allPathVersions := func() []string {
-		res := make([]string, 0)
-		mods := mdl.ListModules()
-		for _, mod := range mods {
-			res = append(res, mod.PathVersionClean())
-		}
-		sort.Strings(res)
-		return res
-	}()
+	allPathVersions := mdl.ListAllPathVersions()
 
 	_, b2tmKey, b2itmKey, err := x.GroupFuncSelectors(methodWriteHeaderKey)
 	if err != nil {
