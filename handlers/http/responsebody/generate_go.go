@@ -319,12 +319,8 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 				qual := methodQualifiers[0]
-				source := x.GetCachedSource(qual.Path, qual.Version)
-				if source == nil {
-					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-				}
 				// Find receiver type:
-				typ := x.FindTypeByID(source, receiverTypeID)
+				typ := x.FindType(qual.Path, qual.Version, receiverTypeID)
 				if typ == nil {
 					Fatalf("Type not found: %q", receiverTypeID)
 				}
@@ -380,12 +376,8 @@ func go_MethodBodyWithCtFromFuncName(mdl *x.XModel, file *File, pathVersion stri
 		b2itm.IterValid(pathVersion,
 			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				qual := methodQualifiers[0]
-				source := x.GetCachedSource(qual.Path, qual.Version)
-				if source == nil {
-					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-				}
 				// Find receiver type:
-				typ := x.FindTypeByID(source, receiverTypeID)
+				typ := x.FindType(qual.Path, qual.Version, receiverTypeID)
 				if typ == nil {
 					Fatalf("Type not found: %q", receiverTypeID)
 				}
@@ -601,12 +593,8 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 		b2tmBody.IterValid(pathVersion,
 			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				qual := methodQualifiers[0]
-				source := x.GetCachedSource(qual.Path, qual.Version)
-				if source == nil {
-					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-				}
 				// Find receiver type:
-				typ := x.FindTypeByID(source, receiverTypeID)
+				typ := x.FindType(qual.Path, qual.Version, receiverTypeID)
 				if typ == nil {
 					Fatalf("Type not found: %q", receiverTypeID)
 				}
@@ -664,12 +652,8 @@ func go_MethodBodyWithCt(mdl *x.XModel, file *File, pathVersion string) []Code {
 		b2itmBody.IterValid(pathVersion,
 			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				qual := methodQualifiers[0]
-				source := x.GetCachedSource(qual.Path, qual.Version)
-				if source == nil {
-					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-				}
 				// Find receiver type:
-				typ := x.FindTypeByID(source, receiverTypeID)
+				typ := x.FindType(qual.Path, qual.Version, receiverTypeID)
 				if typ == nil {
 					Fatalf("Type not found: %q", receiverTypeID)
 				}
@@ -930,12 +914,8 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 				qual := methodQualifiers[0]
-				source := x.GetCachedSource(qual.Path, qual.Version)
-				if source == nil {
-					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-				}
 				// Find receiver type:
-				typ := x.FindTypeByID(source, receiverTypeID)
+				typ := x.FindType(qual.Path, qual.Version, receiverTypeID)
 				if typ == nil {
 					Fatalf("Type not found: %q", receiverTypeID)
 				}
@@ -1012,12 +992,8 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 				qual := methodQualifiers[0]
-				source := x.GetCachedSource(qual.Path, qual.Version)
-				if source == nil {
-					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-				}
 				// Find receiver type:
-				typ := x.FindTypeByID(source, receiverTypeID)
+				typ := x.FindType(qual.Path, qual.Version, receiverTypeID)
 				if typ == nil {
 					Fatalf("Type not found: %q", receiverTypeID)
 				}

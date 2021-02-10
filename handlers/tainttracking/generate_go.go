@@ -211,12 +211,8 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 					qual := methodQualifiers[0]
-					source := x.GetCachedSource(qual.Path, qual.Version)
-					if source == nil {
-						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-					}
 					// Find receiver type:
-					typ := x.FindTypeByID(source, receiverTypeID)
+					typ := x.FindType(qual.Path, qual.Version, receiverTypeID)
 					if typ == nil {
 						Fatalf("Type not found: %q", receiverTypeID)
 					}
@@ -274,12 +270,8 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 
 					qual := methodQualifiers[0]
-					source := x.GetCachedSource(qual.Path, qual.Version)
-					if source == nil {
-						Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-					}
 					// Find receiver type:
-					typ := x.FindTypeByID(source, receiverTypeID)
+					typ := x.FindType(qual.Path, qual.Version, receiverTypeID)
 					if typ == nil {
 						Fatalf("Type not found: %q", receiverTypeID)
 					}

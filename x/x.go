@@ -1427,6 +1427,15 @@ func FindTypeByID(fe *feparser.FEPackage, id string) *feparser.FEType {
 	return nil
 }
 
+func FindType(path string, version string, id string) *feparser.FEType {
+	source := GetCachedSource(path, version)
+	if source == nil {
+		Errorf("Source not found: %s@%s", path, version)
+		return nil
+	}
+	return FindTypeByID(source, id)
+}
+
 type FuncQualifierSlice []*FuncQualifier
 
 //
