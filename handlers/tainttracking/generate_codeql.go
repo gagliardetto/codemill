@@ -141,21 +141,8 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 										for _, pathVersion := range allPathVersions {
 											pathCodez := make([]Code, 0)
 											{
-												cont, ok := b2tm[pathVersion]
-												if ok {
-													keys := func(v map[string]x.FuncQualifierSlice) []string {
-														res := make([]string, 0)
-														for key := range v {
-															res = append(res, key)
-														}
-														sort.Strings(res)
-														return res
-													}(cont)
-													for _, receiverTypeID := range keys {
-														methodQualifiers := cont[receiverTypeID]
-														if len(methodQualifiers) == 0 || !x.HasValidEnabledFlow(methodQualifiers...) {
-															continue
-														}
+												b2tm.IterValid(pathVersion,
+													func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 														codez := DoGroup(func(mtdGroup *Group) {
 															qual := methodQualifiers[0]
 															source := x.GetCachedSource(qual.Path, qual.Version)
@@ -211,24 +198,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 														})
 														pathCodez = append(pathCodez, codez)
-													}
-												}
+													})
 											}
-											contb2itm, ok := b2itm[pathVersion]
-											if ok {
-												keys := func(v map[string]x.FuncQualifierSlice) []string {
-													res := make([]string, 0)
-													for key := range v {
-														res = append(res, key)
-													}
-													sort.Strings(res)
-													return res
-												}(contb2itm)
-												for _, receiverTypeID := range keys {
-													methodQualifiers := contb2itm[receiverTypeID]
-													if len(methodQualifiers) == 0 || !x.HasValidEnabledFlow(methodQualifiers...) {
-														continue
-													}
+
+											b2itm.IterValid(pathVersion,
+												func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 													codez := DoGroup(func(mtdGroup *Group) {
 														qual := methodQualifiers[0]
 														source := x.GetCachedSource(qual.Path, qual.Version)
@@ -283,8 +257,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 													})
 													pathCodez = append(pathCodez, codez)
-												}
-											}
+												})
 
 											if len(pathCodez) > 0 {
 												if addedCount > 0 {

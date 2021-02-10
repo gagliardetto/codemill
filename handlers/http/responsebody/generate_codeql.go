@@ -226,21 +226,8 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 	}
 	// Type methods:
 	{
-		cont, ok := b2tm[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2tm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					mtdGroup.Comment(comment)
 
@@ -310,26 +297,12 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 	// Interface methods:
 	{
-		contb2itm, ok := b2itm[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(contb2itm)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := contb2itm[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2itm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					mtdGroup.Comment(comment)
 
@@ -399,8 +372,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersion string) []Code 
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 
 	return pathCodez
@@ -476,21 +448,8 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 	}
 	// Type methods:
 	{
-		cont, ok := b2tmBody[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2tmBody.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					mtdGroup.Comment(comment)
 
@@ -564,26 +523,12 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 	// Interface methods:
 	{
-		contb2itm, ok := b2itmBody[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(contb2itm)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := contb2itm[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2itmBody.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					mtdGroup.Comment(comment)
 
@@ -657,8 +602,7 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 
 	return pathCodez
@@ -712,21 +656,8 @@ func cql_MethodBody(mdl *x.XModel, pathVersion string) []Code {
 	}
 	// Type methods:
 	{
-		cont, ok := b2tm[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2tm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -788,26 +719,12 @@ func cql_MethodBody(mdl *x.XModel, pathVersion string) []Code {
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 	// Interface methods:
 	{
-		contb2itm, ok := b2itm[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(contb2itm)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := contb2itm[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2itm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -871,8 +788,7 @@ func cql_MethodBody(mdl *x.XModel, pathVersion string) []Code {
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 
 	return pathCodez
@@ -951,21 +867,8 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 	}
 	// Type methods:
 	{
-		cont, ok := b2tm[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2tm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -1038,26 +941,12 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 	// Interface methods:
 	{
-		contb2itm, ok := b2itm[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(contb2itm)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := contb2itm[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2itm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -1129,8 +1018,7 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 
 	return pathCodez
@@ -1209,21 +1097,8 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 	}
 	// Type methods:
 	{
-		cont, ok := b2tm[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(cont)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := cont[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2tm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -1295,26 +1170,12 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 	// Interface methods:
 	{
-		contb2itm, ok := b2itm[pathVersion]
-		if ok {
-			keys := func(v map[string]x.FuncQualifierSlice) []string {
-				res := make([]string, 0)
-				for key := range v {
-					res = append(res, key)
-				}
-				sort.Strings(res)
-				return res
-			}(contb2itm)
-			for _, receiverTypeID := range keys {
-				methodQualifiers := contb2itm[receiverTypeID]
-				if len(methodQualifiers) == 0 || !x.HasValidPos(methodQualifiers...) {
-					continue
-				}
+		b2itm.IterValid(pathVersion,
+			func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 				codez := DoGroup(func(mtdGroup *Group) {
 					qual := methodQualifiers[0]
 					source := x.GetCachedSource(qual.Path, qual.Version)
@@ -1385,8 +1246,7 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersion string) []Code {
 
 				})
 				pathCodez = append(pathCodez, codez)
-			}
-		}
+			})
 	}
 
 	return pathCodez
