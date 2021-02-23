@@ -1,6 +1,6 @@
 module github.com/gagliardetto/codemill
 
-go 1.14
+go 1.16
 
 require (
 	github.com/bitly/go-simplejson v0.5.0 // indirect

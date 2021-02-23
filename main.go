@@ -1,23 +1,26 @@
 package main
 
-//go:generate statik -src=./public -include=*.html,*.css,*.js
 import (
+	"bytes"
+	"embed"
 	"errors"
 	"flag"
 	"fmt"
+	"io/fs"
 	"io/ioutil"
 	"mime"
 	"net/http"
 	"net/url"
 	"os"
+	"os/exec"
 	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
 	"github.com/gagliardetto/codebox/scanner"
-	_ "github.com/gagliardetto/codemill/statik"
 	"github.com/gagliardetto/codemill/x"
 	cqljen "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
@@ -28,7 +31,6 @@ import (
 	"github.com/gagliardetto/request"
 	. "github.com/gagliardetto/utilz"
 	"github.com/gin-gonic/gin"
-	"github.com/rakyll/statik/fs"
 	"golang.org/x/mod/modfile"
 	"golang.org/x/tools/go/packages"
 
@@ -50,17 +52,54 @@ var (
 	globalSpec *x.XSpec
 )
 
-func main() {
-	r := gin.Default()
+//go:embed public/*.html public/static/*.css public/static/*.js
+var embededFiles embed.FS
 
-	statikFS, err := fs.New()
-	if err != nil {
-		Fataln(err)
+func getFileSystem(useOS bool) fs.FS {
+	if useOS {
+		Infof("Using live mode")
+		return os.DirFS("public")
 	}
+
+	Infof("Using embed mode")
+	fsys, err := fs.Sub(embededFiles, "public")
+	if err != nil {
+		panic(err)
+	}
+
+	return fsys
+}
+
+func main() {
+
+	var specFilepath string
+	var outDir string
+	var runServer bool
+	var doGen bool
+	var useOS bool
+	flag.StringVar(&specFilepath, "spec", "", "Path to spec file; file will be created if not already existing.")
+	flag.StringVar(&outDir, "dir", "", "Path to dir where to save generated files.")
+	flag.BoolVar(&runServer, "http", true, "Run http server.")
+	flag.BoolVar(&doGen, "gen", true, "Generate code.")
+	flag.BoolVar(&useOS, "live-os", false, "Use static files (html, js, css) from live os instead of the embedded ones.")
+	flag.Parse()
+
+	if specFilepath == "" {
+		// specFilepath is ALWAYS necessary,
+		// either for knowing from where to load a spec,
+		// or where to save a new created one.
+		panic("--spec flag not provided")
+	}
+
+	if outDir == "" {
+		panic("--dir flag not provided")
+	}
+
+	r := gin.Default()
 
 	{ // Add http handlers for static files:
 		r.GET("/", func(c *gin.Context) {
-			reader, err := statikFS.Open("/index.html")
+			reader, err := getFileSystem(useOS).Open("index.html")
 			if err != nil {
 				Q(err)
 				Abort404(c, err.Error())
@@ -81,7 +120,7 @@ func main() {
 				c.AbortWithStatus(400)
 				return
 			}
-			reader, err := statikFS.Open("/static/" + name)
+			reader, err := getFileSystem(useOS).Open("static/" + name)
 			if err != nil {
 				c.AbortWithError(400, err)
 				Q(err)
@@ -99,27 +138,6 @@ func main() {
 		})
 	}
 	httpClient := new(http.Client)
-
-	var specFilepath string
-	var outDir string
-	var runServer bool
-	var doGen bool
-	flag.StringVar(&specFilepath, "spec", "", "Path to spec file; file will be created if not already existing.")
-	flag.StringVar(&outDir, "dir", "", "Path to dir where to save generated files.")
-	flag.BoolVar(&runServer, "http", true, "Run http server.")
-	flag.BoolVar(&doGen, "gen", true, "Generate code.")
-	flag.Parse()
-
-	if specFilepath == "" {
-		// specFilepath is ALWAYS necessary,
-		// either for knowing from where to load a spec,
-		// or where to save a new created one.
-		panic("--spec flag not provided")
-	}
-
-	if outDir == "" {
-		panic("--dir flag not provided")
-	}
 
 	{
 		rt := x.Router()
@@ -1244,16 +1262,15 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 			return nil, err
 		}
 		// TODO: remove tmpDir or not?
-		defer os.RemoveAll(tmpDir)
+		//defer os.RemoveAll(tmpDir)
 		tmpDir = MustAbs(tmpDir)
-		//Q(tmpDir)
 
 		// Create a `go.mod` file requiring the specified version of the package:
 		mf := &modfile.File{}
 		mf.AddModuleStmt("example.com/hello/world")
 
 		if !isStd {
-			mf.AddNewRequire(rootPath, version, true)
+			mf.AddNewRequire(rootPath, version, false)
 		}
 		mf.Cleanup()
 
@@ -1266,13 +1283,48 @@ func LoadPackage(path string, version string) (*feparser.FEPackage, error) {
 		if err != nil {
 			return nil, err
 		}
-		//Ln(string(mfBytes))
 
 		// Set the package loader Dir to the `tmpDir`; that will force
 		// the package loader to use the `go.mod` file and thus
 		// load the wanted version of the package:
 		config.Dir = tmpDir
 		// NOTE: Why /api/source?path=github.com/revel/revel/testing&v=v0.9.1 gets the github.com/revel/revel@v1.0.0/testing ???
+
+		{
+			// Fixes for go1.16, which requires:
+			// - A valid and complete go.sum must be present in the destination directory.
+			// - Packages added to go.mod must be used, otherwise they will be removed.
+			// NOTE: https://github.com/golang/go/issues/44162
+			// NOTE: https://github.com/golang/mobile/commit/e4a08af010a34d221ae30f4cc0506379a7210e30
+			mainGoSrc := Sf(`package main
+
+		import (
+			_ %q
+		)
+
+		func main() {}
+		`, path)
+			err = ioutil.WriteFile(filepath.Join(tmpDir, "main.go"), []byte(mainGoSrc), 0666)
+			if err != nil {
+				return nil, err
+			}
+
+			gopath := fmt.Sprintf("GOPATH=%s%c%s", "/tmp", filepath.ListSeparator, os.ExpandEnv("$GOPATH"))
+			env := []string{"GO111MODULE=on", gopath}
+
+			{
+				// Add git to $PATH:
+				pathToGit, err := exec.LookPath("git")
+				if err != nil {
+					panic(err)
+				}
+				env = append(env, "PATH="+filepath.Dir(pathToGit))
+			}
+
+			if err := goModTidyAt(tmpDir, env); err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	// Initialize scanner:
@@ -1345,4 +1397,35 @@ func Abort404(c *gin.Context, errorString string) {
 }
 func abort(c *gin.Context, statusCode int, errorString string) {
 	c.AbortWithStatusJSON(statusCode, M{"error": errorString})
+}
+
+var buildV bool
+
+func goModTidyAt(at string, env []string) error {
+	cmd := exec.Command("go", "mod", "tidy")
+	if buildV {
+		cmd.Args = append(cmd.Args, "-v")
+	}
+	cmd.Env = append([]string{}, env...)
+	cmd.Dir = at
+
+	return runCmd(cmd)
+}
+
+func runCmd(cmd *exec.Cmd) error {
+
+	buf := new(bytes.Buffer)
+	buf.WriteByte('\n')
+	if buildV {
+		cmd.Stdout = os.Stdout
+		cmd.Stderr = os.Stderr
+	} else {
+		cmd.Stdout = buf
+		cmd.Stderr = buf
+	}
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("%s failed: %v%s", strings.Join(cmd.Args, " "), err, buf)
+	}
+	return nil
 }
