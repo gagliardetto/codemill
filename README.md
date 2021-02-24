@@ -19,6 +19,10 @@ You can install codemill cloning this repo and running `make install`; you need 
 
 **NOTE**: Go 1.16 will be supported soon (WIP).
 
+## Example generated code
+
+You can see an example of what `codemill` can generate here: https://github.com/github/codeql-go/pull/438/files
+
 ## Example: gin
 
 ```bash
