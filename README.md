@@ -40,4 +40,4 @@ The second model we will add to the `Gin` spec is an `TaintTracking` model, whic
 
 ![codemill-gin-tainttracking](https://user-images.githubusercontent.com/15271561/109023904-db9bfc80-76c5-11eb-9449-f264bc3b8886.gif)
 
-Now our model is done, and we go back to the terminal and hit `CTRL+C` to close the program. On exit, `codemill` will save the edited spec and generate codeql and go files in a timestamped folder inside the `generated` folder we created earlier.
+Now our spec is done, let's go back to the terminal and hit `CTRL+C` to close the program. On exit, `codemill` will save the edited spec and generate codeql and go files in a timestamped folder inside the `generated` folder we created earlier.
