@@ -1,38 +1,43 @@
-https://blog.golang.org/module-mirror-launch
-https://github.com/golang/gofrontend/blob/2c390ba951e83b547f6387cc9e19436c085b3775/libgo/go/cmd/go/internal/modload/import.go#L113
-https://github.com/golang/go/blob/c9211577eb77df9c51f0565f1da7d20ff91d59df/src/cmd/go/internal/modfetch/fetch.go
-https://github.com/golang/go/blob/846dce9d05f19a1f53465e62a304dea21b99f910/src/cmd/go/internal/modload/query.go#L269
-https://github.com/golang/go/blob/846dce9d05f19a1f53465e62a304dea21b99f910/src/cmd/go/internal/modload/query.go#L269
+## codemill
 
-https://github.com/golang/tools/blob/f1b4bd93c9465ac3d4edf2a53caf28cd21f846aa/go/ssa/example_test.go
+`codemill` helps with the creation of codeql models for Go.
 
-find repo:
-	https://api.godoc.org/search?q=godoc
-
-get a list of versions:
-	https://proxy.golang.org/github.com/gin-gonic/gin/@v/list
-
-if no version, get latest version:
-	https://proxy.golang.org/github.com/gagliardetto/codebox/@latest
-
-fetch all code (NOTE: there are steps before that, which I don't understand yet)
-	https://proxy.golang.org/github.com/gin-gonic/gin/@v/v1.3.0.zip
+You build a spec of a module in a browser-base UI, adding models and selectors to it, and then it generates the corresponding codeql and go code.
 
 
+### Currently supported codeql models
 
+- **TaintTracking** - DONE
+- **UntrustedFlowSource** - DONE
+- **HTTP::HeaderWrite** - WIP
+- **HTTP::Redirect** - WIP
+- **HTTP::ResponseBody** - WIP
 
+## Example: gin
 
----
-
-```
-find . -name '*.go' -exec sed -i -e 's/"cmd\//"github.com\/gagliardetto\/codemill\/cmd\//g' {} \;
-find . -name '*.go' -exec sed -i -e 's/"github.com\/gagliardetto\/codemill\/cmd\/go\/internal/"github.com\/gagliardetto\/codemill\/cmd\/go\/not-internal/g' {} \;
-find . -name '*.go' -exec sed -i -e 's/"internal\//"github.com\/gagliardetto\/codemill\/not-internal\//g' {} \;
+```bash
+# Welcome to a `codemill` basic usage example
+# First' let's create a folder for our codemill files
+mkdir my-codemill && cd my-codemill
+# Then we need a folder for the projects' specs
+mkdir specs
+# And a folder for generated files
+mkdir generated
+# Now we're ready for creating our first spec
+# In this example I will create a very incomplete model for the gin web framework
+codemill --spec=./specs/Gin.json --dir=./generated --http=true --gen=true
 ```
 
----
+![codemill-initial-setup](https://user-images.githubusercontent.com/15271561/109022902-f326b580-76c4-11eb-856c-4969ea5f80d3.gif)
 
-export GOPRIVATE=github.com/gagliardetto/gomill/\* 
-go env -w GOPRIVATE=github.com/<OrgNameHere>/*
+After that, let's open [http://127.0.0.1:8070/](http://127.0.0.1:8070/) in a browser, and edit the spec.
 
-GOPACKAGESDEBUG=true GO111MODULE=on GOOS=linux GOARCH=amd64 go run main.go
+The first model we will add to the `Gin` spec is an `UntrustedFlowSource` model, which defines sources of user-defined input:
+
+![codemill-gin-untrustedflowsource](https://user-images.githubusercontent.com/15271561/109023418-70eac100-76c5-11eb-82e3-826fbf0be089.gif)
+
+The second model we will add to the `Gin` spec is an `TaintTracking` model, which defines taint propagation in functions and methods:
+
+![codemill-gin-tainttracking](https://user-images.githubusercontent.com/15271561/109023904-db9bfc80-76c5-11eb-9449-f264bc3b8886.gif)
+
+Now our model is done, and we go back to the terminal and hit `CTRL+C` to close the program. On exit, `codemill` will save the edited spec and generate codeql and go files in a timestamped folder inside the `generated` folder we created earlier.
