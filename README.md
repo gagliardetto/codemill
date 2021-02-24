@@ -13,6 +13,12 @@ You build a spec of a module in a browser-base UI, adding models and selectors t
 - **HTTP::Redirect** - WIP
 - **HTTP::ResponseBody** - WIP
 
+## Install
+
+You can install codemill cloning this repo and running `make install`; you need Go < 1.16.
+
+**NOTE**: Go 1.16 will be supported soon (WIP).
+
 ## Example: gin
 
 ```bash
