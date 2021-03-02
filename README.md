@@ -2,7 +2,7 @@
 
 `codemill` helps with the creation of codeql models for Go.
 
-You build a spec of a module in a browser-base UI, adding models and selectors to it, and then it generates the corresponding codeql and go code.
+You build a spec of a module in a browser-based UI, adding models and selectors to it, and then it generates the corresponding codeql and go code.
 
 
 ### Currently supported codeql models
@@ -46,7 +46,7 @@ The first model we will add to the `Gin` spec is an `UntrustedFlowSource` model,
 
 ![codemill-gin-untrustedflowsource](https://user-images.githubusercontent.com/15271561/109023418-70eac100-76c5-11eb-82e3-826fbf0be089.gif)
 
-The second model we will add to the `Gin` spec is an `TaintTracking` model, which defines taint propagation in functions and methods:
+The second model we will add to the `Gin` spec is a `TaintTracking` model, which defines taint propagation in functions and methods:
 
 ![codemill-gin-tainttracking](https://user-images.githubusercontent.com/15271561/109023904-db9bfc80-76c5-11eb-9449-f264bc3b8886.gif)
 
