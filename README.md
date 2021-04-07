@@ -44,7 +44,7 @@ After that, let's open [http://127.0.0.1:8070/](http://127.0.0.1:8070/) in a bro
 
 The first model we will add to the `Gin` spec is an `UntrustedFlowSource` model, which defines sources of user-defined input:
 
-![codemill-gin-untrustedflowsource](https://user-images.githubusercontent.com/15271561/109023418-70eac100-76c5-11eb-82e3-826fbf0be089.gif)
+![codemill-gin-untrustedflowsource](https://user-images.githubusercontent.com/15271561/113894302-8aa51b00-97d0-11eb-9645-c2a4f1d26958.gif)
 
 The second model we will add to the `Gin` spec is a `TaintTracking` model, which defines taint propagation in functions and methods:
 
