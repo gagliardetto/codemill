@@ -78,6 +78,8 @@ github.com/gagliardetto/utilz v0.0.0-20200824151221-3a6131a12868 h1:qz+c8zIi6CzX
 github.com/gagliardetto/utilz v0.0.0-20200824151221-3a6131a12868/go.mod h1:FqrJIHaVBve1PigrIcinRW1cahs8TfHVpvRoks+g6sU=
 github.com/gagliardetto/utilz v0.0.0-20210206133039-f73d84130f65 h1:VCOz0kHx2gMZvLiMAgJrEf0yHqQeTv7xmYKYls7N1gE=
 github.com/gagliardetto/utilz v0.0.0-20210206133039-f73d84130f65/go.mod h1:b+rGFkRHz3HWJD0RYMzat47JyvbTtpE0iEcYTRJTLLA=
+github.com/gagliardetto/utilz v0.0.0-20210408172648-3fe4552c254d h1:jNfiuXgajIxesMzaYXqP6xHiIox3HqmjUDBHKIwpUpE=
+github.com/gagliardetto/utilz v0.0.0-20210408172648-3fe4552c254d/go.mod h1:b+rGFkRHz3HWJD0RYMzat47JyvbTtpE0iEcYTRJTLLA=
 github.com/gin-contrib/sse v0.1.0 h1:Y/yl/+YNO8GZSjAhjMsSuLt29uWRFHdHYUb5lYOV9qE=
 github.com/gin-contrib/sse v0.1.0/go.mod h1:RHrZQHXnP2xjPF+u1gW/2HnVO7nvIa9PG3Gm+fLHvGI=
 github.com/gin-gonic/gin v1.6.3 h1:ahKqKTFpO5KTPHxWZjEdPScmYaGtLo8Y4DMHoEsnp14=

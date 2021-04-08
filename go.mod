@@ -12,7 +12,7 @@ require (
 	github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814
 	github.com/gagliardetto/ref v0.0.0-20210206133004-be4e0e122a03
 	github.com/gagliardetto/request v0.8.0
-	github.com/gagliardetto/utilz v0.0.0-20210206133039-f73d84130f65
+	github.com/gagliardetto/utilz v0.0.0-20210408172648-3fe4552c254d
 	github.com/gin-gonic/gin v1.6.3
 	github.com/golang/protobuf v1.4.3 // indirect
 	github.com/google/go-cmp v0.5.2 // indirect
