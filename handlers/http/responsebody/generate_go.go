@@ -196,16 +196,16 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 
 		{
 			file.Commentf("Package %s", pathVersion)
-			file.Func().Id(feparser.FormatCodeQlName(pathVersion)).Params().Block(pathCodez...)
+			file.Func().Id(mdl.Name + "_" + feparser.FormatCodeQlName(pathVersion)).Params().Block(pathCodez...)
 		}
 
 		if !allInOneFile {
 			file.PackageComment("//go:generate depstubber --vendor --auto")
 
-			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
+			pkgDstDirpath := filepath.Join(outDir, feparser.FormatID(mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)))
 			MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
-			assetFileName := feparser.FormatID("Model", mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)) + ".go"
+			assetFileName := feparser.FormatID(mdl.Name, "For", feparser.FormatCodeQlName(pathVersion)) + ".go"
 			if err := x.SaveGoFile(pkgDstDirpath, assetFileName, file); err != nil {
 				Fatalf("Error while saving go file: %s", err)
 			}
@@ -213,10 +213,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 			if err := x.WriteGoModFile(pkgDstDirpath, pathVersion); err != nil {
 				Fatalf("Error while saving go.mod file: %s", err)
 			}
-			if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
+			if err := x.WriteCodeQLTestQuery(pkgDstDirpath, mdl.Name, TestQueryContent); err != nil {
 				Fatalf("Error while saving <name>.ql file: %s", err)
 			}
-			if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
+			if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, mdl.Name); err != nil {
 				Fatalf("Error while saving <name>.expected file: %s", err)
 			}
 		}
@@ -228,7 +228,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		pkgDstDirpath := outDir
 		MustCreateFolderIfNotExists(pkgDstDirpath, os.ModePerm)
 
-		assetFileName := feparser.FormatID("Model", mdl.Name) + ".go"
+		assetFileName := feparser.FormatID(mdl.Name) + ".go"
 		if err := x.SaveGoFile(pkgDstDirpath, assetFileName, file); err != nil {
 			Fatalf("Error while saving go file: %s", err)
 		}
@@ -236,10 +236,10 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 		if err := x.WriteGoModFile(pkgDstDirpath, allPathVersions...); err != nil {
 			Fatalf("Error while saving go.mod file: %s", err)
 		}
-		if err := x.WriteCodeQLTestQuery(pkgDstDirpath, x.DefaultCodeQLTestFileName, TestQueryContent); err != nil {
+		if err := x.WriteCodeQLTestQuery(pkgDstDirpath, mdl.Name, TestQueryContent); err != nil {
 			Fatalf("Error while saving <name>.ql file: %s", err)
 		}
-		if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, x.DefaultCodeQLTestFileName); err != nil {
+		if err := x.WriteEmptyCodeQLDotExpectedFile(pkgDstDirpath, mdl.Name); err != nil {
 			Fatalf("Error while saving <name>.expected file: %s", err)
 		}
 	}

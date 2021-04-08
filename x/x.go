@@ -1761,7 +1761,7 @@ func WriteGoModFile(outDir string, pathVersions ...string) error {
 
 	for path, versions := range pathToVersions {
 		for _, version := range versions {
-			mf.AddNewRequire(path, version, true)
+			mf.AddNewRequire(path, version, false)
 		}
 	}
 
