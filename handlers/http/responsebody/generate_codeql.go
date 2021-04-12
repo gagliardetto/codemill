@@ -428,7 +428,7 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 							{
 								ctQual := b2feCt[pathVersion].ByBasicQualifier(funcQual.BasicQualifier)
 								_, code := GetBodySetterFuncQualifierCodeElements(ctQual)
-								par.Id("contentType").Eq().Add(code).Dot("getStringValue").Call()
+								par.Id("contentType").Eq().Add(code).Dot("getAPredecessor").Op("*").Call().Dot("getStringValue").Call()
 							}
 						},
 					),
@@ -504,7 +504,7 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 										{
 											ctQual := b2tmCt[pathVersion][receiverTypeID].ByBasicQualifier(methodQual.BasicQualifier)
 											_, code := GetBodySetterFuncQualifierCodeElements(ctQual)
-											par.Id("contentType").Eq().Add(code).Dot("getStringValue").Call()
+											par.Id("contentType").Eq().Add(code).Dot("getAPredecessor").Op("*").Call().Dot("getStringValue").Call()
 										}
 									},
 								)
@@ -583,7 +583,7 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersion string) []Code {
 										{
 											ctQual := b2itmCt[pathVersion][receiverTypeID].ByBasicQualifier(methodQual.BasicQualifier)
 											_, code := GetBodySetterFuncQualifierCodeElements(ctQual)
-											par.Id("contentType").Eq().Add(code).Dot("getStringValue").Call()
+											par.Id("contentType").Eq().Add(code).Dot("getAPredecessor").Op("*").Call().Dot("getStringValue").Call()
 										}
 									},
 								)
@@ -844,7 +844,7 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 								par.And()
 
 								_, code := GetContentTypeSetterFuncQualifierCodeElements(funcQual)
-								par.Id("contentType").Eq().Add(code).Dot("getStringValue").Call()
+								par.Id("contentType").Eq().Add(code).Dot("getAPredecessor").Op("*").Call().Dot("getStringValue").Call()
 							},
 						)
 					}
@@ -919,7 +919,7 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 									st.And()
 
 									_, code := GetContentTypeSetterFuncQualifierCodeElements(methodQual)
-									st.Id("contentType").Eq().Add(code).Dot("getStringValue").Call()
+									st.Id("contentType").Eq().Add(code).Dot("getAPredecessor").Op("*").Call().Dot("getStringValue").Call()
 								}
 
 							}
@@ -996,7 +996,7 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersion string) []Code {
 									st.And()
 
 									_, code := GetContentTypeSetterFuncQualifierCodeElements(methodQual)
-									st.Id("contentType").Eq().Add(code).Dot("getStringValue").Call()
+									st.Id("contentType").Eq().Add(code).Dot("getAPredecessor").Op("*").Call().Dot("getStringValue").Call()
 								}
 
 							}
