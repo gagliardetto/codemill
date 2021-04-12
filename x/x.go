@@ -1458,16 +1458,19 @@ func (qualifiers FuncQualifierSlice) ByBasicQualifier(qual BasicQualifier) *Func
 	return nil
 }
 
+// For each PathVersionClean, there is a map of ReceiverIDs (a type or interface); for each ReceiverIDs, there is an array of methods.
+type BasicToReceiverIDToMethods map[string]map[string]FuncQualifierSlice
+
 // Func selectors:
 type (
 	// For each PathVersionClean, there is an array of FEFunc.
 	BasicToFEFuncs map[string]FuncQualifierSlice
 
 	// For each PathVersionClean, there is a map of TypeIDs; for each TypeID, there is an array of methods.
-	BasicToTypeIDToMethods map[string]map[string]FuncQualifierSlice
+	BasicToTypeIDToMethods BasicToReceiverIDToMethods
 
 	// For each PathVersionClean, there is a map of InterfaceIDs (TypeID); for each TypeID, there is an array of methods.
-	BasicToInterfaceIDToMethods map[string]map[string]FuncQualifierSlice
+	BasicToInterfaceIDToMethods BasicToReceiverIDToMethods
 )
 
 // Struct selectors:
@@ -2254,6 +2257,14 @@ func ScavengeMethodsWithNameDescription(nameDescs ...string) []*XMethod {
 	}
 
 	return methods
+}
+
+//
+func (b2tm BasicToReceiverIDToMethods) IterValid(
+	pathVersion string,
+	iterator func(receiverTypeID string, methodQualifiers FuncQualifierSlice),
+) {
+	iterValid(b2tm, pathVersion, iterator)
 }
 
 //

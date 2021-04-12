@@ -72,73 +72,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 											// Type methods:
 											{
-												typeMethodPathCodez := make([]Code, 0)
-												b2tmKey.IterValid(pathVersion,
-													func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
-														codez := DoGroup(func(mtdGroup *Group) {
-
-															qual := methodQualifiers[0]
-															source := x.GetCachedSource(qual.Path, qual.Version)
-															if source == nil {
-																Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-															}
-															// Find receiver type:
-															typ := x.FindTypeByID(source, receiverTypeID)
-															if typ == nil {
-																Fatalf("Type not found: %q", receiverTypeID)
-															}
-
-															mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
-															mtdGroup.Id("receiverName").Eq().Lit(typ.TypeName)
-															mtdGroup.And()
-
-															methodIndex := 0
-															mtdGroup.ParensFunc(
-																func(parMethods *Group) {
-																	for _, keyMethodQual := range methodQualifiers {
-																		if AllFalse(keyMethodQual.Pos...) {
-																			continue
-																		}
-																		if methodIndex > 0 {
-																			parMethods.Or()
-																		}
-																		methodIndex++
-
-																		fn := GetFunc(keyMethodQual)
-																		thing := fn.(*feparser.FETypeMethod)
-
-																		// TODO:
-																		// - Check if found.
-																		valMethodQual := b2tmVal[pathVersion][receiverTypeID].ByBasicQualifier(keyMethodQual.BasicQualifier)
-																		if valMethodQual == nil {
-																			Fatalf("BasicQualifier not found inside b2tmVal: %v", keyMethodQual.BasicQualifier)
-																		}
-																		parMethods.ParensFunc(
-																			func(par *Group) {
-																				par.Commentf("signature: %s", thing.Func.Signature)
-
-																				par.Id("methodName").Eq().Lit(thing.Func.Name)
-																				par.And()
-
-																				{
-																					_, code := GetFuncQualifierCodeElements(keyMethodQual)
-																					par.Id("headerNameNode").Eq().Add(code)
-																				}
-																				par.And()
-																				{
-																					_, code := GetFuncQualifierCodeElements(valMethodQual)
-																					par.Id("headerValueNode").Eq().Add(code)
-																				}
-																			},
-																		)
-
-																	}
-																},
-															)
-
-														})
-														typeMethodPathCodez = append(typeMethodPathCodez, codez)
-													})
+												typeMethodPathCodez := generateCasesForHeaderKeyValWriters(
+													x.BasicToReceiverIDToMethods(b2tmKey),
+													x.BasicToReceiverIDToMethods(b2tmVal),
+													pathVersion,
+													false,
+												)
 
 												if len(typeMethodPathCodez) > 0 {
 													typeMethodCases := ParensFunc(
@@ -179,70 +118,13 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 											// Interface methods:
 											{
-												interfaceMethodPathCodez := make([]Code, 0)
-												b2itmKey.IterValid(pathVersion,
-													func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
-														codez := DoGroup(func(mtdGroup *Group) {
-															qual := methodQualifiers[0]
-															source := x.GetCachedSource(qual.Path, qual.Version)
-															if source == nil {
-																Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-															}
-															// Find receiver type:
-															typ := x.FindTypeByID(source, receiverTypeID)
-															if typ == nil {
-																Fatalf("Type not found: %q", receiverTypeID)
-															}
+												interfaceMethodPathCodez := generateCasesForHeaderKeyValWriters(
+													x.BasicToReceiverIDToMethods(b2itmKey),
+													x.BasicToReceiverIDToMethods(b2itmVal),
+													pathVersion,
+													true,
+												)
 
-															mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
-															mtdGroup.Id("receiverName").Eq().Lit(typ.TypeName)
-															mtdGroup.And()
-
-															methodIndex := 0
-															mtdGroup.ParensFunc(
-																func(parMethods *Group) {
-																	for _, keyMethodQual := range methodQualifiers {
-																		if AllFalse(keyMethodQual.Pos...) {
-																			continue
-																		}
-																		if methodIndex > 0 {
-																			parMethods.Or()
-																		}
-																		methodIndex++
-
-																		fn := GetFunc(keyMethodQual)
-																		thing := fn.(*feparser.FEInterfaceMethod)
-
-																		// TODO:
-																		// - Check if found.
-																		valMethodQual := b2itmVal[pathVersion][receiverTypeID].ByBasicQualifier(keyMethodQual.BasicQualifier)
-
-																		parMethods.ParensFunc(
-																			func(par *Group) {
-																				par.Commentf("signature: %s", thing.Func.Signature)
-
-																				par.Id("methodName").Eq().Lit(thing.Func.Name)
-																				par.And()
-
-																				{
-																					_, code := GetFuncQualifierCodeElements(keyMethodQual)
-																					par.Id("headerNameNode").Eq().Add(code)
-																				}
-																				par.And()
-																				{
-																					_, code := GetFuncQualifierCodeElements(valMethodQual)
-																					par.Id("headerValueNode").Eq().Add(code)
-																				}
-																			},
-																		)
-
-																	}
-																},
-															)
-
-														})
-														interfaceMethodPathCodez = append(interfaceMethodPathCodez, codez)
-													})
 												if len(interfaceMethodPathCodez) > 0 {
 													interfaceMethodCases := ParensFunc(
 														func(par *Group) {
@@ -342,4 +224,87 @@ func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code)
 	code := x.GenCqlParamQual("this", "getArgument", fn, parameterIndexes)
 
 	return fn, code
+}
+
+func generateCasesForHeaderKeyValWriters(
+	b2Key x.BasicToReceiverIDToMethods,
+	b2Val x.BasicToReceiverIDToMethods,
+	pathVersion string,
+	isInterface bool,
+) []Code {
+
+	methodPathCodez := make([]Code, 0)
+	b2Key.IterValid(pathVersion,
+		func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
+			codez := DoGroup(func(mtdGroup *Group) {
+
+				qual := methodQualifiers[0]
+				source := x.GetCachedSource(qual.Path, qual.Version)
+				if source == nil {
+					Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
+				}
+				// Find receiver type:
+				typ := x.FindTypeByID(source, receiverTypeID)
+				if typ == nil {
+					Fatalf("Type not found: %q", receiverTypeID)
+				}
+
+				if isInterface {
+					mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
+				} else {
+					mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
+				}
+
+				mtdGroup.Id("receiverName").Eq().Lit(typ.TypeName)
+				mtdGroup.And()
+
+				methodIndex := 0
+				mtdGroup.ParensFunc(
+					func(parMethods *Group) {
+						for _, keyMethodQual := range methodQualifiers {
+							if AllFalse(keyMethodQual.Pos...) {
+								continue
+							}
+							if methodIndex > 0 {
+								parMethods.Or()
+							}
+							methodIndex++
+
+							fn := GetFunc(keyMethodQual)
+							thing := fn
+
+							// TODO:
+							// - Check if found.
+							valMethodQual := b2Val[pathVersion][receiverTypeID].ByBasicQualifier(keyMethodQual.BasicQualifier)
+							if valMethodQual == nil {
+								Fatalf("Header val method not found: %v", keyMethodQual.BasicQualifier)
+							}
+							parMethods.ParensFunc(
+								func(par *Group) {
+									par.Commentf("signature: %s", thing.GetFunc().Signature)
+
+									par.Id("methodName").Eq().Lit(thing.GetFunc().Name)
+									par.And()
+
+									{
+										_, code := GetFuncQualifierCodeElements(keyMethodQual)
+										par.Id("headerNameNode").Eq().Add(code)
+									}
+									par.And()
+									{
+										_, code := GetFuncQualifierCodeElements(valMethodQual)
+										par.Id("headerValueNode").Eq().Add(code)
+									}
+								},
+							)
+
+						}
+					},
+				)
+
+			})
+			methodPathCodez = append(methodPathCodez, codez)
+		})
+
+	return methodPathCodez
 }
