@@ -51,12 +51,17 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		funcModelsClassName := feparser.NewCodeQlName(className)
 		for _, pathVersion := range allPathVersions {
 			tmp := DoGroup(func(tempFuncsModel *Group) {
-				tempFuncsModel.Doc(Sf("Models a HTTP header writer model for package: %s", pathVersion))
+				tempFuncsModel.Doc(Sf("Models HTTP header writer models for package: %s", pathVersion))
 				tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 					Id("HTTP::HeaderWrite::Range"),
 					Id("DataFlow::CallNode"),
 				).BlockFunc(
 					func(funcModelsClassGroup *Group) {
+
+						funcModelsClassGroup.String().Id("receiverName").Semicolon()
+						funcModelsClassGroup.String().Id("methodName").Semicolon()
+						funcModelsClassGroup.Qual("DataFlow", "Node").Id("headerNameNode").Semicolon()
+						funcModelsClassGroup.Qual("DataFlow", "Node").Id("headerValueNode").Semicolon()
 
 						funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
 							func(funcModelsSelfMethodGroup *Group) {
@@ -67,9 +72,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 											// Type methods:
 											{
+												typeMethodPathCodez := make([]Code, 0)
 												b2tmKey.IterValid(pathVersion,
 													func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 														codez := DoGroup(func(mtdGroup *Group) {
+
 															qual := methodQualifiers[0]
 															source := x.GetCachedSource(qual.Path, qual.Version)
 															if source == nil {
@@ -82,6 +89,8 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															}
 
 															mtdGroup.Commentf("Receiver type: %s", typ.TypeString)
+															mtdGroup.Id("receiverName").Eq().Lit(typ.TypeName)
+															mtdGroup.And()
 
 															methodIndex := 0
 															mtdGroup.ParensFunc(
@@ -101,45 +110,24 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																		// TODO:
 																		// - Check if found.
 																		valMethodQual := b2tmVal[pathVersion][receiverTypeID].ByBasicQualifier(keyMethodQual.BasicQualifier)
-
+																		if valMethodQual == nil {
+																			Fatalf("BasicQualifier not found inside b2tmVal: %v", keyMethodQual.BasicQualifier)
+																		}
 																		parMethods.ParensFunc(
 																			func(par *Group) {
 																				par.Commentf("signature: %s", thing.Func.Signature)
 
-																				par.This().
-																					Eq().
-																					Any(
-																						DoGroup(func(gr *Group) {
-																							gr.Id("Method").Id("m")
-																						}),
-																						DoGroup(func(gr *Group) {
-																							path, _ := scanner.SplitPathVersion(pathVersion)
-
-																							gr.Id("m").Dot("hasQualifiedName").Call(
-																								x.CqlFormatPackagePath(path),
-																								Lit(thing.Receiver.TypeName),
-																								Lit(thing.Func.Name),
-																							)
-																						}),
-																						nil,
-																					).Dot("getACall").Call()
+																				par.Id("methodName").Eq().Lit(thing.Func.Name)
+																				par.And()
 
 																				{
 																					_, code := GetFuncQualifierCodeElements(keyMethodQual)
-
-																					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getName").Call().BlockFunc(
-																						func(overrideBlockGroup *Group) {
-																							overrideBlockGroup.Id("result").Eq().Add(code)
-																						})
+																					par.Id("headerNameNode").Eq().Add(code)
 																				}
-
+																				par.And()
 																				{
 																					_, code := GetFuncQualifierCodeElements(valMethodQual)
-
-																					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getValue").Call().BlockFunc(
-																						func(overrideBlockGroup *Group) {
-																							overrideBlockGroup.Id("result").Eq().Add(code)
-																						})
+																					par.Id("headerValueNode").Eq().Add(code)
 																				}
 																			},
 																		)
@@ -149,11 +137,49 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															)
 
 														})
-														pathCodez = append(pathCodez, codez)
+														typeMethodPathCodez = append(typeMethodPathCodez, codez)
 													})
+
+												if len(typeMethodPathCodez) > 0 {
+													typeMethodCases := ParensFunc(
+														func(par *Group) {
+															par.Comment("Type methods:")
+															par.This().
+																Eq().
+																Any(
+																	DoGroup(func(gr *Group) {
+																		gr.Id("Method").Id("m")
+																	}),
+																	DoGroup(func(gr *Group) {
+																		path, _ := scanner.SplitPathVersion(pathVersion)
+
+																		gr.Id("m").Dot("hasQualifiedName").Call(
+																			x.CqlFormatPackagePath(path),
+																			Id("receiverName"),
+																			Id("methodName"),
+																		)
+																	}),
+																	nil,
+																).Dot("getACall").Call()
+
+															par.And()
+
+															par.Parens(
+																Join(
+																	Or(),
+																	typeMethodPathCodez...,
+																),
+															)
+
+														})
+
+													pathCodez = append(pathCodez, typeMethodCases)
+												}
 											}
+
 											// Interface methods:
 											{
+												interfaceMethodPathCodez := make([]Code, 0)
 												b2itmKey.IterValid(pathVersion,
 													func(receiverTypeID string, methodQualifiers x.FuncQualifierSlice) {
 														codez := DoGroup(func(mtdGroup *Group) {
@@ -167,7 +193,10 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															if typ == nil {
 																Fatalf("Type not found: %q", receiverTypeID)
 															}
+
 															mtdGroup.Commentf("Receiver interface: %s", typ.TypeString)
+															mtdGroup.Id("receiverName").Eq().Lit(typ.TypeName)
+															mtdGroup.And()
 
 															methodIndex := 0
 															mtdGroup.ParensFunc(
@@ -192,32 +221,17 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																			func(par *Group) {
 																				par.Commentf("signature: %s", thing.Func.Signature)
 
-																				par.This().
-																					Eq().
-																					Any(
-																						DoGroup(func(gr *Group) {
-																							gr.Id("Method").Id("m")
-																						}),
-																						DoGroup(func(gr *Group) {
-																							gr.Id("m").Dot("implements").Call(
-																								Id("package"),
-																								Lit(thing.Receiver.TypeName),
-																								Lit(thing.Func.Name),
-																							)
-																						}),
-																						nil,
-																					).Dot("getACall").Call()
-
+																				par.Id("methodName").Eq().Lit(thing.Func.Name)
 																				par.And()
 
 																				{
 																					_, code := GetFuncQualifierCodeElements(keyMethodQual)
-																					par.Id("urlNode").Eq().Add(code).And()
+																					par.Id("headerNameNode").Eq().Add(code)
 																				}
-
+																				par.And()
 																				{
 																					_, code := GetFuncQualifierCodeElements(valMethodQual)
-																					par.Id("valNode").Eq().Add(code)
+																					par.Id("headerValueNode").Eq().Add(code)
 																				}
 																			},
 																		)
@@ -227,8 +241,43 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 															)
 
 														})
-														pathCodez = append(pathCodez, codez)
+														interfaceMethodPathCodez = append(interfaceMethodPathCodez, codez)
 													})
+												if len(interfaceMethodPathCodez) > 0 {
+													interfaceMethodCases := ParensFunc(
+														func(par *Group) {
+															par.Comment("Interface methods:")
+															par.This().
+																Eq().
+																Any(
+																	DoGroup(func(gr *Group) {
+																		gr.Id("Method").Id("m")
+																	}),
+																	DoGroup(func(gr *Group) {
+																		path, _ := scanner.SplitPathVersion(pathVersion)
+
+																		gr.Id("m").Dot("implements").Call(
+																			x.CqlFormatPackagePath(path),
+																			Id("receiverName"),
+																			Id("methodName"),
+																		)
+																	}),
+																	nil,
+																).Dot("getACall").Call()
+
+															par.And()
+
+															par.Parens(
+																Join(
+																	Or(),
+																	interfaceMethodPathCodez...,
+																),
+															)
+
+														})
+
+													pathCodez = append(pathCodez, interfaceMethodCases)
+												}
 											}
 
 											if len(pathCodez) > 0 {
@@ -236,11 +285,9 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 													groupCase.Or()
 												}
 
-												groupCase.Parens(
-													Join(
-														Or(),
-														pathCodez...,
-													),
+												groupCase.Join(
+													Or(),
+													pathCodez...,
 												)
 
 												addedCount++
@@ -249,6 +296,14 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 								}
 							})
 
+						funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getName").Call().BlockFunc(
+							func(overrideBlockGroup *Group) {
+								overrideBlockGroup.Id("result").Eq().Id("headerNameNode")
+							})
+						funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getValue").Call().BlockFunc(
+							func(overrideBlockGroup *Group) {
+								overrideBlockGroup.Id("result").Eq().Id("headerValueNode")
+							})
 						funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
 							func(overrideBlockGroup *Group) {
 								overrideBlockGroup.None()
