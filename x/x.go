@@ -513,6 +513,20 @@ func HasMultiversion(pks []*BasicQualifier) bool {
 	return false
 }
 
+// HasMultiplePackages returns true if the provided array
+// of BasicQualifiers contains more than one different paths (regardless of versions).
+func HasMultiplePackages(pks []*BasicQualifier) bool {
+	paths := make([]string, 0)
+
+	for _, pk := range pks {
+		if !SliceContains(paths, pk.Path) {
+			paths = append(paths, pk.Path)
+		}
+	}
+
+	return len(paths) > 1
+}
+
 // ListModules lists all the modules (unique) used inside the model.
 func (mdl *XModel) ListModules() []*BasicQualifier {
 	qualifiers := make([]*BasicQualifier, 0)

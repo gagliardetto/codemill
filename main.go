@@ -104,10 +104,12 @@ func main() {
 	var outDir string
 	var runServer bool
 	var doGen bool
+	var doSummary bool
 	flag.StringVar(&specFilepath, "spec", "", "Path to spec file; file will be created if not already existing.")
 	flag.StringVar(&outDir, "dir", "", "Path to dir where to save generated files.")
 	flag.BoolVar(&runServer, "http", true, "Run http server.")
 	flag.BoolVar(&doGen, "gen", true, "Generate code.")
+	flag.BoolVar(&doSummary, "summary", true, "Output a summary.")
 	flag.Parse()
 
 	if specFilepath == "" {
@@ -185,6 +187,17 @@ func main() {
 		err := SaveAsJSON(globalSpec, specFilepath)
 		if err != nil {
 			panic(err)
+		}
+		if doSummary {
+			summary, err := x.CreateSummary(globalSpec)
+			if err != nil {
+				panic(err)
+			}
+			Ln("/**")
+			for _, v := range summary {
+				Ln(" * " + v)
+			}
+			Ln(" */")
 		}
 		if !doGen {
 			Ln(LimeBG(">>> Completed without generation <<<"))
