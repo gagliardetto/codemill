@@ -46,6 +46,7 @@ func CreateSummary(spec *XSpec) ([]string, error) {
 					if qual != nil {
 						fn := GetFuncByQualifier(qual)
 						if full {
+							// TODO: if multiversion, include the package version in the signature.
 							funcs = append(funcs, fn.GetFunc().GetOriginal().Signature)
 						} else {
 							funcs = append(funcs, fn.GetFunc().Signature)
