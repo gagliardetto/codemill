@@ -184,7 +184,7 @@ func main() {
 		// TODO: cleanup before saving.
 
 		Infof("Saving spec to %q", MustAbs(specFilepath))
-		err := SaveAsJSON(globalSpec, specFilepath)
+		err := SaveAsIndentedJSON(globalSpec, specFilepath)
 		if err != nil {
 			panic(err)
 		}
