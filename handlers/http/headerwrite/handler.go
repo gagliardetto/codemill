@@ -18,8 +18,8 @@ const (
 type Handler struct{}
 
 const (
-	MethodWriteHeaderKey = "WriteKey"
-	MethodWriteHeaderVal = "WriteVal"
+	MethodWriteHeaderKey = "{key:Param, val:Param} <- $key"
+	MethodWriteHeaderVal = "{key:Param, val:Param} <- $val"
 )
 
 //

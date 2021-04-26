@@ -16,15 +16,15 @@ const (
 type Handler struct{}
 
 const (
-	MethodBodyWithCtFromFuncName = "(body+ctFromFuncName):body" // Specify the body parameter; the content-type will be inferred from the function name.
+	MethodBodyWithCtFromFuncName = "{ct:Inferred, body:Param} <- $body" // Specify the body parameter; the content-type will be inferred from the function name.
 
-	MethodBodyWithCtIsBody = "(body+ct):body" // Body parameter; content-type will be from another parameter of the same function.
-	MethodBodyWithCtIsCt   = "(body+ct):ct"   // Content-type parameter; body will be from another parameter of the same function.
+	MethodBodyWithCtIsBody = "{ct:Param, body:Param} <- $body" // Body parameter; content-type will be from another parameter of the same function.
+	MethodBodyWithCtIsCt   = "{ct:Param, body:Param} <- $ct"   // Content-type parameter; body will be from another parameter of the same function.
 
-	MethodBody = ":body" // Body parameter; the function only allows to specify a body parameter and does not set content-type in any way.
-	MethodCt   = ":ct"   // Content-type parameter; the function only allows to specify content-type.
+	MethodBody = "{body:Param} <- $body" // Body parameter; the function only allows to specify a body parameter and does not set content-type in any way.
+	MethodCt   = "{ct:Param} <- $ct"     // Content-type parameter; the function only allows to specify content-type.
 
-	MethodCtFromFuncName = ":ctFromFuncName" // Content-type inferred from the function name.
+	MethodCtFromFuncName = "{ct:Inferred} <- *" // Content-type inferred from the function name.
 )
 
 //

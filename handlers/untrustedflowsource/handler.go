@@ -12,8 +12,13 @@ const (
 
 type Handler struct{}
 
+// TODO:
+// There are imaginary groups;
+// each group can be made of one or more components;
+// each component is sourced from a "method", which is basically the key to a set of selectors.
+
 const (
-	MethodSelf = "Self"
+	MethodSelf = "{source:[](Param|Result|Fields|Type)} <- $source"
 )
 
 //

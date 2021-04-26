@@ -13,7 +13,7 @@ const (
 type Handler struct{}
 
 const (
-	MethodGetURL = "GetUrl"
+	MethodGetURL = "{url:Param} <- $url"
 )
 
 //
