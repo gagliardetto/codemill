@@ -3,6 +3,7 @@ package x
 import (
 	"sort"
 
+	"github.com/gagliardetto/ref"
 	. "github.com/gagliardetto/utilz"
 )
 
@@ -10,12 +11,12 @@ import (
 func CreateSummary(spec *XSpec) ([]string, error) {
 	var summaryLines multiLines
 	summaryLines.Append(
-		"Module summary:",
+		Sf("## CodeQL Module Summary for `%s`:", spec.Name),
 		"",
 	)
 
 	summaryLines.Append(
-		"Packages:",
+		"### Packages:",
 		"",
 	)
 	mods := spec.ListModules()
@@ -30,13 +31,14 @@ func CreateSummary(spec *XSpec) ([]string, error) {
 			summaryLines.Append(
 				"",
 				"---",
+				"",
 			)
 		}
-		summaryLines.Append(string(mdl.Kind) + ":")
+		summaryLines.Append(Sf("### Model kind `%s`:", mdl.Kind))
 
-		funcs := make([]string, 0)
-		structs := make([]string, 0)
-		types := make([]string, 0)
+		funcs := make([]*textWithLink, 0)
+		structs := make([]*textWithLink, 0)
+		types := make([]*textWithLink, 0)
 
 		for _, method := range mdl.Methods {
 
@@ -45,12 +47,31 @@ func CreateSummary(spec *XSpec) ([]string, error) {
 					qual := sel.GetFuncQualifier()
 					if qual != nil {
 						fn := GetFuncByQualifier(qual)
-						if full {
-							// TODO: if multiversion, include the package version in the signature.
-							funcs = append(funcs, fn.GetFunc().GetOriginal().Signature)
+
+						tl := &textWithLink{}
+
+						if fn.GetReceiver() == nil {
+							tl.link = Sf(
+								"https://pkg.go.dev/%s#%s",
+								sel.GetBasicQualifier().PathVersionClean(),
+								fn.GetFunc().Name,
+							)
 						} else {
-							funcs = append(funcs, fn.GetFunc().Signature)
+							tl.link = Sf(
+								"https://pkg.go.dev/%s#%s.%s",
+								sel.GetBasicQualifier().PathVersionClean(),
+								fn.GetReceiver().TypeName,
+								fn.GetFunc().Name,
+							)
 						}
+
+						if full {
+							tl.text = fn.GetFunc().GetOriginal().Signature
+							// TODO: if multiversion, include the package version in the signature.
+						} else {
+							tl.text = fn.GetFunc().Signature
+						}
+						funcs = append(funcs, tl)
 						continue
 					}
 				}
@@ -69,7 +90,16 @@ func CreateSummary(spec *XSpec) ([]string, error) {
 								// TODO
 								continue
 							}
-							structs = append(structs, st.QualifiedName)
+							{
+								tl := &textWithLink{}
+								tl.text = st.QualifiedName
+								tl.link = Sf(
+									"https://pkg.go.dev/%s#%s",
+									sel.GetBasicQualifier().PathVersionClean(),
+									st.TypeName,
+								)
+								structs = append(structs, tl)
+							}
 						}
 						continue
 					}
@@ -88,7 +118,16 @@ func CreateSummary(spec *XSpec) ([]string, error) {
 								// TODO
 								continue
 							}
-							types = append(types, typ.QualifiedName)
+							{
+								tl := &textWithLink{}
+								tl.text = typ.QualifiedName
+								tl.link = Sf(
+									"https://pkg.go.dev/%s#%s",
+									sel.GetBasicQualifier().PathVersionClean(),
+									typ.TypeName,
+								)
+								types = append(types, tl)
+							}
 						}
 						continue
 					}
@@ -97,34 +136,52 @@ func CreateSummary(spec *XSpec) ([]string, error) {
 		}
 
 		{
-			funcs = Deduplicate(funcs)
-			sort.Strings(funcs)
+			{
+				ref.DeduplicateSlice2(&funcs, func(i int) string {
+					return funcs[i].text
+				})
+				sort.Slice(funcs, func(i, j int) bool {
+					return funcs[i].text < funcs[j].text
+				})
+			}
 
-			structs = Deduplicate(structs)
-			sort.Strings(structs)
+			{
+				ref.DeduplicateSlice2(&structs, func(i int) string {
+					return structs[i].text
+				})
+				sort.Slice(structs, func(i, j int) bool {
+					return structs[i].text < structs[j].text
+				})
+			}
 
-			types = Deduplicate(types)
-			sort.Strings(types)
+			{
+				ref.DeduplicateSlice2(&types, func(i int) string {
+					return types[i].text
+				})
+				sort.Slice(types, func(i, j int) bool {
+					return types[i].text < types[j].text
+				})
+			}
 		}
 		{
 			if len(funcs) > 0 {
-				summaryLines.Append("  FUNCS:")
+				summaryLines.Append("  - `FUNCS`:")
 				for _, v := range funcs {
-					summaryLines.Append(Sf("    %s", v))
+					summaryLines.Append(Sf("    - [%s](%s)", v.text, v.link))
 				}
 				// summaryLines.Append("")
 			}
 			if len(structs) > 0 {
-				summaryLines.Append("  STRUCTS:")
+				summaryLines.Append("  - `STRUCTS`:")
 				for _, v := range structs {
-					summaryLines.Append(Sf("    %s", v))
+					summaryLines.Append(Sf("    - [%s](%s)", v.text, v.link))
 				}
 				// summaryLines.Append("")
 			}
 			if len(types) > 0 {
-				summaryLines.Append("  TYPES:")
+				summaryLines.Append("  - `TYPES`:")
 				for _, v := range types {
-					summaryLines.Append(Sf("    %s", v))
+					summaryLines.Append(Sf("    - [%s](%s)", v.text, v.link))
 				}
 				// summaryLines.Append("")
 			}
@@ -134,6 +191,10 @@ func CreateSummary(spec *XSpec) ([]string, error) {
 	return summaryLines, nil
 }
 
+type textWithLink struct {
+	text string
+	link string
+}
 type multiLines []string
 
 //

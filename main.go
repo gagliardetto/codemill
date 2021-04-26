@@ -13,6 +13,7 @@ import (
 	"path"
 	"path/filepath"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -189,15 +190,15 @@ func main() {
 			panic(err)
 		}
 		if doSummary {
+			Ln("\n", strings.Repeat("-", 60), "\n")
 			summary, err := x.CreateSummary(globalSpec)
 			if err != nil {
 				panic(err)
 			}
-			Ln("/**")
 			for _, v := range summary {
-				Ln(" * " + v)
+				Ln(v)
 			}
-			Ln(" */")
+			Ln("\n", strings.Repeat("-", 60), "\n")
 		}
 		if !doGen {
 			Ln(LimeBG(">>> Completed without generation <<<"))
