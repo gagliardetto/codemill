@@ -3,6 +3,7 @@ package responsebody
 import (
 	"strings"
 
+	"github.com/gagliardetto/codebox/scanner"
 	"github.com/gagliardetto/codemill/x"
 	. "github.com/gagliardetto/cqlgen/jen"
 	"github.com/gagliardetto/feparser"
@@ -502,8 +503,12 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersions []string) []Co
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -599,8 +604,12 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersions []string) []Co
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -737,8 +746,12 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersions []string) []Code {
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -838,8 +851,12 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersions []string) []Code {
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -959,8 +976,12 @@ func cql_MethodBody(mdl *x.XModel, pathVersions []string) []Code {
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -1052,8 +1073,12 @@ func cql_MethodBody(mdl *x.XModel, pathVersions []string) []Code {
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -1170,8 +1195,12 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersions []string) []Code {
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -1261,8 +1290,12 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersions []string) []Code {
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -1379,8 +1412,12 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersions []string) []Code {
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
@@ -1471,8 +1508,12 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersions []string) []Code {
 						})
 
 					if pathVersionAddedCount > 0 {
+						if addedCount > 0 {
+							exists3.Or()
+						}
 						addedCount++
-						exists3.Id("package").Eq().Lit(pathVersion)
+						path, _ := scanner.SplitPathVersion(pathVersion)
+						exists3.Id("package").Eq().Add(x.CqlFormatPackagePath(path))
 						exists3.And()
 						exists3.Parens(
 							Join(Or(), tempForPathVersion...),
