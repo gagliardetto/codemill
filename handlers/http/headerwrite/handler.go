@@ -20,24 +20,27 @@ type Handler struct{}
 const (
 	MethodWriteHeaderKey = "{key:Param, val:Param} <- $key"
 	MethodWriteHeaderVal = "{key:Param, val:Param} <- $val"
+
+	MethodCt = "{ct:Param} <- $ct" // Content-type parameter; the function only allows to specify content-type.
+
+	MethodCtFromFuncName = "{ct:Inferred} <- *" // Content-type inferred from the function name.
 )
 
 //
 func (han *Handler) ScavengeMethods() []*x.XMethod {
-	return []*x.XMethod{
-		{
-			Name:      MethodWriteHeaderKey,
-			Selectors: []*x.XSelector{},
-		},
-		{
-			Name:      MethodWriteHeaderVal,
-			Selectors: []*x.XSelector{},
-		},
-	}
+	return x.ScavengeMethods(
+		MethodWriteHeaderKey,
+		MethodWriteHeaderVal,
+
+		MethodCt, // "Select content-type param of any function that allows to set the content-type but does NOT set the body.",
+
+		MethodCtFromFuncName, // "Select any function that sets the content-type independently of params; content-type will be inferred from the func name.",
+	)
 }
 func (han *Handler) Validate(mdl *x.XModel) error {
-	if len(mdl.Methods) != 2 {
-		return fmt.Errorf("wrong number of methods; expected 2, got %v", len(mdl.Methods))
+	defaultMthNum := len(han.ScavengeMethods())
+	if len(mdl.Methods) != defaultMthNum {
+		return fmt.Errorf("wrong number of methods; expected %v, got %v", defaultMthNum, len(mdl.Methods))
 	}
 	{
 		if mdl.Methods[0].Name != MethodWriteHeaderKey {

@@ -253,7 +253,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 					funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
-							overrideBlockGroup.None()
+							overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().This().Dot("getReceiver").Call()
 						})
 				})
 		})

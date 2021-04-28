@@ -2323,3 +2323,30 @@ func iterValid(
 		iterator(receiverTypeID, methodQualifiers)
 	}
 }
+func GuessContentTypeFromName(name string) string {
+	name = strings.ToLower(name)
+
+	if strings.Contains(name, "jsonp") {
+		return "application/javascript"
+	}
+	if strings.Contains(name, "json") {
+		return "application/json"
+	}
+	if strings.Contains(name, "xml") {
+		return "text/xml"
+	}
+	if strings.Contains(name, "yaml") || strings.Contains(name, "yml") {
+		return "application/x-yaml"
+	}
+	if strings.Contains(name, "html") {
+		return "text/html"
+	}
+	if strings.Contains(name, "string") || strings.Contains(name, "text") {
+		return "text/plain"
+	}
+	if strings.Contains(name, "error") {
+		// NOTE: this might be not correct.
+		return "text/plain"
+	}
+	return "TODO"
+}

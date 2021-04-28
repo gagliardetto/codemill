@@ -22,9 +22,6 @@ const (
 	MethodBodyWithCtIsCt   = "{ct:Param, body:Param} <- $ct"   // Content-type parameter; body will be from another parameter of the same function.
 
 	MethodBody = "{body:Param} <- $body" // Body parameter; the function only allows to specify a body parameter and does not set content-type in any way.
-	MethodCt   = "{ct:Param} <- $ct"     // Content-type parameter; the function only allows to specify content-type.
-
-	MethodCtFromFuncName = "{ct:Inferred} <- *" // Content-type inferred from the function name.
 )
 
 //
@@ -39,9 +36,6 @@ func (han *Handler) ScavengeMethods() []*x.XMethod {
 		MethodBodyWithCtIsCt,   // "Coupled 2/2: Select body parameter of func; content-type will be selected from another parameter of the same function.",
 
 		MethodBody, // "Select body param of any function that allows to set the body but does NOT determine the content-type.",
-		MethodCt,   // "Select content-type param of any function that allows to set the content-type but does NOT set the body.",
-
-		MethodCtFromFuncName, // "Select any function that sets the content-type independently of params; content-type will be inferred from the func name.",
 	)
 }
 func (han *Handler) Validate(mdl *x.XModel) error {
