@@ -51,7 +51,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		funcModelsClassName := feparser.NewCodeQlName(className)
 		for _, pathVersion := range allPathVersions {
 			tmp := DoGroup(func(tempFuncsModel *Group) {
-				tempFuncsModel.Doc(Sf("Models HTTP header writer models for package: %s", pathVersion))
+				tempFuncsModel.Doc("Models HTTP header writers.")
 				tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 					Id("HTTP::HeaderWrite::Range"),
 					Id("DataFlow::CallNode"),
@@ -78,6 +78,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 													pathVersion,
 													false,
 												)
+												// TODO: process packagePath inside the body, instead of doing one class per packagePath.
 
 												if len(typeMethodPathCodez) > 0 {
 													typeMethodCases := ParensFunc(
