@@ -124,7 +124,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		// Just Body with No content type:
 		funcModelsClassName := feparser.NewCodeQlName(className, "NoContentType")
 		tmp := DoGroup(func(tempFuncsModel *Group) {
-			tempFuncsModel.Doc("Models HTTP ResponseBody where the content-type is set by another call.")
+			tempFuncsModel.Doc("Models HTTP ResponseBody where only the body is set.")
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 				Id("HTTP::ResponseBody::Range"),
 			).BlockFunc(
