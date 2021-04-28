@@ -34,12 +34,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 				Id("HTTP::ResponseBody::Range"),
 			).BlockFunc(
-				func(funcModelsClassGroup *Group) {
+				func(blockContent *Group) {
 
-					funcModelsClassGroup.String().Id("contentTypeString").Semicolon().Line()
-					funcModelsClassGroup.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
+					blockContent.String().Id("contentTypeString").Semicolon().Line()
+					blockContent.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
 
-					funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
+					blockContent.Id(funcModelsClassName).Call().BlockFunc(
 						func(funcModelsSelfMethodGroup *Group) {
 							funcModelsSelfMethodGroup.Exists(
 								List(
@@ -57,12 +57,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 							)
 						})
 
-					funcModelsClassGroup.Override().Id("string").Id("getAContentType").Call().BlockFunc(
+					blockContent.Override().Id("string").Id("getAContentType").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
 							overrideBlockGroup.Id("result").Eq().Id("contentTypeString")
 						})
 
-					funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+					blockContent.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
 							overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
 						})
@@ -82,12 +82,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 				Id("HTTP::ResponseBody::Range"),
 			).BlockFunc(
-				func(funcModelsClassGroup *Group) {
+				func(blockContent *Group) {
 
-					funcModelsClassGroup.Id("DataFlow::Node").Id("contentTypeNode").Semicolon().Line()
-					funcModelsClassGroup.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
+					blockContent.Id("DataFlow::Node").Id("contentTypeNode").Semicolon().Line()
+					blockContent.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
 
-					funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
+					blockContent.Id(funcModelsClassName).Call().BlockFunc(
 						func(funcModelsSelfMethodGroup *Group) {
 							funcModelsSelfMethodGroup.Exists(
 								List(
@@ -105,12 +105,12 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 							)
 						})
 
-					funcModelsClassGroup.Override().Id("DataFlow::Node").Id("getAContentTypeNode").Call().BlockFunc(
+					blockContent.Override().Id("DataFlow::Node").Id("getAContentTypeNode").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
 							overrideBlockGroup.Id("result").Eq().Id("contentTypeNode")
 						})
 
-					funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+					blockContent.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
 							overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
 						})
@@ -130,11 +130,11 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 			tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
 				Id("HTTP::ResponseBody::Range"),
 			).BlockFunc(
-				func(funcModelsClassGroup *Group) {
+				func(blockContent *Group) {
 
-					funcModelsClassGroup.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
+					blockContent.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
 
-					funcModelsClassGroup.Id(funcModelsClassName).Call().BlockFunc(
+					blockContent.Id(funcModelsClassName).Call().BlockFunc(
 						func(funcModelsSelfMethodGroup *Group) {
 							funcModelsSelfMethodGroup.Exists(
 								List(
@@ -151,7 +151,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 							)
 						})
 
-					funcModelsClassGroup.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+					blockContent.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
 							overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
 						})
@@ -164,17 +164,105 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 		}
 	}
 	{
-		// TODO: remove
+		// TODO: move to http/headerwrite
 		{
-			pred := predicate_setsStaticContentType(allPathVersions, mdl)
-			if pred != nil {
-				rootModuleGroup.Add(pred)
+			{
+				// Static content-type:
+				funcModelsClassName := feparser.NewCodeQlName("StaticContentTypeSetter")
+				tmp := DoGroup(func(tempFuncsModel *Group) {
+					tempFuncsModel.Doc("Models an HTTP static content-type setter.")
+					tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
+						Id("HTTP::HeaderWrite::Range"),
+						Id("DataFlow::CallNode"),
+					).BlockFunc(
+						func(blockContent *Group) {
+
+							blockContent.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
+							blockContent.String().Id("contentTypeString").Semicolon().Line()
+
+							blockContent.Id(funcModelsClassName).Call().Block(
+								Id("setsStaticContentType").Call(
+									DontCare(),
+									DontCare(),
+									This(),
+									Id("contentTypeString"),
+									Id("receiverNode"),
+								),
+							)
+
+							blockContent.Override().String().Id("getHeaderName").Call().Block(
+								Id("result").Eq().Lit("content-type"),
+							)
+							blockContent.Override().String().Id("getHeaderValue").Call().Block(
+								Id("result").Eq().Id("contentTypeString"),
+							)
+							blockContent.Override().Id("DataFlow::Node").Id("getName").Call().Block(
+								None(),
+							)
+							blockContent.Override().Id("DataFlow::Node").Id("getValue").Call().Block(
+								None(),
+							)
+							blockContent.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+								func(overrideBlockGroup *Group) {
+									overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
+								})
+						})
+				})
+				pred := predicate_setsStaticContentType(allPathVersions, mdl)
+				if pred != nil {
+					rootModuleGroup.Add(tmp)
+					rootModuleGroup.Add(pred)
+				}
 			}
 		}
 		{
-			pred := predicate_setsDynamicContentType(allPathVersions, mdl)
-			if pred != nil {
-				rootModuleGroup.Add(pred)
+			{
+				// Dynamic content-type:
+				funcModelsClassName := feparser.NewCodeQlName("DynamicContentTypeSetter")
+				tmp := DoGroup(func(tempFuncsModel *Group) {
+					tempFuncsModel.Doc("Models an HTTP dynamic content-type setter.")
+					tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
+						Id("HTTP::HeaderWrite::Range"),
+						Id("DataFlow::CallNode"),
+					).BlockFunc(
+						func(blockContent *Group) {
+
+							blockContent.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
+							blockContent.Id("DataFlow::Node").Id("contentTypeNode").Semicolon().Line()
+
+							blockContent.Id(funcModelsClassName).Call().Block(
+								Id("setsDynamicContentType").Call(
+									DontCare(),
+									DontCare(),
+									This(),
+									Id("contentTypeNode"),
+									Id("receiverNode"),
+								),
+							)
+
+							blockContent.Override().String().Id("getHeaderName").Call().Block(
+								Id("result").Eq().Lit("content-type"),
+							)
+							blockContent.Override().String().Id("getHeaderValue").Call().Block(
+								None(),
+							)
+							blockContent.Override().Id("DataFlow::Node").Id("getName").Call().Block(
+								None(),
+							)
+							blockContent.Override().Id("DataFlow::Node").Id("getValue").Call().Block(
+								Id("result").Eq().Id("contentTypeNode"),
+							)
+							blockContent.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+								func(overrideBlockGroup *Group) {
+									overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
+								})
+						})
+				})
+				pred := predicate_setsDynamicContentType(allPathVersions, mdl)
+				if pred != nil {
+					rootModuleGroup.Add(tmp)
+					rootModuleGroup.Add(pred)
+				}
 			}
 		}
 	}
