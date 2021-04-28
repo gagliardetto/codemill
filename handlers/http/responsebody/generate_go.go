@@ -39,7 +39,8 @@ func TagContentType(vals ...string) string {
 	}
 	return tg
 }
-func Tag(contentTypes string, respBodies string) Code {
+
+func NewTag(contentTypes string, respBodies string) Code {
 	if contentTypes == "" {
 		return Comment(respBodies)
 	}
@@ -146,6 +147,7 @@ func getTypeContent(file *File, group *Group, varName string, typ types.Type, is
 	}
 	return assertContent
 }
+
 func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 	if err := mdl.Validate(); err != nil {
 		return err
@@ -189,7 +191,7 @@ func (han *Handler) GenerateGo(parentDir string, mdl *x.XModel) error {
 				pathCodez = append(pathCodez, pc...)
 			}
 			{
-				pc := go_body_ct(mdl, file, pathVersion)
+				pc := go_body_setter(mdl, file, pathVersion)
 				pathCodez = append(pathCodez, pc...)
 			}
 		}
@@ -500,7 +502,7 @@ func par_MethodBodyWithCtFromFuncName_generate(file *File, fn x.FuncInterface, i
 					}
 
 				},
-			).Add(Tag(TagContentType(guessContentTypeFromFuncName(fn.GetFunc().Name)), TagResponseBody(varNames...)))
+			).Add(NewTag(TagContentType(guessContentTypeFromFuncName(fn.GetFunc().Name)), TagResponseBody(varNames...)))
 
 		})
 	return code
@@ -794,13 +796,13 @@ func par_MethodBodyWithCt_generate(file *File, fn x.FuncInterface, bodyIndex int
 					}
 
 				},
-			).Add(Tag(TagContentType(ctValue), TagResponseBody(bodyParam.VarName)))
+			).Add(NewTag(TagContentType(ctValue), TagResponseBody(bodyParam.VarName)))
 
 		})
 	return code
 }
 
-func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
+func go_body_setter(mdl *x.XModel, file *File, pathVersion string) []Code {
 
 	mtdBody := mdl.Methods.ByName(MethodBody)
 	if len(mtdBody.Selectors) == 0 {
@@ -811,28 +813,6 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 	if err != nil {
 		Fatalf("Error while GroupFuncSelectors: %s", err)
 	}
-	//
-	mtdCt := mdl.Methods.ByName(MethodCt)
-	if len(mtdCt.Selectors) == 0 {
-		Infof("No selectors found for %q method.", mtdCt.Name)
-		return nil
-	}
-	b2feCt, b2tmCt, b2itmCt, err := x.GroupFuncSelectors(mtdCt)
-	if err != nil {
-		Fatalf("Error while GroupFuncSelectors: %s", err)
-	}
-	//
-	mtdCtFromFuncName := mdl.Methods.ByName(MethodCtFromFuncName)
-	if len(mtdCtFromFuncName.Selectors) == 0 {
-		Infof("No selectors found for %q method.", mtdCtFromFuncName.Name)
-		return nil
-	}
-	b2feCtFromFuncName, b2tmCtFromFuncName, b2itmCtFromFuncName, err := x.GroupFuncSelectors(mtdCtFromFuncName)
-	if err != nil {
-		Fatalf("Error while GroupFuncSelectors: %s", err)
-	}
-
-	_, _, _ = b2feCtFromFuncName, b2tmCtFromFuncName, b2itmCtFromFuncName
 
 	codez := make([]Code, 0)
 	{
@@ -855,35 +835,16 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 							groupCase.Comment(thing.Signature)
 
 							{
-								// Create a test for each combination of body and ct:
-								for _, ctQual := range b2feCt[pathVersion] {
-									blocksOfCases := par_go_body_plus_ct(
-										file,
-										bodyQual,
-										ctQual,
-									)
-									if len(blocksOfCases) == 1 {
-										groupCase.Add(blocksOfCases...)
-									} else {
-										groupCase.Block(blocksOfCases...)
-									}
-									addedCount++
+								blocksOfCases := par_go_body(
+									file,
+									bodyQual,
+								)
+								if len(blocksOfCases) == 1 {
+									groupCase.Add(blocksOfCases...)
+								} else {
+									groupCase.Block(blocksOfCases...)
 								}
-
-								// Create a test for each combination of body and ctFromName:
-								for _, ctQual := range b2feCtFromFuncName[pathVersion] {
-									blocksOfCases := par_go_body_plus_ctFromFuncName(
-										file,
-										bodyQual,
-										ctQual,
-									)
-									if len(blocksOfCases) == 1 {
-										groupCase.Add(blocksOfCases...)
-									} else {
-										groupCase.Block(blocksOfCases...)
-									}
-									addedCount++
-								}
+								addedCount++
 							}
 
 						}
@@ -892,7 +853,7 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 				})
 			if addedCount > 0 {
 				codez = append(codez,
-					Comment("Response body and content-type are set via calls of different functions.").
+					Comment("Response body is set via a call of a function.").
 						Line().
 						Add(code),
 				)
@@ -928,32 +889,14 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 								groupCase.Comment(thing.Func.Signature)
 
 								{
-									// Create a test for each combination of body and ct:
-									for _, ctQual := range b2tmCt[pathVersion][receiverTypeID] {
-										blocksOfCases := par_go_body_plus_ct(
-											file,
-											bodyQual,
-											ctQual,
-										)
-										if len(blocksOfCases) == 1 {
-											groupCase.Add(blocksOfCases...)
-										} else {
-											groupCase.Block(blocksOfCases...)
-										}
-									}
-
-									// Create a test for each combination of body and ctFromName:
-									for _, ctQual := range b2tmCtFromFuncName[pathVersion][receiverTypeID] {
-										blocksOfCases := par_go_body_plus_ctFromFuncName(
-											file,
-											bodyQual,
-											ctQual,
-										)
-										if len(blocksOfCases) == 1 {
-											groupCase.Add(blocksOfCases...)
-										} else {
-											groupCase.Block(blocksOfCases...)
-										}
+									blocksOfCases := par_go_body(
+										file,
+										bodyQual,
+									)
+									if len(blocksOfCases) == 1 {
+										groupCase.Add(blocksOfCases...)
+									} else {
+										groupCase.Block(blocksOfCases...)
 									}
 								}
 
@@ -963,14 +906,14 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 					})
 				// TODO: what if no flows are enabled? Check that before adding the comment.
 				codezTypeMethods = append(codezTypeMethods,
-					Commentf("Response body and content-type are set via calls of different methods on the %s type.", typ.QualifiedName).
+					Commentf("Response body is set via a call of a method on the %s type.", typ.QualifiedName).
 						Line().
 						Add(code),
 				)
 			})
 		if len(codezTypeMethods) > 0 {
 			codez = append(codez,
-				Comment("Response body and content-type are set via calls of different methods.").
+				Comment("Response body is set via a call of a type method.").
 					Line().
 					Block(codezTypeMethods...),
 			)
@@ -1006,39 +949,21 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 								groupCase.Comment(thing.Func.Signature)
 
 								{
-									// Create a test for each combination of body and ct:
-									for _, ctQual := range b2itmCt[pathVersion][receiverTypeID] {
-										blocksOfCases := par_go_body_plus_ct(
-											file,
-											bodyQual,
-											ctQual,
-										)
-										if len(blocksOfCases) == 1 {
-											groupCase.Add(blocksOfCases...)
-										} else {
-											groupCase.Block(blocksOfCases...)
-										}
-									}
-
-									// Create a test for each combination of body and ctFromName:
-									for _, ctQual := range b2itmCtFromFuncName[pathVersion][receiverTypeID] {
-										blocksOfCases := par_go_body_plus_ctFromFuncName(
-											file,
-											bodyQual,
-											ctQual,
-										)
-										if len(blocksOfCases) == 1 {
-											groupCase.Add(blocksOfCases...)
-										} else {
-											groupCase.Block(blocksOfCases...)
-										}
+									blocksOfCases := par_go_body(
+										file,
+										bodyQual,
+									)
+									if len(blocksOfCases) == 1 {
+										groupCase.Add(blocksOfCases...)
+									} else {
+										groupCase.Block(blocksOfCases...)
 									}
 								}
 							}
 						}
 					})
 				codezIfaceMethods = append(codezIfaceMethods,
-					Commentf("Response body and content-type are set via calls of different methods on the %s interface.", typ.QualifiedName).
+					Commentf("Response body is set via a call of a method on the %s interface.", typ.QualifiedName).
 						Line().
 						Add(code),
 				)
@@ -1046,13 +971,97 @@ func go_body_ct(mdl *x.XModel, file *File, pathVersion string) []Code {
 
 		if len(codezIfaceMethods) > 0 {
 			codez = append(codez,
-				Comment("Response body and content-type are set via calls of different interface methods.").
+				Comment("Response body is set via a call of an interface method.").
 					Line().
 					Block(codezIfaceMethods...),
 			)
 		}
 	}
 	return codez
+}
+
+func par_go_body(
+	file *File,
+	bodyQual *x.FuncQualifier,
+) []Code {
+
+	childBlocks := make([]Code, 0)
+
+	bodyFn := GetFunc(bodyQual)
+	// TODO: support here multiple bodies, too?
+	bodyIndexes := x.MustPosToRelativeParamIndexes(bodyFn, bodyQual.Pos)
+	if len(bodyIndexes) != 1 {
+		Fatalf("bodyIndexes len is not 1: %v", bodyQual)
+	}
+
+	childBlock := par_go_body_generate(
+		file,
+		bodyFn,
+		bodyIndexes[0],
+	)
+	{
+		if childBlock != nil {
+			childBlocks = append(childBlocks, childBlock)
+		} else {
+			Warnf(Sf("NOTHING GENERATED; bodyQual %v", bodyQual))
+		}
+	}
+
+	return childBlocks
+}
+
+func par_go_body_generate(
+	file *File,
+	bodyFn x.FuncInterface,
+	bodyIndex int,
+) *Statement {
+
+	bodyParam := bodyFn.GetFunc().Parameters[bodyIndex]
+	bodyParam.VarName = gogentools.NewNameWithPrefix(feparser.NewLowerTitleName("body", bodyParam.TypeName))
+
+	bodyFnHasReceiver := bodyFn.GetReceiver() != nil
+	// TODO: they must have the same receiver?
+
+	code := BlockFunc(
+		func(groupCase *Group) {
+
+			ComposeTypeAssertion(file, groupCase, bodyParam.VarName, bodyParam.GetOriginal().GetType(), bodyParam.GetOriginal().IsVariadic())
+
+			if bodyFnHasReceiver {
+				groupCase.Var().Id("rece").Qual(bodyFn.GetReceiver().PkgPath, bodyFn.GetReceiver().TypeName)
+			}
+
+			gogentools.ImportPackage(file, bodyFn.GetFunc().PkgPath, bodyFn.GetFunc().PkgName)
+
+			{
+				var afterBody *Statement
+				if bodyFnHasReceiver {
+					afterBody = groupCase.Id("rece").Dot(bodyFn.GetFunc().Name)
+				} else {
+					afterBody = groupCase.Qual(bodyFn.GetFunc().PkgPath, bodyFn.GetFunc().Name)
+				}
+				afterBody.CallFunc(
+					func(call *Group) {
+
+						tpFun := bodyFn.GetFunc().GetOriginal().GetType().(*types.Signature)
+
+						zeroVals := gogentools.ScanTupleOfZeroValues(file, tpFun.Params(), bodyFn.GetFunc().GetOriginal().IsVariadic())
+
+						for i, zero := range zeroVals {
+							isConsidered := IntSliceContains([]int{bodyIndex}, i)
+							if isConsidered {
+								call.Id(bodyFn.GetFunc().Parameters[i].VarName)
+							} else {
+								call.Add(zero)
+							}
+						}
+
+					},
+				).Add(NewTag("", TagResponseBody(bodyParam.VarName)))
+			}
+
+		})
+	return code
 }
 
 func par_go_body_plus_ct(
@@ -1092,6 +1101,7 @@ func par_go_body_plus_ct(
 
 	return childBlocks
 }
+
 func par_go_body_plus_ct_generate(
 	file *File,
 	bodyFn x.FuncInterface,
@@ -1184,12 +1194,13 @@ func par_go_body_plus_ct_generate(
 						}
 
 					},
-				).Add(Tag(TagContentType(ctValue), TagResponseBody(bodyParam.VarName)))
+				).Add(NewTag(TagContentType(ctValue), TagResponseBody(bodyParam.VarName)))
 			}
 
 		})
 	return code
 }
+
 func par_go_body_plus_ctFromFuncName(
 	file *File,
 	bodyQual *x.FuncQualifier,
@@ -1222,6 +1233,7 @@ func par_go_body_plus_ctFromFuncName(
 
 	return childBlocks
 }
+
 func par_go_body_plus_ctFromFuncName_generate(
 	file *File,
 	bodyFn x.FuncInterface,
@@ -1283,7 +1295,7 @@ func par_go_body_plus_ctFromFuncName_generate(
 						}
 
 					},
-				).Add(Tag(TagContentType(guessContentTypeFromFuncName(ctFn.GetFunc().Name)), TagResponseBody(bodyParam.VarName)))
+				).Add(NewTag(TagContentType(guessContentTypeFromFuncName(ctFn.GetFunc().Name)), TagResponseBody(bodyParam.VarName)))
 			}
 
 		})
