@@ -987,7 +987,7 @@ func par_go_body(
 
 	childBlocks := make([]Code, 0)
 
-	bodyFn := GetFunc(bodyQual)
+	bodyFn := x.GetFuncByQualifier(bodyQual)
 	// TODO: support here multiple bodies, too?
 	bodyIndexes := x.MustPosToRelativeParamIndexes(bodyFn, bodyQual.Pos)
 	if len(bodyIndexes) != 1 {

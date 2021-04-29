@@ -64,7 +64,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 														if AllFalse(funcQual.Pos...) {
 															continue
 														}
-														fn := GetFunc(funcQual)
+														fn := x.GetFuncByQualifier(funcQual)
 														thing := fn.(*feparser.FEFunc)
 														pathCodez = append(pathCodez,
 															ParensFunc(
@@ -118,7 +118,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																		}
 																		methodIndex++
 
-																		fn := GetFunc(methodQual)
+																		fn := x.GetFuncByQualifier(methodQual)
 																		thing := fn.(*feparser.FETypeMethod)
 
 																		parMethods.ParensFunc(
@@ -185,7 +185,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 																		}
 																		methodIndex++
 
-																		fn := GetFunc(methodQual)
+																		fn := x.GetFuncByQualifier(methodQual)
 																		thing := fn.(*feparser.FEInterfaceMethod)
 
 																		parMethods.ParensFunc(
@@ -266,27 +266,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	return nil
 }
 
-func GetFunc(qual *x.FuncQualifier) x.FuncInterface {
-
-	source := x.GetCachedSource(qual.Path, qual.Version)
-	if source == nil {
-		Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-	}
-	// Find the func/type-method/interface-method:
-	fn := x.FindFuncByID(source, qual.ID)
-	if fn == nil {
-		Fatalf("Func not found: %q", qual.ID)
-	}
-
-	return fn
-}
-
 func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
-
-	fn := GetFunc(qual)
-
-	parameterIndexes := x.MustPosToRelativeParamIndexes(fn, qual.Pos)
-	code := x.GenCqlParamQual("this", "getArgument", fn, parameterIndexes)
-
-	return fn, code
+	return x.CqlParamQualToCode("this", "getArgument", qual)
 }

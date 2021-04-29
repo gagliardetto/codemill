@@ -134,3 +134,12 @@ func GenCqlParamQual(idName string, dotName string, fn FuncInterface, parameterI
 
 	return
 }
+
+func CqlParamQualToCode(cqlReveiverName string, cqlMethodName string, qual *FuncQualifier) (FuncInterface, Code) {
+	fn := GetFuncByQualifier(qual)
+
+	parameterIndexes := MustPosToRelativeParamIndexes(fn, qual.Pos)
+	code := GenCqlParamQual(cqlReveiverName, cqlMethodName, fn, parameterIndexes)
+
+	return fn, code
+}

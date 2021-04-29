@@ -797,7 +797,7 @@ func par_go_ContentType_DynamicValue(
 
 	childBlocks := make([]Code, 0)
 
-	ctFn := GetFunc(ctQual)
+	ctFn := x.GetFuncByQualifier(ctQual)
 	// TODO: support here multiple, too?
 	ctIndexes := x.MustPosToRelativeParamIndexes(ctFn, ctQual.Pos)
 	if len(ctIndexes) != 1 {
@@ -887,7 +887,7 @@ func par_go_ContentType_StaticValue(
 
 	childBlocks := make([]Code, 0)
 
-	ctFn := GetFunc(ctQual)
+	ctFn := x.GetFuncByQualifier(ctQual)
 	// TODO: support here multiple, too?
 
 	childBlock := goChildBlock_ContentType_StaticValue(

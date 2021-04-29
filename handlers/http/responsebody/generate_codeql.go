@@ -258,28 +258,8 @@ func predicate_setsBody(allPathVersions []string, mdl *x.XModel) Code {
 	return predicate
 }
 
-func GetFunc(qual *x.FuncQualifier) x.FuncInterface {
-
-	source := x.GetCachedSource(qual.Path, qual.Version)
-	if source == nil {
-		Fatalf("Source not found: %s@%s", qual.Path, qual.Version)
-	}
-	// Find the func/type-method/interface-method:
-	fn := x.FindFuncByID(source, qual.ID)
-	if fn == nil {
-		Fatalf("Func not found: %q", qual.ID)
-	}
-
-	return fn
-}
-
 func GetBodySetterFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
-	fn := GetFunc(qual)
-
-	parameterIndexes := x.MustPosToRelativeParamIndexes(fn, qual.Pos)
-	code := x.GenCqlParamQual("bodySetterCall", "getArgument", fn, parameterIndexes)
-
-	return fn, code
+	return x.CqlParamQualToCode("bodySetterCall", "getArgument", qual)
 }
 
 // cql_MethodBodyWithCtFromFuncName generates model statements for MethodBodyWithCtFromFuncName
@@ -363,7 +343,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersions []string) []Co
 									}
 									methodIndex++
 
-									fn := GetFunc(methodQual)
+									fn := x.GetFuncByQualifier(methodQual)
 									pathVersionAddedCount++
 
 									st.DoGroup(
@@ -464,7 +444,7 @@ func cql_MethodBodyWithCtFromFuncName(mdl *x.XModel, pathVersions []string) []Co
 									}
 									methodIndex++
 
-									fn := GetFunc(methodQual)
+									fn := x.GetFuncByQualifier(methodQual)
 									pathVersionAddedCount++
 
 									st.DoGroup(
@@ -604,7 +584,7 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersions []string) []Code {
 									}
 									methodIndex++
 
-									fn := GetFunc(methodQual)
+									fn := x.GetFuncByQualifier(methodQual)
 									pathVersionAddedCount++
 
 									st.DoGroup(
@@ -707,7 +687,7 @@ func cql_MethodBodyWithCt(mdl *x.XModel, pathVersions []string) []Code {
 									}
 									methodIndex++
 
-									fn := GetFunc(methodQual)
+									fn := x.GetFuncByQualifier(methodQual)
 									pathVersionAddedCount++
 
 									st.DoGroup(
@@ -840,7 +820,7 @@ func cql_MethodBody(mdl *x.XModel, pathVersions []string) []Code {
 									}
 									methodIndex++
 
-									fn := GetFunc(methodQual)
+									fn := x.GetFuncByQualifier(methodQual)
 									pathVersionAddedCount++
 
 									st.DoGroup(
@@ -937,7 +917,7 @@ func cql_MethodBody(mdl *x.XModel, pathVersions []string) []Code {
 									}
 									methodIndex++
 
-									fn := GetFunc(methodQual)
+									fn := x.GetFuncByQualifier(methodQual)
 									pathVersionAddedCount++
 
 									st.DoGroup(
