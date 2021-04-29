@@ -8,7 +8,7 @@ require (
 	github.com/dave/jennifer v1.4.1
 	github.com/gagliardetto/codebox v0.0.0-20210206132303-5da677f8f7eb
 	github.com/gagliardetto/cqlgen v0.0.0-20201215233039-505040a2410c
-	github.com/gagliardetto/feparser v0.0.0-20210206133331-3d1269ed8bb8
+	github.com/gagliardetto/feparser v0.0.0-20210429140928-0de9979a0279
 	github.com/gagliardetto/golang-go v0.0.0-20201020153340-53909ea70814
 	github.com/gagliardetto/ref v0.0.0-20210206133004-be4e0e122a03
 	github.com/gagliardetto/request v0.8.0
