@@ -156,9 +156,6 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 						blockContent.Override().String().Id("getHeaderName").Call().Block(
 							Id("result").Eq().Lit("content-type"),
 						)
-						blockContent.Override().String().Id("getHeaderValue").Call().Block(
-							None(),
-						)
 						blockContent.Override().Id("DataFlow::Node").Id("getName").Call().Block(
 							None(),
 						)
