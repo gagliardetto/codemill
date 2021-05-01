@@ -10,8 +10,6 @@ import (
 
 // Predicate names:
 const (
-	setsStaticContentType     = "setsStaticContentType"
-	setsDynamicContentType    = "setsDynamicContentType"
 	setsHeaderDynamicKeyValue = "setsHeaderDynamicKeyValue"
 )
 
@@ -33,7 +31,7 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 
 	{
 		// Header key-value:
-		// TODO: what's the name?
+		// TODO: what's the name of the class? How to avoid duplicates?
 		funcModelsClassName := feparser.NewCodeQlName(className)
 		tmp := DoGroup(func(tempFuncsModel *Group) {
 			tempFuncsModel.Doc(
@@ -44,13 +42,13 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 				Id("HTTP::HeaderWrite::Range"),
 				Id("DataFlow::CallNode"),
 			).BlockFunc(
-				func(blockContent *Group) {
+				func(blockBody *Group) {
 
-					blockContent.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
-					blockContent.Id("DataFlow::Node").Id("headerNameNode").Semicolon().Line()
-					blockContent.Id("DataFlow::Node").Id("headerValueNode").Semicolon().Line()
+					blockBody.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
+					blockBody.Id("DataFlow::Node").Id("headerNameNode").Semicolon().Line()
+					blockBody.Id("DataFlow::Node").Id("headerValueNode").Semicolon().Line()
 
-					blockContent.Id(funcModelsClassName).Call().Block(
+					blockBody.Id(funcModelsClassName).Call().Block(
 						Id(setsHeaderDynamicKeyValue).Call(
 							DontCare(),
 							DontCare(),
@@ -61,13 +59,13 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 						),
 					)
 
-					blockContent.Override().Id("DataFlow::Node").Id("getName").Call().Block(
+					blockBody.Override().Id("DataFlow::Node").Id("getName").Call().Block(
 						Id("result").Eq().Id("headerNameNode"),
 					)
-					blockContent.Override().Id("DataFlow::Node").Id("getValue").Call().Block(
+					blockBody.Override().Id("DataFlow::Node").Id("getValue").Call().Block(
 						Id("result").Eq().Id("headerValueNode"),
 					)
-					blockContent.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+					blockBody.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
 						func(overrideBlockGroup *Group) {
 							overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
 						})
@@ -81,97 +79,35 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	}
 
 	{ // Content-Type header writers:
+		contentTypeHeaderKey := "content-type"
+
 		{
 			// Static content-type:
-			funcModelsClassName := feparser.NewCodeQlName("StaticContentTypeSetter")
-			tmp := DoGroup(func(tempFuncsModel *Group) {
-				tempFuncsModel.Doc("Models an HTTP static content-type setter.")
-				tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
-					Id("HTTP::HeaderWrite::Range"),
-					Id("DataFlow::CallNode"),
-				).BlockFunc(
-					func(blockContent *Group) {
-
-						blockContent.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
-						blockContent.String().Id("contentTypeString").Semicolon().Line()
-
-						blockContent.Id(funcModelsClassName).Call().Block(
-							Id(setsStaticContentType).Call(
-								DontCare(),
-								DontCare(),
-								This(),
-								Id("contentTypeString"),
-								Id("receiverNode"),
-							),
-						)
-
-						blockContent.Override().String().Id("getHeaderName").Call().Block(
-							Id("result").Eq().Lit("content-type"),
-						)
-						blockContent.Override().String().Id("getHeaderValue").Call().Block(
-							Id("result").Eq().Id("contentTypeString"),
-						)
-						blockContent.Override().Id("DataFlow::Node").Id("getName").Call().Block(
-							None(),
-						)
-						blockContent.Override().Id("DataFlow::Node").Id("getValue").Call().Block(
-							None(),
-						)
-						blockContent.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
-							func(overrideBlockGroup *Group) {
-								overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
-							})
-					})
-			})
-			pred := predicate_setsStaticContentType(allPathVersions, mdl)
-			if pred != nil {
-				rootModuleGroup.Add(tmp)
-				rootModuleGroup.Add(pred)
+			mtdStaticValueFromFuncName := mdl.Methods.ByName(MethodCtFromFuncName)
+			if len(mtdStaticValueFromFuncName.Selectors) == 0 {
+				Infof("No selectors found for %q method.", mtdStaticValueFromFuncName.Name)
+			} else {
+				hardcodedKey_staticValue(
+					contentTypeHeaderKey,
+					allPathVersions,
+					mtdStaticValueFromFuncName,
+					rootModuleGroup,
+					x.GuessContentTypeFromName,
+				)
 			}
 		}
 		{
 			// Dynamic content-type:
-			funcModelsClassName := feparser.NewCodeQlName("DynamicContentTypeSetter")
-			tmp := DoGroup(func(tempFuncsModel *Group) {
-				tempFuncsModel.Doc("Models an HTTP dynamic content-type setter.")
-				tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
-					Id("HTTP::HeaderWrite::Range"),
-					Id("DataFlow::CallNode"),
-				).BlockFunc(
-					func(blockContent *Group) {
-
-						blockContent.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
-						blockContent.Id("DataFlow::Node").Id("contentTypeNode").Semicolon().Line()
-
-						blockContent.Id(funcModelsClassName).Call().Block(
-							Id(setsDynamicContentType).Call(
-								DontCare(),
-								DontCare(),
-								This(),
-								Id("contentTypeNode"),
-								Id("receiverNode"),
-							),
-						)
-
-						blockContent.Override().String().Id("getHeaderName").Call().Block(
-							Id("result").Eq().Lit("content-type"),
-						)
-						blockContent.Override().Id("DataFlow::Node").Id("getName").Call().Block(
-							None(),
-						)
-						blockContent.Override().Id("DataFlow::Node").Id("getValue").Call().Block(
-							Id("result").Eq().Id("contentTypeNode"),
-						)
-						blockContent.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
-							func(overrideBlockGroup *Group) {
-								overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
-							})
-					})
-			})
-			pred := predicate_setsDynamicContentType(allPathVersions, mdl)
-			if pred != nil {
-				rootModuleGroup.Add(tmp)
-				rootModuleGroup.Add(pred)
+			mtdDynamicValue := mdl.Methods.ByName(MethodCt)
+			if len(mtdDynamicValue.Selectors) == 0 {
+				Infof("No selectors found for %q method.", mtdDynamicValue.Name)
+			} else {
+				hardcodedKey_dynamicValue(
+					contentTypeHeaderKey,
+					allPathVersions,
+					mtdDynamicValue,
+					rootModuleGroup,
+				)
 			}
 		}
 	}
@@ -179,6 +115,120 @@ func (han *Handler) GenerateCodeQL(impAdder x.ImportAdder, mdl *x.XModel, rootMo
 	return nil
 }
 
+func hardcodedKey_staticValue(
+	headerKey string,
+	allPathVersions []string,
+	mtdStaticValueFromFuncName *x.XMethod,
+	rootModuleGroup *Group,
+	guesser func(string) string,
+) {
+	// Static value:
+	funcModelsClassName := feparser.NewCodeQlName("Static", headerKey, "HeaderSetter")
+	tmp := DoGroup(func(tempFuncsModel *Group) {
+		tempFuncsModel.Doc(Sf("Models an HTTP static `%s` header setter.", headerKey))
+		tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
+			Id("HTTP::HeaderWrite::Range"),
+			Id("DataFlow::CallNode"),
+		).BlockFunc(
+			func(blockBody *Group) {
+
+				blockBody.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
+				blockBody.String().Id("valueString").Semicolon().Line()
+
+				blockBody.Id(funcModelsClassName).Call().Block(
+					Id("setsStaticHeader"+feparser.NewCodeQlName(headerKey)).Call(
+						DontCare(),
+						DontCare(),
+						This(),
+						Id("valueString"),
+						Id("receiverNode"),
+					),
+				)
+
+				blockBody.Override().String().Id("getHeaderName").Call().Block(
+					Id("result").Eq().Lit(headerKey),
+				)
+				blockBody.Override().String().Id("getHeaderValue").Call().Block(
+					Id("result").Eq().Id("valueString"),
+				)
+				blockBody.Override().Id("DataFlow::Node").Id("getName").Call().Block(
+					None(),
+				)
+				blockBody.Override().Id("DataFlow::Node").Id("getValue").Call().Block(
+					None(),
+				)
+				blockBody.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+					func(overrideBlockGroup *Group) {
+						overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
+					})
+			})
+	})
+	pred := predicate_setsStaticHeaderValue(
+		headerKey,
+		allPathVersions,
+		mtdStaticValueFromFuncName,
+		guesser,
+	)
+	if pred != nil {
+		rootModuleGroup.Add(tmp)
+		rootModuleGroup.Add(pred)
+	}
+}
+
+func hardcodedKey_dynamicValue(
+	headerKey string,
+	allPathVersions []string,
+	mtdDynamicValue *x.XMethod,
+	rootModuleGroup *Group,
+) {
+	// Dynamic value:
+	funcModelsClassName := feparser.NewCodeQlName("Dynamic", headerKey, "HeaderSetter")
+	tmp := DoGroup(func(tempFuncsModel *Group) {
+		tempFuncsModel.Doc(Sf("Models an HTTP dynamic `%s` header setter.", headerKey))
+		tempFuncsModel.Private().Class().Id(funcModelsClassName).Extends().List(
+			Id("HTTP::HeaderWrite::Range"),
+			Id("DataFlow::CallNode"),
+		).BlockFunc(
+			func(blockBody *Group) {
+
+				blockBody.Id("DataFlow::Node").Id("receiverNode").Semicolon().Line()
+				blockBody.Id("DataFlow::Node").Id("valueNode").Semicolon().Line()
+
+				blockBody.Id(funcModelsClassName).Call().Block(
+					Id("setsDynamicHeader"+feparser.NewCodeQlName(headerKey)).Call(
+						DontCare(),
+						DontCare(),
+						This(),
+						Id("valueNode"),
+						Id("receiverNode"),
+					),
+				)
+
+				blockBody.Override().String().Id("getHeaderName").Call().Block(
+					Id("result").Eq().Lit(headerKey),
+				)
+				blockBody.Override().Id("DataFlow::Node").Id("getName").Call().Block(
+					None(),
+				)
+				blockBody.Override().Id("DataFlow::Node").Id("getValue").Call().Block(
+					Id("result").Eq().Id("valueNode"),
+				)
+				blockBody.Override().Id("HTTP::ResponseWriter").Id("getResponseWriter").Call().BlockFunc(
+					func(overrideBlockGroup *Group) {
+						overrideBlockGroup.Id("result").Dot("getANode").Call().Eq().Id("receiverNode")
+					})
+			})
+	})
+	pred := predicate_setsDynamicHeaderValue(
+		headerKey,
+		allPathVersions,
+		mtdDynamicValue,
+	)
+	if pred != nil {
+		rootModuleGroup.Add(tmp)
+		rootModuleGroup.Add(pred)
+	}
+}
 func predicate_setsHeaderDynamicKeyValue(allPathVersions []string, mdl *x.XModel) Code {
 	predicate := Comment("Holds for a call that sets a header with a key-value combination.").
 		Private().Predicate().Id(setsHeaderDynamicKeyValue).Call(
@@ -208,14 +258,19 @@ func predicate_setsHeaderDynamicKeyValue(allPathVersions []string, mdl *x.XModel
 	return predicate
 }
 
-func predicate_setsStaticContentType(allPathVersions []string, mdl *x.XModel) Code {
-	predicate := Comment("Holds for a call that sets the content-type (implicit).").
-		Private().Predicate().Id(setsStaticContentType).Call(
+func predicate_setsStaticHeaderValue(
+	headerKey string,
+	allPathVersions []string,
+	mtdStaticValueFromFuncName *x.XMethod,
+	guesser func(string) string,
+) Code {
+	predicate := Commentf("Holds for a call that sets the `%s` header (implicit).", headerKey).
+		Private().Predicate().Id("setsStaticHeader" + feparser.NewCodeQlName(headerKey)).Call(
 		List(
 			String().Id("package"),
 			String().Id("receiverName"),
-			Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
-			String().Id("contentTypeString"),
+			Id("DataFlow::CallNode").Id("setterCall"),
+			String().Id("valueString"),
 			Id("DataFlow::Node").Id("receiverNode"),
 		),
 	)
@@ -223,7 +278,12 @@ func predicate_setsStaticContentType(allPathVersions []string, mdl *x.XModel) Co
 	addedCount := 0
 	predicate.BlockFunc(func(predicateBlock *Group) {
 		{
-			pc := par_cql_MethodCtFromFuncName(mdl, allPathVersions)
+			pc := par_cql_MethodStaticValueFromFuncName(
+				headerKey,
+				allPathVersions,
+				mtdStaticValueFromFuncName,
+				guesser,
+			)
 			if len(pc) > 0 {
 				addedCount++
 			}
@@ -236,14 +296,18 @@ func predicate_setsStaticContentType(allPathVersions []string, mdl *x.XModel) Co
 	return predicate
 }
 
-func predicate_setsDynamicContentType(allPathVersions []string, mdl *x.XModel) Code {
-	predicate := Comment("Holds for a call that sets the content-type via a parameter.").
-		Private().Predicate().Id(setsDynamicContentType).Call(
+func predicate_setsDynamicHeaderValue(
+	headerKey string,
+	allPathVersions []string,
+	mtdDynamicValue *x.XMethod,
+) Code {
+	predicate := Commentf("Holds for a call that sets the `%s` header via a parameter.", headerKey).
+		Private().Predicate().Id("setsDynamicHeader" + feparser.NewCodeQlName(headerKey)).Call(
 		List(
 			String().Id("package"),
 			String().Id("receiverName"),
-			Id("DataFlow::CallNode").Id("contentTypeSetterCall"),
-			Id("DataFlow::Node").Id("contentTypeNode"),
+			Id("DataFlow::CallNode").Id("setterCall"),
+			Id("DataFlow::Node").Id("valueNode"),
 			Id("DataFlow::Node").Id("receiverNode"),
 		),
 	)
@@ -251,7 +315,11 @@ func predicate_setsDynamicContentType(allPathVersions []string, mdl *x.XModel) C
 	addedCount := 0
 	predicate.BlockFunc(func(predicateBlock *Group) {
 		{
-			pc := par_cql_MethodCt(mdl, allPathVersions)
+			pc := par_cql_MethodHeaderValueNode(
+				headerKey,
+				allPathVersions,
+				mtdDynamicValue,
+			)
 			if len(pc) > 0 {
 				addedCount++
 			}
@@ -468,15 +536,14 @@ func par_cql_DynamicHeaderKeyValue(mdl *x.XModel, pathVersions []string) []Code 
 	return pathCodez
 }
 
-func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersions []string) []Code {
+func par_cql_MethodStaticValueFromFuncName(
+	headerKey string,
+	pathVersions []string,
+	mtdStaticValueFromFuncName *x.XMethod,
+	guesser func(string) string,
+) []Code {
 
-	mtdCtFromFuncName := mdl.Methods.ByName(MethodCtFromFuncName)
-	if len(mtdCtFromFuncName.Selectors) == 0 {
-		Infof("No selectors found for %q method.", mtdCtFromFuncName.Name)
-		return nil
-	}
-
-	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(mtdCtFromFuncName)
+	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(mtdStaticValueFromFuncName)
 	if err != nil {
 		Fatalf("Error while GroupFuncSelectors: %s", err)
 	}
@@ -506,9 +573,9 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersions []string) []Code {
 					Id("methodName"),
 				)
 				st.And()
-				st.Id("contentTypeSetterCall").Eq().Id("met").Dot("getACall").Call()
+				st.Id("setterCall").Eq().Id("met").Dot("getACall").Call()
 				st.And()
-				st.Id("receiverNode").Eq().Id("contentTypeSetterCall").Dot("getReceiver").Call()
+				st.Id("receiverNode").Eq().Id("setterCall").Dot("getReceiver").Call()
 			}),
 			DoGroup(func(exists3 *Group) {
 				for _, pathVersion := range pathVersions {
@@ -557,7 +624,7 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersions []string) []Code {
 											par.And()
 
 											{
-												par.Id("contentTypeString").Eq().Lit(x.GuessContentTypeFromName(fn.GetFunc().Name))
+												par.Id("valueString").Eq().Lit(guesser(fn.GetFunc().Name))
 											}
 										},
 									)
@@ -601,9 +668,9 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersions []string) []Code {
 					Id("methodName"),
 				)
 				st.And()
-				st.Id("contentTypeSetterCall").Eq().Id("met").Dot("getACall").Call()
+				st.Id("setterCall").Eq().Id("met").Dot("getACall").Call()
 				st.And()
-				st.Id("receiverNode").Eq().Id("contentTypeSetterCall").Dot("getReceiver").Call()
+				st.Id("receiverNode").Eq().Id("setterCall").Dot("getReceiver").Call()
 			}),
 			DoGroup(func(exists3 *Group) {
 				for _, pathVersion := range pathVersions {
@@ -652,7 +719,7 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersions []string) []Code {
 											par.And()
 
 											{
-												par.Id("contentTypeString").Eq().Lit(x.GuessContentTypeFromName(fn.GetFunc().Name))
+												par.Id("valueString").Eq().Lit(guesser(fn.GetFunc().Name))
 											}
 										},
 									)
@@ -684,15 +751,13 @@ func par_cql_MethodCtFromFuncName(mdl *x.XModel, pathVersions []string) []Code {
 	return pathCodez
 }
 
-func par_cql_MethodCt(mdl *x.XModel, pathVersions []string) []Code {
+func par_cql_MethodHeaderValueNode(
+	headerKey string,
+	pathVersions []string,
+	mtdDynamicValue *x.XMethod,
+) []Code {
 
-	mtdCt := mdl.Methods.ByName(MethodCt)
-	if len(mtdCt.Selectors) == 0 {
-		Infof("No selectors found for %q method.", mtdCt.Name)
-		return nil
-	}
-
-	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(mtdCt)
+	b2fe, b2tm, b2itm, err := x.GroupFuncSelectors(mtdDynamicValue)
 	if err != nil {
 		Fatalf("Error while GroupFuncSelectors: %s", err)
 	}
@@ -722,9 +787,9 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersions []string) []Code {
 					Id("methodName"),
 				)
 				st.And()
-				st.Id("contentTypeSetterCall").Eq().Id("met").Dot("getACall").Call()
+				st.Id("setterCall").Eq().Id("met").Dot("getACall").Call()
 				st.And()
-				st.Id("receiverNode").Eq().Id("contentTypeSetterCall").Dot("getReceiver").Call()
+				st.Id("receiverNode").Eq().Id("setterCall").Dot("getReceiver").Call()
 			}),
 			DoGroup(func(exists3 *Group) {
 				for _, pathVersion := range pathVersions {
@@ -773,8 +838,8 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersions []string) []Code {
 											par.And()
 
 											{
-												_, code := GetContentTypeSetterFuncQualifierCodeElements(methodQual)
-												par.Id("contentTypeNode").Eq().Add(code)
+												_, code := GetHeaderValueSetterFuncQualifierCodeElements(methodQual)
+												par.Id("valueNode").Eq().Add(code)
 											}
 										},
 									)
@@ -818,9 +883,9 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersions []string) []Code {
 					Id("methodName"),
 				)
 				st.And()
-				st.Id("contentTypeSetterCall").Eq().Id("met").Dot("getACall").Call()
+				st.Id("setterCall").Eq().Id("met").Dot("getACall").Call()
 				st.And()
-				st.Id("receiverNode").Eq().Id("contentTypeSetterCall").Dot("getReceiver").Call()
+				st.Id("receiverNode").Eq().Id("setterCall").Dot("getReceiver").Call()
 			}),
 			DoGroup(func(exists3 *Group) {
 				for _, pathVersion := range pathVersions {
@@ -869,8 +934,8 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersions []string) []Code {
 											par.And()
 
 											{
-												_, code := GetContentTypeSetterFuncQualifierCodeElements(methodQual)
-												par.Id("contentTypeNode").Eq().Add(code)
+												_, code := GetHeaderValueSetterFuncQualifierCodeElements(methodQual)
+												par.Id("valueNode").Eq().Add(code)
 											}
 										},
 									)
@@ -902,8 +967,8 @@ func par_cql_MethodCt(mdl *x.XModel, pathVersions []string) []Code {
 	return pathCodez
 }
 
-func GetContentTypeSetterFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
-	return x.CqlParamQualToCode("contentTypeSetterCall", "getArgument", qual)
+func GetHeaderValueSetterFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
+	return x.CqlParamQualToCode("setterCall", "getArgument", qual)
 }
 
 func GetFuncQualifierCodeElements(qual *x.FuncQualifier) (x.FuncInterface, Code) {
