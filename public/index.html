@@ -1388,7 +1388,7 @@
             },
             appearsIn(path, version, id) {
                 // console.log(path, version, id);
-                let list = [{}];
+                let list = [];
 
                 const hasAnySelectedField = (selector) => {
                   return (selector.Qualifier.Path == path && selector.Qualifier.Version == version && selector.Qualifier.ID == id)
