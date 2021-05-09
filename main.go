@@ -5,6 +5,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"io/ioutil"
 	"mime"
 	"net/http"
@@ -59,14 +60,51 @@ func main() {
 		Fataln(err)
 	}
 
+	var specFilepath string
+	var outDir string
+	var runServer bool
+	var doGen bool
+	var doSummary bool
+	var liveFs bool
+	flag.StringVar(&specFilepath, "spec", "", "Path to spec file; file will be created if not already existing.")
+	flag.StringVar(&outDir, "dir", "", "Path to dir where to save generated files.")
+	flag.BoolVar(&runServer, "http", true, "Run http server.")
+	flag.BoolVar(&doGen, "gen", true, "Generate code.")
+	flag.BoolVar(&doSummary, "summary", true, "Output a summary.")
+	flag.BoolVar(&liveFs, "livefs", false, "Use static assets directly from live FS.")
+	flag.Parse()
+
+	if specFilepath == "" {
+		// specFilepath is ALWAYS necessary,
+		// either for knowing from where to load a spec,
+		// or where to save a new created one.
+		panic("--spec flag not provided")
+	}
+
+	if outDir == "" {
+		panic("--dir flag not provided")
+	}
+
 	{ // Add http handlers for static files:
 		r.GET("/", func(c *gin.Context) {
-			reader, err := statikFS.Open("/index.html")
-			if err != nil {
-				Q(err)
-				Abort404(c, err.Error())
-				return
+			var reader io.ReadCloser
+			var err error
+			if liveFs {
+				reader, err = os.Open("./public/index.html")
+				if err != nil {
+					Q(err)
+					Abort404(c, err.Error())
+					return
+				}
+			} else {
+				reader, err = statikFS.Open("/index.html")
+				if err != nil {
+					Q(err)
+					Abort404(c, err.Error())
+					return
+				}
 			}
+
 			defer reader.Close()
 			contents, err := ioutil.ReadAll(reader)
 			if err != nil {
@@ -82,12 +120,25 @@ func main() {
 				c.AbortWithStatus(400)
 				return
 			}
-			reader, err := statikFS.Open("/static/" + name)
-			if err != nil {
-				c.AbortWithError(400, err)
-				Q(err)
-				return
+
+			var reader io.ReadCloser
+			var err error
+			if liveFs {
+				reader, err = os.Open(filepath.Join("public", "static", name))
+				if err != nil {
+					Q(err)
+					Abort404(c, err.Error())
+					return
+				}
+			} else {
+				reader, err = statikFS.Open("/static/" + name)
+				if err != nil {
+					c.AbortWithError(400, err)
+					Q(err)
+					return
+				}
 			}
+
 			defer reader.Close()
 			contents, err := ioutil.ReadAll(reader)
 			if err != nil {
@@ -100,30 +151,6 @@ func main() {
 		})
 	}
 	httpClient := new(http.Client)
-
-	var specFilepath string
-	var outDir string
-	var runServer bool
-	var doGen bool
-	var doSummary bool
-	flag.StringVar(&specFilepath, "spec", "", "Path to spec file; file will be created if not already existing.")
-	flag.StringVar(&outDir, "dir", "", "Path to dir where to save generated files.")
-	flag.BoolVar(&runServer, "http", true, "Run http server.")
-	flag.BoolVar(&doGen, "gen", true, "Generate code.")
-	flag.BoolVar(&doSummary, "summary", true, "Output a summary.")
-	flag.Parse()
-
-	if specFilepath == "" {
-		// specFilepath is ALWAYS necessary,
-		// either for knowing from where to load a spec,
-		// or where to save a new created one.
-		panic("--spec flag not provided")
-	}
-
-	if outDir == "" {
-		panic("--dir flag not provided")
-	}
-
 	{
 		rt := x.Router()
 		// Register ModelKind handlers in the router:
