@@ -2350,3 +2350,26 @@ func GuessContentTypeFromName(name string) string {
 	}
 	return "TODO"
 }
+
+func (spec *XSpec) AppearsIn(path string, version string, id string) []string {
+	var list []string
+
+modelLoop:
+	for _, model := range spec.Models {
+		for _, method := range model.Methods {
+			for _, selector := range method.Selectors {
+				basic := selector.GetBasicQualifier()
+				if basic.Path == path && basic.Version == version && basic.ID == id {
+					list = append(list, Sf(
+						"%s::%s",
+						model.Name,
+						method.Name,
+					))
+					continue modelLoop
+				}
+			}
+		}
+	}
+
+	return list
+}

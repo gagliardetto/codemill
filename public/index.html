@@ -269,6 +269,9 @@
 </head>
 
 <body>
+  <h4 id="pre-load-splash">
+      Loading data...
+  </h4>
     <div id="codemill-app" v-cloak>
         <b-overlay :show="isBusy.loadCode" rounded="lg" no-wrap fixed opacity="0.7" z-index="2000">
             <template #overlay>
@@ -504,6 +507,26 @@
         }
     }
 
+    function hashCode(str) {
+        var hash = 0;
+        for (var i = 0; i < str.length; i++) {
+           hash = str.charCodeAt(i) + ((hash << 5) - hash);
+        }
+        return hash;
+    }
+
+    function intToRGB(i){
+        var c = (i & 0x00FFFFFF)
+            .toString(16)
+            .toUpperCase();
+
+        return "00000".substring(0, 6 - c.length) + c;
+    }
+
+    function colorFromString(string){
+      return intToRGB(hashCode(string))
+    }
+
     window.app = new Vue({
         el: '#codemill-app',
         data: {
@@ -549,6 +572,7 @@
             // this.doSearch("revel");
         },
         updated() {
+            document.getElementById("pre-load-splash").style.display = "none";
             this.drawFlowArrowsBySpec();
         },
         mounted() {
@@ -801,6 +825,7 @@
                           } else {
                             this.FlowSyncFuncWithSpec(item);
                           }
+                          this.syncAppearsIn(path, version, item);
                         });
                         json.TypeMethods.forEach((item) => {
                           if (this.$data.context.isFlow == false) {
@@ -810,6 +835,7 @@
                           } else {
                             this.FlowSyncFuncWithSpec(item);
                           }
+                          this.syncAppearsIn(path, version, item);
                         });
                         json.InterfaceMethods.forEach((item) => {
                           if (this.$data.context.isFlow == false) {
@@ -819,12 +845,15 @@
                           } else {
                             this.FlowSyncFuncWithSpec(item);
                           }
+                          this.syncAppearsIn(path, version, item);
                         });
                         json.Structs.forEach((item) => {
                           this.syncFieldsWithSpec(item);
+                          this.syncAppearsIn(path, version, item);
                         });
                         json.Types.forEach((item) => {
                           item.Checked = this.getTypeValueFromSpec(item.ID);
+                          this.syncAppearsIn(path, version, item);
                         });
                         
                         this.$data.currentPackage.source = json;
@@ -1354,6 +1383,27 @@
                   });
                 });
             },
+            syncAppearsIn(path, version, item) {
+              item.AppearsIn = this.appearsIn(path, version, item.ID);
+            },
+            appearsIn(path, version, id) {
+                // console.log(path, version, id);
+                let list = [{}];
+
+                const hasAnySelectedField = (selector) => {
+                  return (selector.Qualifier.Path == path && selector.Qualifier.Version == version && selector.Qualifier.ID == id)
+                };
+
+                this.$root.$data.xspec.Models.forEach(model => {
+                  model.Methods.forEach(method => {
+                    if (method.Selectors.some(hasAnySelectedField)) {
+                        list.push(model.Name+"::"+method.Name);
+                    }
+                  });
+                });
+
+                return list
+            },
         }
     });
     </script>
@@ -1630,6 +1680,24 @@
           </b-row>
       </b-list-group-item>
     </script>
+
+    <script type="text/javascript">
+    Vue.component('cm-appears-in', {
+        props: ['item'],
+        template: "#cm-appears-in-template",
+        methods: {
+            bg(name){
+              return colorFromString(name)
+            },
+        }
+    });
+    </script>
+    <script type="text/x-template" id="cm-appears-in-template">
+        <span>
+            <div v-for="ref in item.AppearsIn" class="documentation"><b-badge :style="'background-color: #'+bg(ref)">{{ ref }}</b-badge></div>
+        </span>
+    </script>
+
     <script type="text/javascript">
     Vue.component('cm-func-item', {
         props: ['item', 'func', 'isflow'],
@@ -1659,6 +1727,7 @@
         </div>
     </script>
 
+
     <script type="text/javascript">
     Vue.component('cm-func-item-pos', {
         props: ['item', 'func'],
@@ -1673,15 +1742,14 @@
                 // - The UI is bind to this.$root.$data.xspec
                 console.log("Modifying func Pos selectors ...");
                 
-                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
-                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-                console.log(item.ID, index, value)
-
-
                 let rPath = this.$root.$data.currentPackage.path;
                 let rVersion = this.$root.$data.currentPackage.version;
                 let rModel = this.$root.$data.context.modelName;
                 let rMethod = this.$root.$data.context.methodName;
+
+                console.log(rPath, rVersion)
+                console.log("model:", rModel, "method:", rMethod)
+                console.log(item.ID, index, value)
 
                 let payload = {
                     "Where": {
@@ -1717,6 +1785,7 @@
                     })
                     .then(json => {
                         this.$root.$data.xspec = json;
+                        item.AppearsIn = this.$root.appearsIn(rPath, rVersion, item.ID);
                     })
                     .catch((error) => {
                         console.error('Error:', error);
@@ -1732,6 +1801,9 @@
         <b-list-group-item v-bind:key="item.ID">
           <b-row class="mr-1">
               <b-col align-self="start">
+                <b-row class="ml-0">
+                  <cm-appears-in v-bind:item="item"></cm-appears-in>
+                </b-row>
                   <b-row class="ml-0">
                       <span>
                           <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
@@ -1822,14 +1894,14 @@
                 // - The UI is bind to this.$root.$data.xspec
                 console.log("Modifying func Flow selectors ...");
                 
-                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
-                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-                console.log(item.ID, blockIndex, key, index, value)
-
                 let rPath = this.$root.$data.currentPackage.path;
                 let rVersion = this.$root.$data.currentPackage.version;
                 let rModel = this.$root.$data.context.modelName;
                 let rMethod = this.$root.$data.context.methodName;
+
+                console.log(rPath, rVersion)
+                console.log("model:", rModel, "method:", rMethod)
+                console.log(item.ID, blockIndex, key, index, value)
 
                 let payload = {
                     "Where": {
@@ -1868,6 +1940,7 @@
                     .then(json => {
                         this.$root.$data.xspec = json;
                         this.$root.drawArrowsForSourceView(blockIndex, item);
+                        item.AppearsIn = this.$root.appearsIn(rPath, rVersion, item.ID);
                     })
                     .catch((error) => {
                         console.error('Error:', error);
@@ -1885,14 +1958,14 @@
             deleteBlock(blockIndex, item) {
                 console.log("Deleting block from a flow selector...");
 
-                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
-                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-                console.log(item.ID, "; BlockIndex:", blockIndex)
-
                 let rPath = this.$root.$data.currentPackage.path;
                 let rVersion = this.$root.$data.currentPackage.version;
                 let rModel = this.$root.$data.context.modelName;
                 let rMethod = this.$root.$data.context.methodName;
+
+                console.log(rPath, rVersion)
+                console.log("model:", rModel, "method:", rMethod)
+                console.log(item.ID, "; BlockIndex:", blockIndex)
 
                 let payload = {
                     "Where": {
@@ -1939,14 +2012,14 @@
             onChangeEnabled(value, item) {
                 console.log("Enabling/disabling a flow selector...");
 
-                console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
-                console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-                console.log(item.ID, value)
-
                 let rPath = this.$root.$data.currentPackage.path;
                 let rVersion = this.$root.$data.currentPackage.version;
                 let rModel = this.$root.$data.context.modelName;
                 let rMethod = this.$root.$data.context.methodName;
+
+                console.log(rPath, rVersion)
+                console.log("model:", rModel, "method:", rMethod)
+                console.log(item.ID, value)
 
                 let payload = {
                     "Where": {
@@ -1994,6 +2067,9 @@
     </script>
     <script type="text/x-template" id="cm-func-item-flow-template">
         <b-list-group-item v-bind:key="item.ID">
+          <b-row class="ml-0">
+            <cm-appears-in v-bind:item="item"></cm-appears-in>
+          </b-row>
           <b-row class="ml-0">
             <div class="font-weight-bold">
                 <b-form-checkbox
@@ -2235,15 +2311,14 @@
             onChangeStructField(value, struct, field) {
               console.log("Modifying struct selectors ...");
 
-              console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
-              console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-              console.log(value, struct.ID, field.ID)
-
-
               let rPath = this.$root.$data.currentPackage.path;
               let rVersion = this.$root.$data.currentPackage.version;
               let rModel = this.$root.$data.context.modelName;
               let rMethod = this.$root.$data.context.methodName;
+
+              console.log(rPath, rVersion)
+              console.log("model:", rModel, "method:", rMethod)
+              console.log(value, struct.ID, field.ID)
 
               let payload = {
                   "Where": {
@@ -2277,6 +2352,7 @@
                   })
                   .then(json => {
                       this.$root.$data.xspec = json;
+                      item.AppearsIn = this.$root.appearsIn(rPath, rVersion, item.ID);
                   })
                   .catch((error) => {
                       console.error('Error:', error);
@@ -2292,6 +2368,9 @@
     </script>
     <script type="text/x-template" id="cm-struct-item-template">
         <b-list-group-item v-bind:key="item.ID">
+              <b-row class="ml-0">
+                <cm-appears-in v-bind:item="item"></cm-appears-in>
+              </b-row>
               <b-row class="ml-1">
                   <span>
                       <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
@@ -2367,15 +2446,14 @@
             onChangeType(value, type) {
               console.log("Modifying type selector ...");
 
-              console.log(this.$root.$data.currentPackage.path, this.$root.$data.currentPackage.version)
-              console.log("model:", this.$root.$data.context.modelName, "method:", this.$root.$data.context.methodName)
-              console.log(value, type.ID)
-
-
               let rPath = this.$root.$data.currentPackage.path;
               let rVersion = this.$root.$data.currentPackage.version;
               let rModel = this.$root.$data.context.modelName;
               let rMethod = this.$root.$data.context.methodName;
+
+              console.log(rPath, rVersion)
+              console.log("model:", rModel, "method:", rMethod)
+              console.log(value, type.ID)
 
               let payload = {
                   "Where": {
@@ -2408,6 +2486,7 @@
                   })
                   .then(json => {
                       this.$root.$data.xspec = json;
+                      item.AppearsIn = this.$root.appearsIn(rPath, rVersion, item.ID);
                   })
                   .catch((error) => {
                       console.error('Error:', error);
@@ -2423,6 +2502,9 @@
     </script>
     <script type="text/x-template" id="cm-type-item-template">
         <b-list-group-item v-bind:key="item.ID">
+              <b-row class="ml-0">
+                <cm-appears-in v-bind:item="item"></cm-appears-in>
+              </b-row>
               <b-row class="ml-1">
                   <span>
                       <div v-for="doc in item.Docs" title="This is a doc" class="documentation">// {{ doc }}</div>
