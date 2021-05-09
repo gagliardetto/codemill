@@ -265,14 +265,25 @@
         width: fit-content;
         max-width: 80vw;
     }
+    .currently-crumbs {
+      font-weight: 700;
+      line-height: 1;
+      text-align: center;
+      white-space: nowrap;
+      vertical-align: baseline;
+      border-radius: .25rem;
+      color: white !important;
+      text-shadow: 1px 1px black;
+      padding: .25em .4em;
+    }
     </style>
 </head>
 
 <body>
-  <h4 id="pre-load-splash">
+  <h4 id="pre-load-splash" class="m-3">
       Loading data...
   </h4>
-    <div id="codemill-app" v-cloak>
+    <div id="codemill-app" v-cloak class="mt-2">
         <b-overlay :show="isBusy.loadCode" rounded="lg" no-wrap fixed opacity="0.7" z-index="2000">
             <template #overlay>
                 <div class="text-center">
@@ -385,7 +396,7 @@
                         Source of <b>{{currentPackage.path}}{{fmtv(currentPackage.version)}} <a :href="fmtPkgDev(currentPackage.path,currentPackage.version)" target="_blank" rel="noopener noreferrer" title="Open documentation on pkg.go.dev"><b-icon icon="info-circle"></b-icon></a></b>
                         <small class="text-muted" v-if="currentPackage.source && currentPackage.source.Module">({{currentPackage.source.Module.Time}})</small>
                         <br>
-                        <span class="text-muted d-flex">
+                        <span class="currently-crumbs d-flex" :style="'background-color: #'+colorFromString(context.modelName+'::'+context.methodName)">
                           You're currently editing&nbsp;<span class="text-monospace">model::<b>{{context.modelName}}</b></span>&nbsp;&gt;&nbsp;<span class="text-monospace">method::<b>{{context.methodName}}</b></span></span>
                     </template>
                     <b-form v-on:submit.prevent="">
@@ -703,6 +714,7 @@
             len: len,
             marshal: marshal,
             revf: revf,
+            colorFromString: colorFromString,
             fmtv(version) {
               // Format version:
               let noVer = version=="local" || version=="";
@@ -1419,7 +1431,7 @@
     });
     </script>
     <script type="text/x-template" id="cm-xmodel-template">
-        <div class="xmodel">
+        <div class="xmodel" :title="'model \''+xmodel.Name+'\' of '+xmodel.Kind+' kind'">
           <div>model <b class="text-large">{{xmodel.Name}}</b> of kind <i class="text-large">{{xmodel.Kind}}</i> {</div>
             <cm-xmethod v-for="(item, key) in xmodel.Methods" v-bind:key="key" v-bind:xmethod="item" v-bind:xmodel="xmodel" class="ml-2"></cm-xmethod>
           <div>}</div>
@@ -1440,7 +1452,7 @@
     });
     </script>
     <script type="text/x-template" id="cm-xmethod-template">
-        <div class="xmethod" v-bind:class="{ 'error-no-selectors': len(xmethod.Selectors) == 0 }" :title="len(xmethod.Selectors) == 0 ? 'Error: No selectors specified':''">
+        <div class="xmethod" :title="'method '+xmethod.Name" v-bind:class="{ 'error-no-selectors': len(xmethod.Selectors) == 0 }">
           <div>method <b class="text-large">{{xmethod.Name}}</b> (len = {{len(xmethod.Selectors)}} selectors) {</div>
             <cm-xselector
               v-for="(item, key) in xmethod.Selectors"
