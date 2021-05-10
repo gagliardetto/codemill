@@ -101,7 +101,7 @@ func GenCqlParamQual(idName string, dotName string, fn FuncInterface, parameterI
 					if fn.GetFunc().GetOriginal().Variadic {
 
 						lits := make([]Code, 0)
-						if len(parameterIndexes) == 1 && parameterIndexes[0] == 0 {
+						if lenParams == 1 && parameterIndexes[0] == 0 {
 							lits = append(lits, DontCare())
 						} else {
 							for _, index := range parameterIndexes {
