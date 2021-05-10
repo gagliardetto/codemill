@@ -56,6 +56,14 @@ class TaintTrackingTest extends InlineExpectationsTest {
   }
 }
 
+class Link extends TaintTracking::FunctionModel {
+  Link() { hasQualifiedName(_, "link") }
+
+  override predicate hasTaintFlow(FunctionInput inp, FunctionOutput outp) {
+    inp.isParameter(0) and outp.isParameter(1)
+  }
+}
+
 `
 )
 
