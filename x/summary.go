@@ -21,7 +21,12 @@ func CreateSummary(spec *XSpec) ([]string, error) {
 	)
 	mods := spec.ListModules()
 	for _, qual := range mods {
-		summaryLines.Append(" - " + qual.PathVersionClean())
+		summaryLines.Append(Sf(
+			" - [%s](https://pkg.go.dev/%s#%s)",
+			qual.PathVersionClean(),
+			qual.Path,
+			qual.Version,
+		))
 	}
 	full := HasMultiversion(mods) || HasMultiplePackages(mods)
 	summaryLines.Append("")
