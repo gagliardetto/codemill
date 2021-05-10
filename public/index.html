@@ -1402,16 +1402,19 @@
                 // console.log(path, version, id);
                 let list = [];
 
-                const hasAnySelectedField = (selector) => {
+                const someSelector = (selector) => {
                   return (selector.Qualifier.Path == path && selector.Qualifier.Version == version && selector.Qualifier.ID == id)
                 };
 
+                const someMethod = (method) => {
+                  return (method.Selectors.some(someSelector))
+                };
+
                 this.$root.$data.xspec.Models.forEach(model => {
-                  model.Methods.forEach(method => {
-                    if (method.Selectors.some(hasAnySelectedField)) {
-                        list.push(model.Name+"::"+method.Name);
-                    }
-                  });
+                  let method = model.Methods.find(someMethod);
+                  if (method != null) {
+                      list.push(model.Name+"::"+method.Name);
+                  }
                 });
 
                 return list
