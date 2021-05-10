@@ -1403,6 +1403,7 @@
                 let list = [];
 
                 const someSelector = (selector) => {
+                  // TODO: also make sure that if it's a flow selector, then it is also enabled.
                   return (selector.Qualifier.Path == path && selector.Qualifier.Version == version && selector.Qualifier.ID == id)
                 };
 
