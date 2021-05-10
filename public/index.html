@@ -1407,15 +1407,12 @@
                   return (selector.Qualifier.Path == path && selector.Qualifier.Version == version && selector.Qualifier.ID == id)
                 };
 
-                const someMethod = (method) => {
-                  return (method.Selectors.some(someSelector))
-                };
-
                 this.$root.$data.xspec.Models.forEach(model => {
-                  let method = model.Methods.find(someMethod);
-                  if (method != null) {
-                      list.push(model.Name+"::"+method.Name);
-                  }
+                  model.Methods.forEach(method => {
+                    if (method.Selectors.some(someSelector)) {
+                        list.push(model.Name+"::"+method.Name);
+                    }
+                  });
                 });
 
                 return list
