@@ -58,8 +58,9 @@ func NewScavengeMethods(kind ModelKind) []*XMethod {
 }
 
 type XSpec struct {
-	Name   string // Name of the module, user-defined.
-	Models []*XModel
+	Name    string   // Name of the module, user-defined.
+	Preload []string // Preload any packages listed here;
+	Models  []*XModel
 	*sync.RWMutex
 }
 
@@ -1285,6 +1286,16 @@ func TryLoadSpecFromFile(path string, loader PackageLoader) (*XSpec, error) {
 			_, err := loader(m.Path, m.Version)
 			if err != nil {
 				return nil, fmt.Errorf("error while loading package %s@%s: %s", m.Path, m.Version, err)
+			}
+		}
+	}
+	{
+		// Load all preload packages (modules):
+		for _, m := range spec.Preload {
+			path, version := scanner.SplitPathVersion(m)
+			_, err := loader(path, version)
+			if err != nil {
+				return nil, fmt.Errorf("error while loading package %s@%s: %s", path, version, err)
 			}
 		}
 	}
